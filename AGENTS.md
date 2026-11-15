@@ -1,4 +1,4 @@
-# Potato: agent instructions
+# b-stack: agent instructions
 
 ## Purpose
 

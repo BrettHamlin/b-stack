@@ -10,9 +10,9 @@ parser.add_argument('--hash', action='store_true', help='Verify SHA-256 for all 
 args = parser.parse_args()
 project = Path(__file__).resolve().parents[1]
 manifest = json.loads((project / 'ARTIFACTS.json').read_text())
-root = Path(os.environ.get('POTATO_MEDIA_ROOT', manifest['media_root']))
+root = Path(os.environ.get('B_STACK_MEDIA_ROOT') or os.environ.get('POTATO_MEDIA_ROOT') or manifest['media_root'])
 if not root.is_dir():
-    raise SystemExit(f'Media directory unavailable: {root}. Mount MicroBay or set POTATO_MEDIA_ROOT.')
+    raise SystemExit(f'Media directory unavailable: {root}. Mount MicroBay or set B_STACK_MEDIA_ROOT.')
 errors = []
 for entry in manifest['files']:
     path = root / entry['path']

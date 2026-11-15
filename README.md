@@ -1,4 +1,4 @@
-# Potato
+# b-stack
 
 A guide to building new apps that AI agents can work on quickly without the quality dropping. It started from Lauren Tan (poteto)'s talk [*All Code Is Slop (Except Mine)*](https://www.youtube.com/watch?v=O_zcc6Xl12g) and is organized around our own **enforcement pyramid**: push every rule as high as it can go, from "can't be written" down to "judged by a human."
 
