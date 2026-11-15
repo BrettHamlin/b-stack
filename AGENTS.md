@@ -1,38 +1,30 @@
-# Potato project instructions
+# Potato: agent instructions
 
 ## Purpose
 
-This project preserves and develops a detailed understanding of Lauren Tan (poteto)'s “All Code Is Slop (Except Mine)” talk and translates its engineering practices into software we build: mobile, desktop, web, backend services, and CLIs.
+This repo is a guide for creating new apps that agents can work on safely, built on our enforcement pyramid. Lauren Tan's talk is the source material in `research/`. The guide is our own and can go beyond it.
 
-## Read first
+## Layout
 
-1. README.md for the project inventory and external storage location.
-2. research/lauren-tan-video/ANALYSIS.md for the slide-by-slide findings.
-3. research/lauren-tan-video/IMPLEMENTATION-GUIDE.md for the proposed application.
-4. The transcript and original slide captures when checking a particular claim.
+- `guide/`: language-neutral philosophy and pyramid layers. No platform-specific detail here.
+- `playbook/`: step-by-step procedures.
+- `rules/`: one file per rule in the format given in `rules/README.md`.
+- `platforms/`: per-stack detail. Every rule must appear in every platform's rule-mapping table.
+- `templates/`, `starter/`: starting files and starter-repo plans.
+- `research/lauren-tan-video/`: source material. Keep the raw transcript unchanged.
 
-## Evidence and accuracy
+## Writing rules
 
-- Cover the entire video; do not restrict analysis to the timestamp in the original link.
-- Distinguish slide observations, the speaker's reported experience, public-source corroboration, and our proposed engineering designs.
-- Preserve the raw automatic transcript. Its technical-name errors are not authoritative names; explain corrections in analysis rather than silently changing the source.
-- Capture timestamps are reading positions, not exact slide boundaries. The 42 selected captures include builds, not 42 asserted unique deck pages.
-- PR throughput, reverted-commit percentage, and performance are different measures. Do not equate revert rate with defect rate or claim every performance measure improved.
-- The talk does not provide private Dune source, complete CI/merge settings, exact agent configuration, formal models/proofs, or cost accounting. Do not invent those details.
-- State the assumptions, bounds, and implementation correspondence of any future formal verification. A diagram or a passing abstract model is not proof of the entire product.
+- **Test compiler and tool claims against the real toolchain** before writing them as fact, and record the version tested. Mark untested claims as untested.
+- Mark each guide file's status (Draft / Partial / Stub) and keep open questions listed rather than inventing answers.
+- When citing the talk, check `research/lauren-tan-video/ANALYSIS.md` or the transcript. Don't attribute our ideas to her.
+- Keep it concise. Prefer tables and checklists to long prose.
+- Run `python3 scripts/check_guide.py` after changing guide, rules or platform files.
 
-## Storage
+## Research media
 
-- Keep large downloads, video, images, recordings, embedded-media HTML, and other bulky artifacts on MicroBay, as explicitly requested by the user.
-- Existing media root: /Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g.
-- artifacts/ is an absolute symlink to that directory. It will be unavailable when the drive is unmounted; this is intentional.
-- Keep text, source scripts, manifests, and guides in this project. Reference external media rather than copying it into Git.
-- If MicroBay is unavailable, report the missing mount; do not silently place large files on the internal drive or redownload existing media.
-- ARTIFACTS.json inventories external files with size and SHA-256. Run python3 scripts/verify_artifacts.py to check it; use --hash for full content verification.
-- Preserve existing evidence. Regeneration scripts can replace derived captures and reports; inspect their output paths before running them.
+Large media (video, slide images, viewers) lives on MicroBay at `/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g`; `artifacts/` symlinks to it. Never copy media into Git or onto the internal drive. If MicroBay isn't mounted, say so. `python3 scripts/verify_artifacts.py` checks the inventory in `ARTIFACTS.json`. `research/lauren-tan-video/build_report.py` regenerates `ANALYSIS.md` from `slide-notes.json` and rewrites files on MicroBay, which changes the manifest hashes. Inspect before running it.
 
-## Engineering approach
+## Scope
 
-Prefer clear APIs, enforced architectural boundaries, and executable checks for recurring failures. Maintain feature maps that state what users can do, how to reach it, and what observable results establish success. Verify real journeys and durable effects, retain reproducible evidence, and adapt drivers to the platform. Make one implementation-and-verification loop dependable before scaling automation.
-
-Research is not authorization to deploy, merge, install plugins, send messages, or launch autonomous workflows. Do implementation work when requested and follow the user's current scope.
+Discussing, documenting and prototyping are in scope. Don't deploy, publish, install global tools, or start automated workflows without asking.

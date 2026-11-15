@@ -1,0 +1,20 @@
+# Allowed module dependencies and imports.
+# Read by the layer-2 import check. Protected by CODEOWNERS.
+# Module names are illustrative. Define your own in stage 1 of the playbook.
+
+modules:
+  Domain:
+    may_depend_on: []
+    may_import_system: [Foundation]
+  Data:
+    may_depend_on: [Domain]
+    may_import_system: [Foundation]
+  Features:
+    may_depend_on: [Domain]
+    may_import_system: [Foundation, SwiftUI, Observation]
+  App:  # composition root: the only place real dependencies are wired together
+    may_depend_on: [Domain, Data, Features]
+    may_import_system: [Foundation, SwiftUI]
+
+# Import statements are checked too, not just declared dependencies:
+# Swift lets a module import anything reachable indirectly, and any system framework.

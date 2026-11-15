@@ -1,0 +1,19 @@
+# Enforcement surface: changes need a human code owner.
+# Pair with branch protection: "Require review from Code Owners".
+# Replace @OWNER with a real GitHub user or team.
+
+/CODEOWNERS               @OWNER
+/.github/                 @OWNER
+/AGENTS.md                @OWNER
+/.claude/                 @OWNER
+/boundaries.yaml          @OWNER
+
+# Build and compiler config (adjust per platform)
+Package.swift             @OWNER
+/Project.swift            @OWNER
+/project.yml              @OWNER
+
+# Layer-2 checker, its config, allowlists and baselines
+/tools/checker/           @OWNER
+/.swiftlint.yml           @OWNER
+/enforcement/             @OWNER

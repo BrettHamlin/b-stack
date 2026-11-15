@@ -1,53 +1,47 @@
 # Potato
 
-A research foundation for applying Lauren Tan (poteto)'s engineering setup to mobile, desktop, web, backend, and CLI software.
+A guide to building new apps that AI agents can work on quickly without the quality dropping. It started from Lauren Tan (poteto)'s talk [*All Code Is Slop (Except Mine)*](https://www.youtube.com/watch?v=O_zcc6Xl12g) and is organized around our own **enforcement pyramid**: push every rule as high as it can go, from "can't be written" down to "judged by a human."
 
-Source: [All Code Is Slop (Except Mine)](https://www.youtube.com/watch?v=O_zcc6Xl12g), full 17:31 video. The project includes the complete transcript, slide analysis, implementation guide, generation scripts, and references to every saved media artifact.
+## Where to start
 
-## Start here
+| You want to… | Go to |
+|---|---|
+| Start a new app | [playbook/new-project.md](playbook/new-project.md) |
+| Understand the approach | [guide/00-philosophy.md](guide/00-philosophy.md) → [guide/01-pyramid.md](guide/01-pyramid.md) |
+| Turn an agent correction into a rule | [playbook/correction-loop.md](playbook/correction-loop.md) |
+| Pick rules for a project | [rules/](rules/) |
+| See how it applies to iOS | [platforms/ios-swift.md](platforms/ios-swift.md) |
+| Copy starting files | [templates/](templates/) |
+| See the planned iOS starter repo | [starter/ios/](starter/ios/) |
+| Check what the talk actually said | [research/lauren-tan-video/](research/lauren-tan-video/) |
 
-- [Slide-by-slide analysis](/Users/atlas/Code/potato/research/lauren-tan-video/ANALYSIS.md): what each slide shows, how it works, and how we can apply it.
-- [Implementation guide](/Users/atlas/Code/potato/research/lauren-tan-video/IMPLEMENTATION-GUIDE.md): architecture, enforcement, feature maps, runtime drivers, formal verification, evidence, and automation.
-- [Readable transcript](/Users/atlas/Code/potato/research/lauren-tan-video/TRANSCRIPT.md) and [raw transcript JSON](/Users/atlas/Code/potato/research/lauren-tan-video/transcript.json): all 135 caption segments.
-- [All selected slides](/Users/atlas/Code/potato/research/lauren-tan-video/SLIDES.md) and [slide metadata](/Users/atlas/Code/potato/research/lauren-tan-video/slides.json).
-- [Annotated interactive viewer](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/annotated-viewer.html): self-contained HTML with embedded slides, notes, charts, and searchable transcript.
-- [Agent instructions](/Users/atlas/Code/potato/AGENTS.md).
+## Layout
 
-## Large artifacts live on MicroBay
-
-External media root: `/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g`.
-
-`artifacts/` links directly to that directory. The project contains references, not duplicate media. MicroBay must be mounted for these files and the viewer to open.
-
-- 42 readable slide/build captures in `artifacts/slides/`.
-- 105 full-video overview samples and 71 detected visual-transition captures in `artifacts/frames/`.
-- Six overview contact sheets and four transition contact sheets.
-- Original 1080p video-only MP4, yt-dlp metadata, transition extraction log, browser screenshot, slide manifest, both viewer variants, and text snapshots.
-- [Complete artifact manifest](/Users/atlas/Code/potato/ARTIFACTS.json): 239 files, 121.7 MiB, with relative paths, sizes, and SHA-256 hashes.
-
-The downloaded MP4 contains no audio track. Speech analysis used the full automatic transcript. Technical names in the captions have known errors; the analysis checks names against slides. The selected captures group repeated highlights and UI-demo frames; they are not a claim that the original deck contains exactly 42 unique slides.
-
-## Verify the bundle
-
-```sh
-cd /Users/atlas/Code/potato
-python3 scripts/verify_artifacts.py --hash
+```
+guide/       the philosophy and each pyramid layer (any language)
+playbook/    step-by-step: new project, correction loop
+rules/       catalog of reusable rules, one file each
+platforms/   how each layer and rule maps to a stack
+templates/   starting files to copy into a new repo
+starter/     plans for runnable starter repos (built later)
+research/    the source talk: transcript, slide analysis, scripts
+scripts/     checks for this repo
 ```
 
-Python 3.11+ is required for hash verification. Set `POTATO_MEDIA_ROOT` if the media directory is relocated, then repair the `artifacts` symlink and media references as appropriate. The default keeps the user's requested MicroBay storage.
+## Status
 
-## Reproduction scripts
+| Part | Status |
+|---|---|
+| Philosophy, pyramid, layers 1–2, foundation | Draft, discussed |
+| Layer 3 verification | Partial; next to discuss |
+| Prose, review, outer loop | Stubs |
+| Rules catalog | 9 draft rules |
+| iOS platform | Layer 1 verified with Swift 6.4.2; layer 2 and verification to build |
+| iOS starter repo | Plan only |
 
-The original scripts are preserved under `research/lauren-tan-video/`:
+## Checks
 
-- `extract_slides.py`: extracts the 42 selected captures using ffmpeg.
-- `contact_sheets.py`: builds overview/transition sheets using Pillow.
-- `build_report.py`: assembles Markdown analysis and both HTML viewer variants.
-
-They use the existing MicroBay media root. Inspect before rerunning because derived captures/reports may be replaced. Requirements: Python, ffmpeg, and Pillow for contact sheets (`uv run --with pillow python ...` was used). Scripts and text are small and tracked locally; media stays external.
-
-## Provenance
-
-Prepared November 15, 2026, from the entire video transcript, full-video frame sampling, transition inspection, and the public pstack repository. The linked create-verification-skill source was also read as corroboration. Public repository content can evolve independently of the talk. Private implementation details and productivity claims have not been independently reproduced.
-
-This project preserves the research without changing any application behavior. Its proposed commands, schemas, and platform designs are examples to implement in the relevant product, not already-installed infrastructure.
+```sh
+python3 scripts/check_guide.py          # rule entries complete, every rule mapped per platform, links resolve
+python3 scripts/verify_artifacts.py     # research media on MicroBay is present (add --hash for full check)
+```
