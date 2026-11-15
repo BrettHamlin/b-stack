@@ -1,0 +1,15 @@
+included:
+  - Targets
+only_rules:
+  - force_unwrapping
+  - force_try
+  - force_cast
+  - implicitly_unwrapped_optional
+  - custom_rules
+custom_rules:
+  no_suppressions:
+    name: "no-suppressions"
+    regex: 'swiftlint:(disable|enable)'
+    match_kinds: comment
+    message: "Suppression comments aren't allowed. Fix the underlying issue; if the rule is wrong here, stop and report."
+    severity: error

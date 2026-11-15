@@ -1,0 +1,7 @@
+excludes:
+  - Rules
+  - Project.swift
+  - Tuist.swift
+  - Derived
+  - .build
+  - .tools

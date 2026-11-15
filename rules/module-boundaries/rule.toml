@@ -1,11 +1,12 @@
 id = "module-boundaries"
 layer = "1+2"
-summary = "Modules depend and import only in the directions allowed by boundaries.yaml."
+summary = "Modules depend and import only in the allowed directions (Project.swift for modules, the Harmonize allowlist for system frameworks)."
 problem = "Agents import whatever makes the code compile: UI reaching into persistence, domain importing UI frameworks. After a few times it looks like the convention."
-message = "This import isn't allowed by boundaries.yaml. Move the code to a module that may use it, or pass data in through Domain types. Don't edit boundaries.yaml; stop and report if a dependency seems necessary."
-escape_hatches = ["Adding a dependency in Package.swift: manifest is protected; graph check fails.", "Importing a module reachable indirectly, or a system framework: checker import check.", "Making internals public to cross a boundary: review."]
+message = "This import isn't allowed. Move the code to a module that may use it, or pass data in through Domain types. Don't edit Project.swift dependencies or the Harmonize allowlist; stop and report if a dependency seems necessary."
+escape_hatches = ["Adding a dependency in Package.swift: manifest is protected; graph check fails.", "Importing a module reachable indirectly: Tuist inspect. Importing a disallowed system framework: Harmonize allowlist.", "Making internals public to cross a boundary: review."]
 origin = "Lauren Tan talk (Dune: electron-main/renderer import bans). Swift 6.4.2 testing, Nov 2026: compiler blocks undeclared sibling imports on clean builds only; misses indirect imports and system frameworks."
 
 [ios]
-compiler = "One SwiftPM target per module; InternalImportsByDefault and MemberImportVisibility. Undeclared sibling imports fail on a clean build only: if the sibling was already built, an incremental build accepts the import, so the checker must cover it too."
-checker = "Every import must be allowed by boundaries.yaml, including undeclared siblings (incremental builds miss them), system frameworks, and modules reachable only indirectly."
+compiler = "One Tuist framework target per module (Core, <Feature>Interface, <Feature>, Platform, App); InternalImportsByDefault and MemberImportVisibility."
+tuist = "tuist inspect dependencies --only implicit: every import of a project module must be declared in Project.swift. Catches undeclared siblings and modules reachable only indirectly, which the compiler misses."
+harmonize = "ModuleBoundaries.swift: per-module allowlist of imports, including system frameworks (e.g. Core may not import SwiftUI), which Tuist doesn't check."

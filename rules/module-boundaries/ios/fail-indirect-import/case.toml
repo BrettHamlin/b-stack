@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "tuist"
+diagnostic = "App implicitly depends on: Core"

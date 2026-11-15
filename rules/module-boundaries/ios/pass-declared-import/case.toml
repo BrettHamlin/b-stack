@@ -1,2 +1,2 @@
 expect = "pass"
-enforced_by = "compiler"
+enforced_by = "tuist"

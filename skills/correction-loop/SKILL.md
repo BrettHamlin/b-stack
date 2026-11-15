@@ -19,7 +19,7 @@ Search `rules/*/rule.toml` in b-stack. If a rule already covers it, the project 
 
 Stop at the first that works:
 1. **Impossible to write:** change types, module boundaries or the API (layer 1, enforced by the compiler)
-2. **Blocked by a check:** a checker rule in protected CI (layer 2)
+2. **Blocked by a check:** a Harmonize rule in `Rules/` for architecture, or a SwiftLint rule for syntax (layer 2)
 3. **Caught by verification:** a journey, property or model test (layer 3)
 4. **Prose:** only if nothing above works; record why
 
@@ -31,8 +31,10 @@ A ban without a replacement produces worse workarounds. If no supported way exis
 
 Add `rules/<rule-id>/` following `rules/README.md`:
 - `rule.toml`: problem, message (names the fix), escape hatches
-- at least one **fail** case: code that must be rejected
-- a **pass** case: the correct alternative, which must compile
+- at least one **fail** case: code that must be rejected, with the gate that rejects it and the expected `diagnostic`
+- a **pass** case: the correct alternative, which must pass every gate
+
+Add the enforcement itself to the starter (`starters/ios/template/`): the Harmonize rule, SwiftLint config, or compiler setting.
 
 ## 6. Prove it fires
 

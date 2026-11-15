@@ -1,2 +1,2 @@
 expect = "pass"
-enforced_by = "checker"
+enforced_by = "harmonize"

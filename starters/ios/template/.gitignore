@@ -1,0 +1,5 @@
+.build/
+.tools/
+Derived/
+*.xcodeproj
+*.xcworkspace

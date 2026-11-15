@@ -7,7 +7,7 @@ This repo is a toolkit agents use to create new apps with enforcement built in. 
 - `skills/`: procedures (`SKILL.md`), plus principles for judgment calls in `skills/README.md`
 - `rules/<id>/`: `rule.toml` + `ios/<case>/` test cases. Format in `rules/README.md`.
 - `starters/ios/`: the template a new project is copied from. `README.md` lists what's built.
-- `scripts/`: `test_rules.py`, `check_repo.py`, `verify_artifacts.py`
+- `scripts/`: `test_rules.py` (runs every case through the starter's `scripts/check.py`), `check_repo.py`, `verify_artifacts.py`
 - `DECISIONS.md`: the human owner's summary. Update it when a decision is made or a finding changes.
 - `research/lauren-tan-video/`: source material. Keep the raw transcript unchanged.
 
@@ -18,11 +18,11 @@ python3 scripts/test_rules.py
 python3 scripts/check_repo.py
 ```
 
-Zero FAIL in both. PENDING (needs the checker) is expected until the checker exists.
+Zero FAIL in both. The first rule-test run downloads pinned tools into `.tools/` and builds the Harmonize rules (a few minutes); later runs take about 2 minutes.
 
 ## Rules for changing this repo
 
-- **Every rule claim is tested.** A new rule needs a fail case; compiler-enforced cases need the exact `diagnostic`. Never edit a case just to make it pass. If the toolchain disagrees with the rule, the rule or `DECISIONS.md` is what changes.
+- **Every rule claim is tested.** A new rule needs a fail case naming the gate that rejects it and the exact `diagnostic`. The enforcement itself (compiler setting, Harmonize rule, SwiftLint rule) goes in `starters/ios/template/`. Never edit a case just to make it pass. If the toolchain disagrees with the rule, the rule or `DECISIONS.md` is what changes.
 - **Record the toolchain version** for any compiler finding.
 - **Starters only list what exists.** Don't describe planned pieces as built.
 - **No new prose docs** beyond skills, `rules/README.md`, starter READMEs and `DECISIONS.md`.
@@ -34,4 +34,4 @@ Video and images live on MicroBay at `/Volumes/MicroBay/Downloads/video-research
 
 ## Scope
 
-Don't deploy, publish, install global tools, or start automated workflows without asking.
+Don't deploy, publish, install global tools, or start automated workflows without asking. Tools come from `starters/ios/template/tools.toml` (pinned, checksum-verified, local).

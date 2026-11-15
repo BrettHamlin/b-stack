@@ -7,5 +7,5 @@ escape_hatches = ["Moving settings to an unlisted file: the settings check asser
 origin = "Design discussion, Nov 2026."
 
 [ios]
-repo = "CODEOWNERS on Package.swift, boundaries.yaml, checker, allowlists, .github/, AGENTS.md; branch protection; settings check on Package.swift."
-tests_pending = "Repo-level checks (CODEOWNERS coverage, settings check) not built yet."
+repo = "CODEOWNERS on Project.swift, Tuist.swift, tools.toml, .swiftlint.yml, Rules/, scripts/, .github/, AGENTS.md; branch protection."
+tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files, compiler-settings assertion) not built yet."

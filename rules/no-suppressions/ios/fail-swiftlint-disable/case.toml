@@ -1,2 +1,3 @@
 expect = "fail"
-enforced_by = "checker"
+enforced_by = "swiftlint"
+diagnostic = "(no_suppressions)"

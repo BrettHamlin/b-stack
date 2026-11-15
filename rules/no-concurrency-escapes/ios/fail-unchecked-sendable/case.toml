@@ -1,2 +1,3 @@
 expect = "fail"
-enforced_by = "checker"
+enforced_by = "harmonize"
+diagnostic = "[no-concurrency-escapes] No @unchecked Sendable"

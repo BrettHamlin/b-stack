@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "swiftlint"
+diagnostic = "(force_unwrapping)"

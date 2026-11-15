@@ -1,81 +1,97 @@
-"""Run every rule's iOS test cases against a Swift package (default: the starter template).
+"""Prove every rule fires, by running each case through the project's own gate command (scripts/check.py).
 
-Each case overlays its Sources/ onto a copy of the package and runs `swift build`:
-  compiler + fail   build must fail, and the output must contain the case's diagnostic
-  compiler + pass   build must succeed
-  checker           build must succeed (valid Swift the compiler can't catch); reported
-                    PENDING until the checker exists to enforce it
-Point --package at a new project's Modules package to prove its setup enforces the rules.
+For each case, Targets/ is reset to the project's and the case's Targets/ is overlaid:
+  fail case   `check.py --only <enforced_by>` must fail, and its output must contain the case's diagnostic
+  pass case   `check.py` (every gate) must pass, so correct code never trips any rule
+The untouched project must pass every gate first.
+
+Default project: starters/ios/template. Pass --project <new-app> to prove a new app's setup enforces the rules.
+Work happens in .build/rule-tests/ (gitignored); tool downloads are cached in .tools/.
 """
 from pathlib import Path
 import argparse
-import re
+import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-ANSI = re.compile(r'\x1b\[[0-9;]*m|\x1b\]8;;.*?\x1b\\')
+SKIP = {'.build', '.tools', 'Derived'}
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-parser.add_argument('--package', type=Path, default=ROOT / 'starters/ios/template/Modules',
-                    help='Swift package to test against (default: the starter template)')
+parser.add_argument('--project', type=Path, default=ROOT / 'starters/ios/template', help='project root containing scripts/check.py')
 parser.add_argument('--rule', action='append', help='only run this rule id (repeatable)')
 args = parser.parse_args()
 
-base = args.package.resolve()
-if not (base / 'Package.swift').is_file():
-    sys.exit(f'No Package.swift in {base}')
+project = args.project.resolve()
+if not (project / 'scripts/check.py').is_file():
+    sys.exit(f'No scripts/check.py in {project}')
 
-work = Path(tempfile.mkdtemp(prefix='b-stack-rules-'))
-for item in base.iterdir():
-    if item.name not in ('.build', '.swiftpm', 'Sources'):
+work = ROOT / '.build/rule-tests' / project.name
+work.mkdir(parents=True, exist_ok=True)
+for item in work.iterdir():
+    if item.name not in SKIP:
+        shutil.rmtree(item) if item.is_dir() else item.unlink()
+for item in project.iterdir():
+    if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
         (shutil.copytree if item.is_dir() else shutil.copy2)(item, work / item.name)
+env = {**os.environ, 'BSTACK_TOOLS_DIR': str(ROOT / '.tools')}
 
 
-def errors(output: str) -> str:
-    lines = [l.strip() for l in output.splitlines() if 'error:' in l and 'SwiftDriver' not in l and 'SwiftCompile' not in l]
-    return '\n'.join(f'      {l[-200:]}' for l in dict.fromkeys(lines).keys() if l) or '      (no error lines)'
+def check(*gates: str) -> tuple[bool, str]:
+    cmd = [sys.executable, 'scripts/check.py'] + [a for g in gates for a in ('--only', g)]
+    proc = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True)
+    return proc.returncode == 0, proc.stdout + proc.stderr
 
 
-counts = {'PASS': 0, 'PENDING': 0, 'SKIP': 0, 'FAIL': 0}
-try:
-    for case_file in sorted(ROOT.glob('rules/*/ios/*/case.toml')):
-        rule, name = case_file.parents[2].name, case_file.parent.name
-        if args.rule and rule not in args.rule:
-            continue
-        case = tomllib.loads(case_file.read_text())
-        case_sources = case_file.parent / 'Sources'
-        missing = [m.name for m in case_sources.iterdir() if not (base / 'Sources' / m.name).is_dir()]
-        if missing:
-            status, detail = 'SKIP', f'package has no module {", ".join(missing)}'
+def reset_targets(case_dir: Path | None = None) -> None:
+    shutil.rmtree(work / 'Targets')
+    shutil.copytree(project / 'Targets', work / 'Targets')
+    if case_dir:
+        shutil.copytree(case_dir / 'Targets', work / 'Targets', dirs_exist_ok=True)
+
+
+def tail(output: str) -> str:
+    lines = [l for l in output.splitlines() if l.strip()][-8:]
+    return '\n'.join(f'      {l[:220]}' for l in lines)
+
+
+counts = {'PASS': 0, 'SKIP': 0, 'FAIL': 0}
+reset_targets()
+ok, output = check()
+print(f'{"PASS" if ok else "FAIL"}     (untouched project passes every gate)')
+if not ok:
+    print(tail(output))
+    sys.exit(1)
+
+for case_file in sorted(ROOT.glob('rules/*/ios/*/case.toml')):
+    rule, name = case_file.parents[2].name, case_file.parent.name
+    if args.rule and rule not in args.rule:
+        continue
+    case = tomllib.loads(case_file.read_text())
+    missing = [m.name for m in (case_file.parent / 'Targets').iterdir() if not (project / 'Targets' / m.name).is_dir()]
+    if missing:
+        status, detail = 'SKIP', f'project has no target {", ".join(missing)}'
+    else:
+        reset_targets(case_file.parent)
+        if case['expect'] == 'pass':
+            ok, output = check()
+            status, detail = ('PASS', '') if ok else ('FAIL', 'correct code tripped a gate\n' + tail(output))
         else:
-            shutil.rmtree(work / 'Sources', ignore_errors=True)
-            shutil.rmtree(work / '.build', ignore_errors=True)  # clean build: results must not depend on earlier cases
-            shutil.copytree(base / 'Sources', work / 'Sources')
-            shutil.copytree(case_sources, work / 'Sources', dirs_exist_ok=True)
-            proc = subprocess.run(['swift', 'build'], cwd=work, capture_output=True, text=True)
-            output = ANSI.sub('', proc.stdout + proc.stderr)
-            built = proc.returncode == 0
-            if case['enforced_by'] == 'checker':
-                status, detail = ('PENDING', 'valid Swift; needs the checker') if built else \
-                    ('FAIL', 'does not compile: fix the case, or the compiler now catches it (move the rule up)\n' + errors(output))
-            elif case['expect'] == 'pass':
-                status, detail = ('PASS', '') if built else ('FAIL', 'should compile but failed\n' + errors(output))
-            elif built:
-                status, detail = 'FAIL', 'compiled, but the compiler should reject it'
+            ok, output = check(case['enforced_by'])
+            if ok:
+                status, detail = 'FAIL', f'{case["enforced_by"]} let it through\n' + tail(output)
             elif case['diagnostic'] not in output:
-                status, detail = 'FAIL', f'failed, but not with "{case["diagnostic"]}"\n' + errors(output)
+                status, detail = 'FAIL', f'{case["enforced_by"]} failed, but without "{case["diagnostic"]}"\n' + tail(output)
             else:
                 status, detail = 'PASS', ''
-        counts[status] += 1
-        print(f'{status:8} {rule} / {name}' + (f'  ({detail})' if detail and '\n' not in detail else ''))
-        if '\n' in detail:
-            print('      ' + detail)
-finally:
-    shutil.rmtree(work, ignore_errors=True)
+    counts[status] += 1
+    label = f'{status:8} {rule} / {name}  [{case["enforced_by"]}]'
+    print(label + (f'  ({detail})' if detail and '\n' not in detail else ''), flush=True)
+    if '\n' in detail:
+        print('      ' + detail)
 
-print('\n' + ', '.join(f'{n} {s.lower()}' for s, n in counts.items()) + f'  (package: {base})')
+reset_targets()
+print('\n' + ', '.join(f'{n} {s.lower()}' for s, n in counts.items()) + f'  (project: {project})')
 sys.exit(1 if counts['FAIL'] else 0)

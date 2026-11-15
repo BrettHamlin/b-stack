@@ -3,9 +3,9 @@ layer = "1+2"
 summary = "Strict concurrency checking is on, and the escape hatches that silence it are banned."
 problem = "Agents patch races with quick dispatches and delays, and silence the compiler with unchecked markers when it objects."
 message = "Don't silence concurrency checking. Make the type an actor or confine it to the main actor. If neither fits, stop and report what you're trying to share."
-escape_hatches = ["@unchecked Sendable, nonisolated(unsafe), @preconcurrency, Task.detached and DispatchQueue in features: banned by the checker outside an allowlist.", "Hand-rolled locks: review."]
+escape_hatches = ["@unchecked Sendable, nonisolated(unsafe), @preconcurrency, Task.detached and DispatchQueue in features: banned by Harmonize rules.", "Hand-rolled locks: review."]
 origin = "Lauren Tan talk (timer/scheduling workarounds). Design discussion, Nov 2026."
 
 [ios]
-compiler = "Swift 6 language mode; Features isolated to MainActor by default."
-checker = "Ban @unchecked Sendable, nonisolated(unsafe), @preconcurrency import, Task.detached and DispatchQueue in feature modules, outside an allowlist."
+compiler = "Swift 6 language mode; Settings and App isolated to MainActor by default (SWIFT_DEFAULT_ACTOR_ISOLATION)."
+harmonize = "NoConcurrencyEscapes.swift: no @unchecked Sendable, no nonisolated(unsafe)."

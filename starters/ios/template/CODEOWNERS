@@ -2,18 +2,19 @@
 # Pair with branch protection: "Require review from Code Owners".
 # Replace @OWNER with a real GitHub user or team.
 
-/CODEOWNERS               @OWNER
-/.github/                 @OWNER
-/AGENTS.md                @OWNER
-/.claude/                 @OWNER
-/boundaries.yaml          @OWNER
+/CODEOWNERS            @OWNER
+/.github/              @OWNER
+/AGENTS.md             @OWNER
+/CLAUDE.md             @OWNER
+/.claude/              @OWNER
 
-# Build and compiler config (adjust per platform)
-Package.swift             @OWNER
-/Project.swift            @OWNER
-/project.yml              @OWNER
+# Project structure, compiler settings, module dependencies
+/Project.swift         @OWNER
+/Tuist.swift           @OWNER
 
-# Layer-2 checker, its config, allowlists and baselines
-/tools/checker/           @OWNER
-/.swiftlint.yml           @OWNER
-/enforcement/             @OWNER
+# Gates, their configuration and pinned tools
+/scripts/              @OWNER
+/tools.toml            @OWNER
+/.swiftlint.yml        @OWNER
+/.harmonize.yaml       @OWNER
+/Rules/                @OWNER

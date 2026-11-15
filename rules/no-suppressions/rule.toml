@@ -7,4 +7,4 @@ escape_hatches = ["Disabling the rule in config: config is protected.", "Moving 
 origin = "Design discussion, Nov 2026."
 
 [ios]
-checker = "Ban swiftlint:disable and similar suppression comments outside enforcement/allowlist."
+swiftlint = "Custom rule no_suppressions matches swiftlint:disable/enable in comments, including comments that try to disable the ban itself."

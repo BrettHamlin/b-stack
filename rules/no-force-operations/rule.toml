@@ -1,0 +1,10 @@
+id = "no-force-operations"
+layer = "2"
+summary = "No force unwraps, force try or force casts."
+problem = "Force operations turn an unexpected value into a crash, and agents use them to make code compile quickly."
+message = "Don't force it. Unwrap safely (if let, guard let, ??), handle the error, or use as?. If a value truly can't be missing, model that in the type instead."
+escape_hatches = ["Suppression comments: banned by no-suppressions.", "Implicitly unwrapped optionals (Type!): also banned."]
+origin = "Design discussion, Nov 2026. Tested with SwiftLint 0.65.1."
+
+[ios]
+swiftlint = "force_unwrapping, force_try, force_cast and implicitly_unwrapped_optional rules, in --strict mode."

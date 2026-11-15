@@ -2,20 +2,21 @@
 
 ## Before you change code
 
-- Read `boundaries.yaml`: which module may depend on which.
+- Module dependencies are declared in `Project.swift`. Allowed system imports per module are in `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`.
 - Use the existing approved APIs for <lifecycle, background work, persistence, navigation>. Don't introduce a second way to do the same thing.
+- Pass dependencies in through initializers; `App` is the only place they're wired together.
 
 ## Checks
 
-- Build: `<build command>`
-- Rules: `<checker command>` (not built yet)
-- Verify a feature: `<driver command>`; see `feature-map/`
+```sh
+python3 scripts/check.py        # compiler, tuist, swiftlint, harmonize: all must PASS
+```
 
-Run all three before handing back. Include an evidence package (`evidence.template.md` format).
+Run it before handing back. A failure names the rule and how to fix it. Include an evidence package (`evidence.template.md` format) for behaviour changes.
 
 ## Never weaken enforcement
 
-Never suppress, disable, weaken or bypass a check. That includes suppression comments, editing lint or compiler config, adding module dependencies, changing `boundaries.yaml`, allowlists or baselines, or editing CI.
+Never suppress, disable, weaken or bypass a check. That includes suppression comments, editing `Project.swift` settings or dependencies, `.swiftlint.yml`, `Rules/`, `tools.toml`, `scripts/`, or CI.
 
 **If the right fix isn't possible within the rules, stop and report:** what you were trying to do, which rule blocks it, and what you'd change. A clear report is a successful outcome.
 

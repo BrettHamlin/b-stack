@@ -1,0 +1,13 @@
+# Pinned tools, downloaded by scripts/tools.py into .tools/ and verified by SHA-256. Nothing is installed globally.
+
+[tuist]
+version = "4.216.7"
+url = "https://github.com/tuist/tuist/releases/download/4.216.7/tuist.zip"
+sha256 = "e1363ea2b43513824c6e24d03ef7bd75fb1c05fa4d72a0cae393c2e3e9e42b8d"
+binary = "tuist"
+
+[swiftlint]
+version = "0.65.1"
+url = "https://github.com/realm/SwiftLint/releases/download/0.65.1/SwiftLintBinary.artifactbundle.zip"
+sha256 = "c3a1d77647ca18c1b7e9be7dbc6cd4490d26422f28814b76370244ff61970869"
+binary = "SwiftLintBinary.artifactbundle/macos/swiftlint"

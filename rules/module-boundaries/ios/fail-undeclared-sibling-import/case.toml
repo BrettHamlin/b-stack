@@ -1,3 +1,3 @@
 expect = "fail"
-enforced_by = "compiler"
-diagnostic = "unable to resolve module dependency: 'Data'"
+enforced_by = "tuist"
+diagnostic = "Settings implicitly depends on: Platform"

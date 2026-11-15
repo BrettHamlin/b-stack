@@ -7,6 +7,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', 'origin', 'ios']
 LAYERS = {'1', '2', '1+2', '3', 'foundation'}
+ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize')
 LINK = re.compile(r'\]\(([^)\s]+)\)')
 errors = []
 
@@ -47,12 +48,12 @@ for rule_dir in rule_dirs:
         expects.append(case.get('expect'))
         if case.get('expect') not in ('fail', 'pass'):
             errors.append(f'{rel(case_path)}: expect must be "fail" or "pass"')
-        if case.get('enforced_by') not in ('compiler', 'checker'):
-            errors.append(f'{rel(case_path)}: enforced_by must be "compiler" or "checker"')
-        if case.get('enforced_by') == 'compiler' and case.get('expect') == 'fail' and not case.get('diagnostic'):
-            errors.append(f'{rel(case_path)}: compiler fail cases need a diagnostic')
-        if not list((case_path.parent / 'Sources').glob('*/*.swift')):
-            errors.append(f'{rel(case_path)}: no Sources/<Module>/*.swift files')
+        if case.get('enforced_by') not in ENFORCERS:
+            errors.append(f'{rel(case_path)}: enforced_by must be one of {ENFORCERS}')
+        if case.get('expect') == 'fail' and not case.get('diagnostic'):
+            errors.append(f'{rel(case_path)}: fail cases need a diagnostic')
+        if not list((case_path.parent / 'Targets').glob('*/*.swift')):
+            errors.append(f'{rel(case_path)}: no Targets/<Target>/*.swift files')
     if 'fail' not in expects and not rule.get('ios', {}).get('tests_pending'):
         errors.append(f'{rel(rule_dir)}: needs an ios fail case, or ios.tests_pending explaining why not')
 
