@@ -1,0 +1,10 @@
+id = "typed-identifiers"
+layer = "1"
+summary = "IDs, units and validated values are distinct types, not raw primitives."
+problem = "Raw String/Int IDs and units get mixed up (a message ID passed as a user ID, ms as seconds). The compiler can't tell them apart."
+message = "Use the distinct type (e.g. UserID), not a raw String. If no type exists for this value yet, add one in Domain."
+escape_hatches = ["Re-wrapping raw values freely: keep validating initializers private, expose a failable parse instead."]
+origin = "Design discussion, Nov 2026."
+
+[ios]
+compiler = "One struct per ID or unit (struct UserID: Hashable, Sendable). Validated types have a private init and a failable parse."

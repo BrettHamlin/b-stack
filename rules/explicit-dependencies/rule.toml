@@ -1,0 +1,11 @@
+id = "explicit-dependencies"
+layer = "1"
+summary = "Dependencies are passed in through initializers; no singletons or global service access."
+problem = "Singletons hide coupling from the compiler, can't be swapped for fixtures, and let any code reach any service. They're the shortest path, so agents use them."
+message = "Global service access isn't allowed. Accept this dependency as an initializer parameter; it's wired up in the composition root."
+escape_hatches = ["static let shared / global state: checker ban outside the composition root.", "Service locators: checker ban."]
+origin = "Design discussion, Nov 2026. Also needed by verification (launching in a known state)."
+
+[ios]
+compiler = "Initializer injection; protocols defined in the consuming module; one composition root in the app target."
+checker = "Ban `static let shared` and global mutable state outside the composition root."

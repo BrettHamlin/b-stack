@@ -1,0 +1,11 @@
+id = "exhaustive-states"
+layer = "1"
+summary = "State is a sum type matched without a catch-all default, so new states break every unhandled site."
+problem = "State spread across flags and optionals allows impossible combinations, and agents miss sites when a new state is added."
+message = "Handle every case explicitly. A catch-all default hides new states from the compiler."
+escape_hatches = ["`default:` on project-owned enums: banned by the checker.", "Falling back to Bool flags: review."]
+origin = "Design discussion, Nov 2026."
+
+[ios]
+compiler = "Enums with associated values; switch must be exhaustive."
+checker = "Ban `default:` in switches over project-owned enums."

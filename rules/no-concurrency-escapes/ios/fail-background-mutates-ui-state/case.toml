@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "main actor-isolated property 'count' can not be mutated from a nonisolated context"

@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "switch must be exhaustive"

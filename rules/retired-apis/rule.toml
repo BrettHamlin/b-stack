@@ -1,0 +1,11 @@
+id = "retired-apis"
+layer = "1"
+summary = "Retired or banned APIs fail to compile, and the error names the replacement."
+problem = "Agents copy old APIs because old code still uses them, and reach for subtle primitives (timers, effects) as quick fixes."
+message = "This API is retired. Use the replacement named in the error. If it doesn't fit, stop and report."
+escape_hatches = ["Re-creating the API under another name: review, then add a check.", "Calling the platform API directly: checker ban in feature modules."]
+origin = "Lauren Tan talk (Dune bans useEffect in product code; setTimeout workarounds). Design discussion, Nov 2026."
+
+[ios]
+compiler = "@available(*, unavailable, message: \"Use <replacement>, which <why>\") on owned APIs."
+checker = "Ban platform APIs that have a project replacement (e.g. DispatchQueue.asyncAfter) in feature modules."

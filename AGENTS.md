@@ -1,30 +1,37 @@
 # b-stack: agent instructions
 
-## Purpose
-
-This repo is a guide for creating new apps that agents can work on safely, built on our enforcement pyramid. Lauren Tan's talk is the source material in `research/`. The guide is our own and can go beyond it.
+This repo is a toolkit agents use to create new apps with enforcement built in. Its main contents are rules with tests, starter templates, and skills. Prose is kept minimal.
 
 ## Layout
 
-- `guide/`: language-neutral philosophy and pyramid layers. No platform-specific detail here.
-- `playbook/`: step-by-step procedures.
-- `rules/`: one file per rule in the format given in `rules/README.md`.
-- `platforms/`: per-stack detail. Every rule must appear in every platform's rule-mapping table.
-- `templates/`, `starter/`: starting files and starter-repo plans.
+- `skills/`: procedures (`SKILL.md`), plus principles for judgment calls in `skills/README.md`
+- `rules/<id>/`: `rule.toml` + `ios/<case>/` test cases. Format in `rules/README.md`.
+- `starters/ios/`: the template a new project is copied from. `README.md` lists what's built.
+- `scripts/`: `test_rules.py`, `check_repo.py`, `verify_artifacts.py`
+- `DECISIONS.md`: the human owner's summary. Update it when a decision is made or a finding changes.
 - `research/lauren-tan-video/`: source material. Keep the raw transcript unchanged.
 
-## Writing rules
+## Before handing back
 
-- **Test compiler and tool claims against the real toolchain** before writing them as fact, and record the version tested. Mark untested claims as untested.
-- Mark each guide file's status (Draft / Partial / Stub) and keep open questions listed rather than inventing answers.
-- When citing the talk, check `research/lauren-tan-video/ANALYSIS.md` or the transcript. Don't attribute our ideas to her.
-- Keep it concise. Prefer tables and checklists to long prose.
-- Run `python3 scripts/check_guide.py` after changing guide, rules or platform files.
+```sh
+python3 scripts/test_rules.py
+python3 scripts/check_repo.py
+```
+
+Zero FAIL in both. PENDING (needs the checker) is expected until the checker exists.
+
+## Rules for changing this repo
+
+- **Every rule claim is tested.** A new rule needs a fail case; compiler-enforced cases need the exact `diagnostic`. Never edit a case just to make it pass. If the toolchain disagrees with the rule, the rule or `DECISIONS.md` is what changes.
+- **Record the toolchain version** for any compiler finding.
+- **Starters only list what exists.** Don't describe planned pieces as built.
+- **No new prose docs** beyond skills, `rules/README.md`, starter READMEs and `DECISIONS.md`.
+- When citing the talk, check `research/lauren-tan-video/ANALYSIS.md`; don't attribute our ideas to her.
 
 ## Research media
 
-Large media (video, slide images, viewers) lives on MicroBay at `/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g`; `artifacts/` symlinks to it. Never copy media into Git or onto the internal drive. If MicroBay isn't mounted, say so. `python3 scripts/verify_artifacts.py` checks the inventory in `ARTIFACTS.json`. `research/lauren-tan-video/build_report.py` regenerates `ANALYSIS.md` from `slide-notes.json` and rewrites files on MicroBay, which changes the manifest hashes. Inspect before running it.
+Video and images live on MicroBay at `/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g` (`artifacts/` symlinks there). Never copy them into Git. `scripts/verify_artifacts.py` checks them. `research/lauren-tan-video/build_report.py` rewrites files on MicroBay; inspect before running.
 
 ## Scope
 
-Discussing, documenting and prototyping are in scope. Don't deploy, publish, install global tools, or start automated workflows without asking.
+Don't deploy, publish, install global tools, or start automated workflows without asking.

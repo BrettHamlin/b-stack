@@ -1,0 +1,10 @@
+id = "no-suppressions"
+layer = "2"
+summary = "No lint or compiler suppression comments outside a protected allowlist."
+problem = "The quickest way past any lint rule is a suppression comment, and agents use them freely under pressure to finish."
+message = "Suppression comments aren't allowed. Fix the underlying issue. If the rule is wrong here, stop and report; a human adds allowlist exceptions."
+escape_hatches = ["Disabling the rule in config: config is protected.", "Moving code into an allowlisted file: allowlist changes need a code owner."]
+origin = "Design discussion, Nov 2026."
+
+[ios]
+checker = "Ban swiftlint:disable and similar suppression comments outside enforcement/allowlist."
