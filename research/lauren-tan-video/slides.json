@@ -1,0 +1,296 @@
+[
+  {
+    "number": 1,
+    "seconds": 25,
+    "timestamp": "0:25",
+    "title": "Title",
+    "image": "01-0025.jpg"
+  },
+  {
+    "number": 2,
+    "seconds": 36,
+    "timestamp": "0:36",
+    "title": "Our craft and their slop",
+    "image": "02-0036.jpg"
+  },
+  {
+    "number": 3,
+    "seconds": 45,
+    "timestamp": "0:45",
+    "title": "Personal PR volume",
+    "image": "03-0045.jpg"
+  },
+  {
+    "number": 4,
+    "seconds": 60,
+    "timestamp": "1:00",
+    "title": "Quality and quantity",
+    "image": "04-0060.jpg"
+  },
+  {
+    "number": 5,
+    "seconds": 85,
+    "timestamp": "1:25",
+    "title": "Trust enables scale",
+    "image": "05-0085.jpg"
+  },
+  {
+    "number": 6,
+    "seconds": 95,
+    "timestamp": "1:35",
+    "title": "Low trust loop",
+    "image": "06-0095.jpg"
+  },
+  {
+    "number": 7,
+    "seconds": 110,
+    "timestamp": "1:50",
+    "title": "High trust loop",
+    "image": "07-0110.jpg"
+  },
+  {
+    "number": 8,
+    "seconds": 125,
+    "timestamp": "2:05",
+    "title": "The poteto pyramid",
+    "image": "08-0125.jpg"
+  },
+  {
+    "number": 9,
+    "seconds": 185,
+    "timestamp": "3:05",
+    "title": "Code is memory",
+    "image": "09-0185.jpg"
+  },
+  {
+    "number": 10,
+    "seconds": 215,
+    "timestamp": "3:35",
+    "title": "Codebase as a garden",
+    "image": "10-0215.jpg"
+  },
+  {
+    "number": 11,
+    "seconds": 245,
+    "timestamp": "4:05",
+    "title": "Organic architecture",
+    "image": "11-0245.jpg"
+  },
+  {
+    "number": 12,
+    "seconds": 270,
+    "timestamp": "4:30",
+    "title": "Copying workarounds",
+    "image": "12-0270.jpg"
+  },
+  {
+    "number": 13,
+    "seconds": 295,
+    "timestamp": "4:55",
+    "title": "Read the code sometimes",
+    "image": "13-0295.jpg"
+  },
+  {
+    "number": 14,
+    "seconds": 310,
+    "timestamp": "5:10",
+    "title": "Dune framework",
+    "image": "14-0310.jpg"
+  },
+  {
+    "number": 15,
+    "seconds": 345,
+    "timestamp": "5:45",
+    "title": "Nuance and API design",
+    "image": "15-0345.jpg"
+  },
+  {
+    "number": 16,
+    "seconds": 395,
+    "timestamp": "6:35",
+    "title": "Directory structure as context",
+    "image": "16-0395.jpg"
+  },
+  {
+    "number": 17,
+    "seconds": 425,
+    "timestamp": "7:05",
+    "title": "Unsolicited markdown",
+    "image": "17-0425.jpg"
+  },
+  {
+    "number": 18,
+    "seconds": 460,
+    "timestamp": "7:40",
+    "title": "Quick fixes and timers",
+    "image": "18-0460.jpg"
+  },
+  {
+    "number": 19,
+    "seconds": 510,
+    "timestamp": "8:30",
+    "title": "Comments are liabilities",
+    "image": "19-0510.jpg"
+  },
+  {
+    "number": 20,
+    "seconds": 560,
+    "timestamp": "9:20",
+    "title": "Corrections become checks",
+    "image": "20-0560.jpg"
+  },
+  {
+    "number": 21,
+    "seconds": 590,
+    "timestamp": "9:50",
+    "title": "Verification matters",
+    "image": "21-0590.jpg"
+  },
+  {
+    "number": 22,
+    "seconds": 620,
+    "timestamp": "10:20",
+    "title": "Runtime feature map",
+    "image": "22-0620.jpg"
+  },
+  {
+    "number": 23,
+    "seconds": 645,
+    "timestamp": "10:45",
+    "title": "Feature map and CLI",
+    "image": "23-0645.jpg"
+  },
+  {
+    "number": 24,
+    "seconds": 670,
+    "timestamp": "11:10",
+    "title": "TLA+ and Lean",
+    "image": "24-0670.jpg"
+  },
+  {
+    "number": 25,
+    "seconds": 700,
+    "timestamp": "11:40",
+    "title": "UI property based testing",
+    "image": "25-0700.jpg"
+  },
+  {
+    "number": 26,
+    "seconds": 715,
+    "timestamp": "11:55",
+    "title": "Subtle bugs and manual verification",
+    "image": "26-0715.jpg"
+  },
+  {
+    "number": 27,
+    "seconds": 730,
+    "timestamp": "12:10",
+    "title": "Verification token spend",
+    "image": "27-0730.jpg"
+  },
+  {
+    "number": 28,
+    "seconds": 755,
+    "timestamp": "12:35",
+    "title": "Testing across the lifecycle",
+    "image": "28-0755.jpg"
+  },
+  {
+    "number": 29,
+    "seconds": 785,
+    "timestamp": "13:05",
+    "title": "Statechart",
+    "image": "29-0785.jpg"
+  },
+  {
+    "number": 30,
+    "seconds": 805,
+    "timestamp": "13:25",
+    "title": "Results transition",
+    "image": "30-0805.jpg"
+  },
+  {
+    "number": 31,
+    "seconds": 820,
+    "timestamp": "13:40",
+    "title": "Team PR volume",
+    "image": "31-0820.jpg"
+  },
+  {
+    "number": 32,
+    "seconds": 830,
+    "timestamp": "13:50",
+    "title": "Desktop releases",
+    "image": "32-0830.jpg"
+  },
+  {
+    "number": 33,
+    "seconds": 840,
+    "timestamp": "14:00",
+    "title": "Contributor distribution",
+    "image": "33-0840.jpg"
+  },
+  {
+    "number": 34,
+    "seconds": 860,
+    "timestamp": "14:20",
+    "title": "Revert rate",
+    "image": "34-0860.jpg"
+  },
+  {
+    "number": 35,
+    "seconds": 890,
+    "timestamp": "14:50",
+    "title": "Performance measurements",
+    "image": "35-0890.jpg"
+  },
+  {
+    "number": 36,
+    "seconds": 920,
+    "timestamp": "15:20",
+    "title": "Foundations revisited",
+    "image": "36-0920.jpg"
+  },
+  {
+    "number": 37,
+    "seconds": 935,
+    "timestamp": "15:35",
+    "title": "Should I build a factory",
+    "image": "37-0935.jpg"
+  },
+  {
+    "number": 38,
+    "seconds": 955,
+    "timestamp": "15:55",
+    "title": "Improve the inner loop",
+    "image": "38-0955.jpg"
+  },
+  {
+    "number": 39,
+    "seconds": 965,
+    "timestamp": "16:05",
+    "title": "Automated triggers",
+    "image": "39-0965.jpg"
+  },
+  {
+    "number": 40,
+    "seconds": 975,
+    "timestamp": "16:15",
+    "title": "Grok Bot outer loop",
+    "image": "40-0975.jpg"
+  },
+  {
+    "number": 41,
+    "seconds": 995,
+    "timestamp": "16:35",
+    "title": "Release fuzzing report",
+    "image": "41-0995.jpg"
+  },
+  {
+    "number": 42,
+    "seconds": 1025,
+    "timestamp": "17:05",
+    "title": "Closing",
+    "image": "42-1025.jpg"
+  }
+]

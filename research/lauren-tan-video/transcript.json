@@ -1,0 +1,542 @@
+[
+  {
+    "text": "[music]",
+    "time": "0:01"
+  },
+  {
+    "text": "All right. Um, so again, I'm my name is Potato. Uh, I work on Graphbot at SpaceXsi.",
+    "time": "0:12"
+  },
+  {
+    "text": "And can I ask you a quick show of hands?",
+    "time": "0:21"
+  },
+  {
+    "text": "How many of you have ever looked at code that somebody else wrote and you thought that's all slop?",
+    "time": "0:23"
+  },
+  {
+    "text": "Well, I have too.",
+    "time": "0:31"
+  },
+  {
+    "text": "But today, I'm going to convince you that you can turn that slop into gold.",
+    "time": "0:35"
+  },
+  {
+    "text": "Uh, and so I did something crazy last month and I shipped 3,000 ploy requests to production. Now, before agents, we",
+    "time": "0:42"
+  },
+  {
+    "text": "never really cared about volume. uh except for the outliers.",
+    "time": "0:49"
+  },
+  {
+    "text": "And at my previous company, we call these people coding machines. People like Brett Taylor, who famously rewrote all of Google Maps uh in a weekend, just",
+    "time": "0:54"
+  },
+  {
+    "text": "an insanely productive engineer. Uh and well, with agents, anyone can now be a coding machine. And my thesis is that",
+    "time": "1:03"
+  },
+  {
+    "text": "the job of a software engineer, the meta of being a software engineer is figuring out how to maintain or even improve the",
+    "time": "1:11"
+  },
+  {
+    "text": "quality of your code while massively increasing your productivity.",
+    "time": "1:18"
+  },
+  {
+    "text": "To get there, some people like to call this a software factory. Uh, but I like to keep it simple and I think of it as all about trust.",
+    "time": "1:23"
+  },
+  {
+    "text": "not blind trust, but investing in your agents environment so you can trust that your agents are going to do the right thing. Now, it takes quite a lot of",
+    "time": "1:32"
+  },
+  {
+    "text": "effort to get there. Um, and it took me 6 months to get to a point where I could ship thousands of pull requests, a lot",
+    "time": "1:42"
+  },
+  {
+    "text": "of them in my sleep, but it's certainly possible and it will take you much less time than I did. So, let's start by",
+    "time": "1:49"
+  },
+  {
+    "text": "talking about how we move from a low trust environment to a high trust one.",
+    "time": "1:57"
+  },
+  {
+    "text": "So this inverse pyramid is how I think about where to spend time on your agents environment. The first two layers are deterministic.",
+    "time": "2:03"
+  },
+  {
+    "text": "So using your code itself. So things like good API design architecture refactoring or using lit rules, type",
+    "time": "2:12"
+  },
+  {
+    "text": "systems, compilers or you know different kinds of testing. And you can use both of these layers together to constrain",
+    "time": "2:20"
+  },
+  {
+    "text": "what agents can do and force them to do the right thing by default.",
+    "time": "2:27"
+  },
+  {
+    "text": "Verification, both runtime and formal, are great tools to layer on to find bugs and check properties and the invariance",
+    "time": "2:32"
+  },
+  {
+    "text": "in your system that you want to hold true and also help you check whether or not the agent understood your goals and your intent.",
+    "time": "2:40"
+  },
+  {
+    "text": "And then finally, you want to layer with a little bit of pros. So things like rules, skills, agents.mmd, things that require judgment.",
+    "time": "2:48"
+  },
+  {
+    "text": "But let's start with your codebase.",
+    "time": "2:59"
+  },
+  {
+    "text": "Agents generate their outputs based on their inputs. And so the the quality of the input really matters. And it just so",
+    "time": "3:01"
+  },
+  {
+    "text": "happens that your codebase is one of the largest inputs. So whenever you're correcting your agent, think about how",
+    "time": "3:08"
+  },
+  {
+    "text": "you can make that a deterministic check instead of adding another line to your rules or your agents.mmd because it's",
+    "time": "3:15"
+  },
+  {
+    "text": "far more reproducible when it's in code and it lets you trust it more.",
+    "time": "3:22"
+  },
+  {
+    "text": "And the analogy that I like to use is that your codebase is kind of like a garden. You know, code used to arrive a",
+    "time": "3:27"
+  },
+  {
+    "text": "few pull requests at a time. And uh I remember going into work in 2024 and reviewing the three pull requests that",
+    "time": "3:34"
+  },
+  {
+    "text": "my colleagues wrote colleagues wrote and today that number is more like 300. So uh you know every engineer is now a team",
+    "time": "3:42"
+  },
+  {
+    "text": "of hundreds or even thousands of agents and code is arriving so rapidly that it almost feels like a continuous stream",
+    "time": "3:50"
+  },
+  {
+    "text": "and it almost feels organic like a living thing.",
+    "time": "3:58"
+  },
+  {
+    "text": "And in this analogy, your codebase, the constraints that you impose, the guardrails that you put up are the",
+    "time": "4:03"
+  },
+  {
+    "text": "concrete foundations that the new code that your agents write grow around just like uh the building in this picture.",
+    "time": "4:10"
+  },
+  {
+    "text": "And so in many ways, the job of being a software engineer is kind of becoming like gardening because code is the biggest input for",
+    "time": "4:18"
+  },
+  {
+    "text": "agents. It means that any workarounds, um, anti-atterns, deprecated code, tech,",
+    "time": "4:26"
+  },
+  {
+    "text": "it's now likely to be just copied by the next agent since it looks like the established pattern in your codebase.",
+    "time": "4:33"
+  },
+  {
+    "text": "And uh, it's like you have some weeds or pests growing in your garden and then they spread everywhere before you know it.",
+    "time": "4:40"
+  },
+  {
+    "text": "So you want to make your codebase as pristine as possible so that agents are always copying the good stuff. All right, let's look at some real examples.",
+    "time": "4:51"
+  },
+  {
+    "text": "Uh so Dune is a client framework that we created for Grabbot to implement this idea for organic architecture.",
+    "time": "5:00"
+  },
+  {
+    "text": "It's not really that interesting technically. Uh you can kind of think of Dune as um kind of like Nex.js for Electron apps. But the interesting part",
+    "time": "5:08"
+  },
+  {
+    "text": "of Dune is that it has a lot of constraints and lit rules that we've encoded uh a lot of the lessons that we've learned building desktop applications.",
+    "time": "5:16"
+  },
+  {
+    "text": "And one such lesson is that anything that requires nuance to use well often leads to slop. Uh you know your classic",
+    "time": "5:26"
+  },
+  {
+    "text": "example is uh you know use effect in React, right? It has its use cases uh but it's often misused. You know some",
+    "time": "5:34"
+  },
+  {
+    "text": "people joke that you need a PhD to use use effect. Um and in in other words, it really requires a lot of nuance to use B",
+    "time": "5:41"
+  },
+  {
+    "text": "and agents are not good at using it. Um so our solution has been to just ban it in product code and it's really only",
+    "time": "5:50"
+  },
+  {
+    "text": "allowed in some places inside of Dune APIs and effectively this problem has now been categorically eliminated and we",
+    "time": "5:58"
+  },
+  {
+    "text": "never need to catch that during code review again.",
+    "time": "6:07"
+  },
+  {
+    "text": "Another interesting pattern that we use is context through directory structure.",
+    "time": "6:10"
+  },
+  {
+    "text": "Uh so one anti-attern that we saw with cursor which is an electron app is that agents would often import main thread",
+    "time": "6:15"
+  },
+  {
+    "text": "code into the renderer thread which would cause long tasks and jank.",
+    "time": "6:22"
+  },
+  {
+    "text": "So in uh grapot and in dunes we've made this very very conventional. Uh we have these two top level directories",
+    "time": "6:28"
+  },
+  {
+    "text": "literally called electron renderer and electron main and imports between them are forbidden or banned by our",
+    "time": "6:35"
+  },
+  {
+    "text": "dependency graph analyzer and some lint rules. And again you know these are simple lint rules to set up but it means",
+    "time": "6:42"
+  },
+  {
+    "text": "one less thing that we need to review and think about uh you know during code review.",
+    "time": "6:49"
+  },
+  {
+    "text": "And then one more surprising thing that I've seen is agents using markdown. So things like documentation, uh, code",
+    "time": "6:56"
+  },
+  {
+    "text": "comments, rules or skills, and they use this as a place to write down their justifications for not doing the right thing, or I don't know if you've ever",
+    "time": "7:04"
+  },
+  {
+    "text": "seen this, but they'll over rotate on some small correction that you made, and they treat it like a hard rule that can never be broken ever again.",
+    "time": "7:13"
+  },
+  {
+    "text": "And here's another example from cursor.",
+    "time": "7:22"
+  },
+  {
+    "text": "So agents really loved using imperative timers. So things like set timeout, request animation frame, request idle call back. And they were using these as",
+    "time": "7:25"
+  },
+  {
+    "text": "quick fixes because they were really patching over an architecture clash between uh VS Code's imperative style and React's declarative style.",
+    "time": "7:33"
+  },
+  {
+    "text": "So our choice of architecture actually made both the client and the agent performance much worse. And if you've",
+    "time": "7:44"
+  },
+  {
+    "text": "ever done any performance work in JavaScript, you'll know that when you have tons of timers being rapidly created and destroyed causes a lot of uh",
+    "time": "7:52"
+  },
+  {
+    "text": "major garbage collection, which causes a lot of lag and jen. Uh but the worst part is that agents wrote a lot of code",
+    "time": "7:59"
+  },
+  {
+    "text": "comments like you can see in red here explaining why this quick fix was justified and before you know it, we had",
+    "time": "8:06"
+  },
+  {
+    "text": "timers spreading everywhere and the you know the performance of the app really suffered.",
+    "time": "8:14"
+  },
+  {
+    "text": "Now in graphbot uh we learned our lesson there and we decided to just ban 99% of comments uh because they go stale easily",
+    "time": "8:20"
+  },
+  {
+    "text": "uh you know humans just really don't bother reading the comment slop anyway and again it gives an agent the an",
+    "time": "8:29"
+  },
+  {
+    "text": "escape hatch to justify not doing the right thing because it's hard. Um and the worst part about comments though is",
+    "time": "8:36"
+  },
+  {
+    "text": "that they're not enforcable. So what seems well-intentioned, you know, like I'm going to tell the the next agent not to do something, never ends up actually",
+    "time": "8:43"
+  },
+  {
+    "text": "being anything that you can trust. So in Grogbot and Dune and in Dune, uh we now have lint rules that give uh good and",
+    "time": "8:52"
+  },
+  {
+    "text": "very helpful error messages telling the agent to fix the root cause, the real problem, uh rather than just patch around it.",
+    "time": "9:01"
+  },
+  {
+    "text": "And so our general principle is that every time we correct our agents, it turns into one of these deterministic checks or we think about how to categorically eliminate that problem in",
+    "time": "9:10"
+  },
+  {
+    "text": "the code through better API design, through better architecture. And if you do this enough times, you'll find that",
+    "time": "9:19"
+  },
+  {
+    "text": "you have just less things to look out for in code review. And at some point you realize there's there's nothing left to review and you can just let agents",
+    "time": "9:27"
+  },
+  {
+    "text": "merge their most of their own pull requests.",
+    "time": "9:35"
+  },
+  {
+    "text": "All right. Uh moving on. Verification is also a really big part of how we make our agents more autonomous and also",
+    "time": "9:40"
+  },
+  {
+    "text": "increase our confidence and trust in their work. And our code review process has now really shrunk into looking at verification artifacts instead. So",
+    "time": "9:48"
+  },
+  {
+    "text": "things like videos, screenshots, diagrams, formal verification.",
+    "time": "9:56"
+  },
+  {
+    "text": "Um, and the most basic example of this is runtime verification. Uh, which is just a fancy way of saying giving your agent a way to run the code for itself",
+    "time": "10:02"
+  },
+  {
+    "text": "and use debugging tools that you know, human developers use as well, like the Chrome DevTools protocol. Um, in our runtime verification skills, we have this thing that we call a feature map.",
+    "time": "10:10"
+  },
+  {
+    "text": "And that's basically kind of like a site map of all of the features that are available in your application from the user's point of view. And so with this,",
+    "time": "10:21"
+  },
+  {
+    "text": "agents don't need to guess when you say, you know, the thingy in the left sidebar. It gives you some shared vocabulary.",
+    "time": "10:30"
+  },
+  {
+    "text": "And we also make use of custom CLIs inside these skills so that uh agents can reuse the the CLI and the driver",
+    "time": "10:37"
+  },
+  {
+    "text": "every time which cuts down on token usage and is also testable.",
+    "time": "10:45"
+  },
+  {
+    "text": "Um and then recently we've also started looking at formal verification. Uh so we now use TA plus to do some model checking of major user flows such as uh",
+    "time": "10:50"
+  },
+  {
+    "text": "notifications across multiple devices and platforms. Uh we use a lean as well for proving certain algorithms. Uh for example, we have our own we wrote our",
+    "time": "10:59"
+  },
+  {
+    "text": "own custom virtualization library and we use lean there to check that we don't have you know flickering or jittering problems. Um and we're still experimenting with this approach.",
+    "time": "11:08"
+  },
+  {
+    "text": "Overall it seems very promising. Uh we've already found quite a few bugs uh with formal verification.",
+    "time": "11:18"
+  },
+  {
+    "text": "Um but it's certainly not a silver bullet and we're treating it as another tool, another layer in our agents uh environment.",
+    "time": "11:25"
+  },
+  {
+    "text": "Uh and then this is a very fast video but uh another thing that we just started looking at is property based testing as well for UIs. Uh so we use",
+    "time": "11:35"
+  },
+  {
+    "text": "this library called Bombadil. Um and this has also caught a few UI bugs for us already.",
+    "time": "11:44"
+  },
+  {
+    "text": "Okay. Okay, so zooming out, I saw this tweet from Cindy and six months ago she she said that she was or she was talking",
+    "time": "11:51"
+  },
+  {
+    "text": "about not being able to trust her agents because of subtle bugs that were getting merged.",
+    "time": "11:58"
+  },
+  {
+    "text": "And really what was missing for her in being able to trust her agents was the verification process. And now 6 months later, she says that 70% of her daily",
+    "time": "12:05"
+  },
+  {
+    "text": "tokens go into verification. And I'd say that that tracks with what I see as well, that most of my token usage goes to verification.",
+    "time": "12:13"
+  },
+  {
+    "text": "And if you really look closely at our process, none of these things here are new or novel techniques that we've never had before.",
+    "time": "12:22"
+  },
+  {
+    "text": "These are just good software engineering tools, but ones that might have been prohibitively expensive to use before as they were hard to understand or write or",
+    "time": "12:30"
+  },
+  {
+    "text": "maintain. But agents drastically cut this cost down. And really, we're entering a golden age of software",
+    "time": "12:39"
+  },
+  {
+    "text": "testing and verification because agents let us test everything to a much greater degree than used to be economical.",
+    "time": "12:46"
+  },
+  {
+    "text": "And then formal verification can also help you better reason about how your product should work and whether your agents really understand your intent and",
+    "time": "12:54"
+  },
+  {
+    "text": "goals. Uh I made this new skill called state chart uh in my plug-in PSAC potato stack uh which helps you visualize state",
+    "time": "13:01"
+  },
+  {
+    "text": "machines from uh from the user's point of view. Uh, and it's I find this much easier to review alongside the videos",
+    "time": "13:09"
+  },
+  {
+    "text": "and screenshots that we provide. Um, and so that's been great. Sorry for the flashbang. Uh, okay. Now, let's look at",
+    "time": "13:16"
+  },
+  {
+    "text": "what the promised land looks like. What do you get in return for all of this, uh, you know, investment?",
+    "time": "13:24"
+  },
+  {
+    "text": "So, on the Graphbot team, our velocity is uh, taking off and rapidly increasing. And last month, our team",
+    "time": "13:32"
+  },
+  {
+    "text": "shipped a ridiculous 11,000 pull requests to production, which is a wild number. And our pace of releasing the",
+    "time": "13:39"
+  },
+  {
+    "text": "client has also increased. And we cut a new stable version about once a day.",
+    "time": "13:48"
+  },
+  {
+    "text": "And then the core team is also shipping much more. And we also have uh a lot more casual or drive by contributors who",
+    "time": "13:54"
+  },
+  {
+    "text": "don't always have a lot of context uh but they're also contributing. Um, and in October we had about 227 people who contributed at least one pull request.",
+    "time": "14:01"
+  },
+  {
+    "text": "So despite this velocity accelerating, you might be thinking to yourself like, isn't this going to be chaos? You know, isn't this going to be a bunch of flop?",
+    "time": "14:14"
+  },
+  {
+    "text": "But actually, the number of uh PRs that get reverted has actually gotten lower on a relative basis and it's steady at about half a percent.",
+    "time": "14:21"
+  },
+  {
+    "text": "But I think the really interesting thing about this shipping pace and this volume of pull requests is that the performance",
+    "time": "14:30"
+  },
+  {
+    "text": "of Grabbot has stayed not just stable but has improved on multiple dimensions compared to when we launched. So startup",
+    "time": "14:38"
+  },
+  {
+    "text": "typing, opening new chats, switching chats, all of this has gotten faster and keep in mind Grothbot is still an",
+    "time": "14:45"
+  },
+  {
+    "text": "Electron app for now. Uh so there is a ceiling, right? But it's already much faster than many other agent UIs out",
+    "time": "14:53"
+  },
+  {
+    "text": "there. And for an Electron app with this high velocity and this many people contributing, I'd say that's pretty good.",
+    "time": "15:01"
+  },
+  {
+    "text": "So before you jump into building out a software factory and you know automating everything that you can, whenever you correct your agent, try and do it by",
+    "time": "15:11"
+  },
+  {
+    "text": "improving your codebase first. you know, start with a lint rule to prevent new occurrences of anti-atterns and then clean up those uh old patterns as well",
+    "time": "15:19"
+  },
+  {
+    "text": "and then make sure that your verification story is really strong.",
+    "time": "15:28"
+  },
+  {
+    "text": "A lot of this work is a prerequisite to automation anyway. And if your inner coding loop uh produces slop, then",
+    "time": "15:32"
+  },
+  {
+    "text": "automating that loop just produces more slop and you need to throw more and more and more tokens at the problem, which we all know is very expensive.",
+    "time": "15:40"
+  },
+  {
+    "text": "And once you've made these investments into you know code into your codebase static analysis runtime informal verification you'll start to find that",
+    "time": "15:49"
+  },
+  {
+    "text": "many things become possible with these foundations and that you can really easily build your own factory on top of these foundations",
+    "time": "15:57"
+  },
+  {
+    "text": "and when you're ready is a great way to build that uh outer loop. We have tons of connectors, routines that can kick off cursor cloud agents and projects uh",
+    "time": "16:07"
+  },
+  {
+    "text": "which let you orchestrate thousands of u hundreds or even thousands of agents.",
+    "time": "16:16"
+  },
+  {
+    "text": "And as a quick example, you know, whenever we cut a new release now, Grockbot will automatically spin up a new cursor project for us that will fuzz",
+    "time": "16:21"
+  },
+  {
+    "text": "the entire application, the entire build, and it will find bugs uh by running the app and using it like a real user. And then it's going to open fixed",
+    "time": "16:28"
+  },
+  {
+    "text": "PRs for each of those bugs that it finds and it's going to automerge it as uh crazy as that sounds. And that's because",
+    "time": "16:37"
+  },
+  {
+    "text": "our code base is good enough that pull requests tend to just be good by default. And most product code that we land no longer really requires deep human review.",
+    "time": "16:44"
+  },
+  {
+    "text": "So when you have solid foundations and good organic architecture, you can turn slop into gold and you can ship with",
+    "time": "16:56"
+  },
+  {
+    "text": "high quality uh high velocity without compromising on quality. My name is Potato, also known as Lauren. Thanks you again for listening to my talk.",
+    "time": "17:04"
+  },
+  {
+    "text": "[applause]",
+    "time": "17:14"
+  }
+]
