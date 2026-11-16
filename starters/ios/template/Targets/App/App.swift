@@ -6,6 +6,8 @@ import SwiftUI
 @main
 struct StarterApp: App {
     var body: some Scene {
-        WindowGroup { Text("Starter") }
+        WindowGroup {
+            NotificationSettingsView(saver: FakeNotificationPreferenceSaver())
+        }
     }
 }

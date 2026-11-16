@@ -1,0 +1,10 @@
+id = "no-io-in-logic"
+layer = "2"
+summary = "Feature logic modules (*Logic) do no I/O; side effects go through injected clients."
+problem = "Neither TCA nor Mobius stops a reducer or update function from reading files or calling the network, so logic becomes untestable and effects escape cancellation."
+message = "No I/O in a Logic module. Define a client protocol in the feature's Interface module, inject it, and call it from an effect."
+escape_hatches = ["Wrapping the API in a local helper inside the Logic module: the text match still sees the API name.", "Unlisted I/O APIs: add them to NoIOInLogic.swift when found."]
+origin = "State-flow trial, Nov 2026: probe 6 (logic does I/O directly) was caught by neither TCA nor Mobius."
+
+[ios]
+harmonize = "NoIOInLogic.swift: text match for FileManager, FileHandle, URLSession, UserDefaults, contentsOf:, NWConnection and Process( in Targets/*Logic/ (a heuristic, not type-aware)."

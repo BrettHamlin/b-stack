@@ -1,0 +1,10 @@
+id = "exhaustive-tests"
+layer = "2"
+summary = "TCA tests stay exhaustive: no exhaustivity = .off, skipReceivedActions or skipInFlightEffects."
+problem = "Exhaustive TestStore tests are why TCA caught untested changes and deleted assertions in the trial. Agents switch exhaustivity off when a test is hard to finish."
+message = "Keep the TestStore exhaustive. Assert every state change and received action; let effects finish or cancel them. If that's impossible, stop and report."
+escape_hatches = ["Testing reducers by hand without a TestStore: review."]
+origin = "State-flow trial, Nov 2026: TCA's exhaustive TestStore caught probes 3 and 8."
+
+[ios]
+harmonize = "ExhaustiveTests.swift: text match in test code for exhaustivity = .off, .skipReceivedActions( and .skipInFlightEffects(."

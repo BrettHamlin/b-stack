@@ -4,7 +4,7 @@ Clone this, and an agent can set up a new app where quality is **enforced, not r
 
 It started from Lauren Tan's talk [*All Code Is Slop (Except Mine)*](https://www.youtube.com/watch?v=O_zcc6Xl12g) and is built around an **enforcement pyramid**: make the wrong thing impossible to write; failing that, block it from merging; failing that, catch it in verification. Prose comes last.
 
-**Status: early.** iOS only. The starter enforces 9 tested rules through the compiler, [Tuist](https://tuist.dev), [SwiftLint](https://github.com/realm/SwiftLint) and [Harmonize](https://github.com/perrystreetsoftware/Harmonize). CI, a new-feature command and verification are not built yet.
+**Status: early.** iOS only. The starter uses TCA for state flow and enforces 11 tested rules through the compiler, unit tests, [Tuist](https://tuist.dev), [SwiftLint](https://github.com/realm/SwiftLint) and [Harmonize](https://github.com/perrystreetsoftware/Harmonize). CI, a new-feature command and verification are not built yet.
 
 ## Using it
 

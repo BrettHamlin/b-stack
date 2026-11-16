@@ -14,7 +14,7 @@ Ask the user for the platform and a one-line description of the app. Available s
 ## 2. Agree the module plan with the user
 
 Propose, then confirm with the user. Don't decide alone:
-- the first features (each becomes `<Feature>Interface` + `<Feature>`)
+- the first features (each becomes `<Feature>Interface`, `<Feature>Logic`, `<Feature>` and `<Feature>Tests`, following the Settings example)
 - which module owns persistence and networking (default: Platform)
 - the one approved way to do subscriptions, timers, cancellation and background work
 

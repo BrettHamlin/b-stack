@@ -7,7 +7,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', 'origin', 'ios']
 LAYERS = {'1', '2', '1+2', '3', 'foundation'}
-ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize')
+ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests')
 LINK = re.compile(r'\]\(([^)\s]+)\)')
 errors = []
 

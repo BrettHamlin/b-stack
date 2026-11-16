@@ -5,11 +5,12 @@
 - Module dependencies are declared in `Project.swift`. Allowed system imports per module are in `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`.
 - Use the existing approved APIs for <lifecycle, background work, persistence, navigation>. Don't introduce a second way to do the same thing.
 - Pass dependencies in through initializers; `App` is the only place they're wired together.
+- Features use TCA, shaped like `Targets/Settings*`: types and client protocols in `<Feature>Interface`, a `@Reducer` in `<Feature>Logic` (no I/O; effects call injected clients), a view in `<Feature>` that only sends actions, exhaustive `TestStore` tests in `<Feature>Tests`.
 
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, tuist, swiftlint, harmonize: all must PASS
+python3 scripts/check.py        # compiler, tuist, swiftlint, harmonize, tests: all must PASS
 ```
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it. Include an evidence package (`evidence.template.md` format) for behaviour changes.

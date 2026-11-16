@@ -29,7 +29,7 @@ rules/<rule-id>/
 | Key | Meaning |
 |---|---|
 | `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate) |
-| `enforced_by` | The gate that must reject a fail case: `compiler`, `tuist`, `swiftlint` or `harmonize` |
+| `enforced_by` | The gate that must reject a fail case: `compiler`, `tuist`, `swiftlint`, `harmonize` or `tests` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
 
 Every rule needs at least one `fail` case, unless `tests_pending` explains why.
@@ -47,4 +47,6 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-force-operations](no-force-operations/rule.toml) | 2 | SwiftLint | No force unwrap, force try or force cast |
 | [no-suppressions](no-suppressions/rule.toml) | 2 | SwiftLint | No lint suppression comments |
 | [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | Harmonize | UI identifiers are constants, not string literals |
+| [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | Feature logic does no I/O; effects call injected clients |
+| [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | TCA tests stay exhaustive (no exhaustivity off or skips) |
 | [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | Enforcement files need a human code owner to change |

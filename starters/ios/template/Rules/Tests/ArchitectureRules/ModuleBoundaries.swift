@@ -6,8 +6,9 @@ import Testing
 let allowedImports: [String: Set<String>] = [
     "Core": ["Foundation"],
     "SettingsInterface": ["Foundation", "Core"],
-    "Settings": ["Foundation", "SwiftUI", "Observation", "Core", "SettingsInterface"],
-    "Platform": ["Foundation", "Core"],
+    "SettingsLogic": ["Foundation", "Core", "SettingsInterface", "ComposableArchitecture"],
+    "Settings": ["Foundation", "SwiftUI", "Observation", "Core", "SettingsInterface", "SettingsLogic", "ComposableArchitecture"],
+    "Platform": ["Foundation", "Core", "SettingsInterface"],
     "App": ["Foundation", "SwiftUI", "Settings", "SettingsInterface", "Platform"],
 ]
 
