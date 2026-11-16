@@ -15,6 +15,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paths import link_build_dirs  # noqa: E402
 from tools import tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,7 +48,7 @@ def gate(name: str) -> bool:
     if name == 'swiftlint':
         return run([str(tool_path('swiftlint')), 'lint', '--strict', '--quiet'])
     if name == 'harmonize':
-        return run(['swift', 'test', '--package-path', 'Rules'])
+        return run(['swift', 'test', '--package-path', 'Rules', '--scratch-path', '.build/rules'])
     raise ValueError(name)
 
 
@@ -55,6 +56,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--only', action='append', choices=GATES)
     selected = parser.parse_args().only or GATES
+    link_build_dirs(ROOT)
     failed = []
     for name in selected:
         ok = gate(name)

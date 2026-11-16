@@ -6,7 +6,8 @@ For each case, Targets/ is reset to the project's and the case's Targets/ is ove
 The untouched project must pass every gate first.
 
 Default project: starters/ios/template. Pass --project <new-app> to prove a new app's setup enforces the rules.
-Work happens in .build/rule-tests/ (gitignored); tool downloads are cached in .tools/.
+Work and tool downloads go to the cache folder if one is configured (see starters/ios/template/scripts/paths.py),
+otherwise to .build/rule-tests/ and .tools/ (gitignored).
 """
 from pathlib import Path
 import argparse
@@ -17,6 +18,8 @@ import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'starters/ios/template/scripts'))
+from paths import cache_root  # noqa: E402
 SKIP = {'.build', '.tools', 'Derived'}
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -28,7 +31,8 @@ project = args.project.resolve()
 if not (project / 'scripts/check.py').is_file():
     sys.exit(f'No scripts/check.py in {project}')
 
-work = ROOT / '.build/rule-tests' / project.name
+cache = cache_root()
+work = (cache / 'rule-tests' if cache else ROOT / '.build/rule-tests') / project.name
 work.mkdir(parents=True, exist_ok=True)
 for item in work.iterdir():
     if item.name not in SKIP:
@@ -36,7 +40,7 @@ for item in work.iterdir():
 for item in project.iterdir():
     if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
         (shutil.copytree if item.is_dir() else shutil.copy2)(item, work / item.name)
-env = {**os.environ, 'BSTACK_TOOLS_DIR': str(ROOT / '.tools')}
+env = dict(os.environ) if cache else {**os.environ, 'BSTACK_TOOLS_DIR': str(ROOT / '.tools')}
 
 
 def check(*gates: str) -> tuple[bool, str]:

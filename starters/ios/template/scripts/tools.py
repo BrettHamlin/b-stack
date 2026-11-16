@@ -1,4 +1,6 @@
-"""Print the path to a pinned tool from tools.toml, downloading and SHA-256-verifying it into .tools/ (or $BSTACK_TOOLS_DIR) first if needed.
+"""Print the path to a pinned tool from tools.toml, downloading and SHA-256-verifying it first if needed.
+
+Tools go to $BSTACK_TOOLS_DIR if set, else <cache folder>/tools if one is configured (see paths.py), else .tools/.
 
 Usage: python3 scripts/tools.py <tool-name>
 """
@@ -11,12 +13,22 @@ import sys
 import tomllib
 import urllib.request
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paths import cache_root  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def tools_dir() -> Path:
+    if os.environ.get('BSTACK_TOOLS_DIR'):
+        return Path(os.environ['BSTACK_TOOLS_DIR'])
+    cache = cache_root()
+    return cache / 'tools' if cache else ROOT / '.tools'
 
 
 def tool_path(name: str) -> Path:
     spec = tomllib.loads((ROOT / 'tools.toml').read_text())[name]
-    home = Path(os.environ.get('BSTACK_TOOLS_DIR', ROOT / '.tools')) / f'{name}-{spec["version"]}'
+    home = tools_dir() / f'{name}-{spec["version"]}'
     binary = home / spec['binary']
     if binary.is_file():
         return binary

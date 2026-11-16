@@ -9,6 +9,7 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | Tuist project: Core, SettingsInterface, Settings, Platform, App | `template/Project.swift`, `template/Targets/` | ✅ Generates and builds for the iOS Simulator with strict Swift 6 settings |
 | Gate command: compiler, Tuist, SwiftLint, Harmonize | `template/scripts/check.py` | ✅ Passes on the template; every rule case runs through it |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py` | ✅ Tuist 4.216.7, SwiftLint 0.65.1 |
+| Build output and tools in a configurable cache folder | `template/scripts/paths.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
 | Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers |
 | Lint rules | `template/.swiftlint.yml` | ✅ Force operations, suppression comments |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |

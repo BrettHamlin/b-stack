@@ -12,7 +12,7 @@
 python3 scripts/check.py        # compiler, tuist, swiftlint, harmonize: all must PASS
 ```
 
-Run it before handing back. A failure names the rule and how to fix it. Include an evidence package (`evidence.template.md` format) for behaviour changes.
+Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it. Include an evidence package (`evidence.template.md` format) for behaviour changes.
 
 ## Never weaken enforcement
 

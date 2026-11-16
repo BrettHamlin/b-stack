@@ -18,7 +18,7 @@ python3 scripts/test_rules.py
 python3 scripts/check_repo.py
 ```
 
-Zero FAIL in both. The first rule-test run downloads pinned tools into `.tools/` and builds the Harmonize rules (a few minutes); later runs take about 2 minutes.
+Zero FAIL in both. The first rule-test run downloads pinned tools and builds the Harmonize rules (a few minutes); later runs take about 2 minutes.
 
 ## Rules for changing this repo
 
@@ -27,6 +27,10 @@ Zero FAIL in both. The first rule-test run downloads pinned tools into `.tools/`
 - **Starters only list what exists.** Don't describe planned pieces as built.
 - **No new prose docs** beyond skills, `rules/README.md`, starter READMEs and `DECISIONS.md`.
 - When citing the talk, check `research/lauren-tan-video/ANALYSIS.md`; don't attribute our ideas to her.
+
+## Large files
+
+Build output, package checkouts and downloaded tools go to the cache folder set by `$BSTACK_CACHE_DIR` or `cache_dir` in `~/.config/b-stack/config.toml` (logic in `starters/ios/template/scripts/paths.py`). On the owner's machine that's on MicroBay. If the folder is unavailable, scripts stop; never work around that by building on the internal drive. Say the drive isn't mounted.
 
 ## Research media
 
