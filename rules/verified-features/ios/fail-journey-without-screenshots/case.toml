@@ -1,0 +1,4 @@
+# The journeys pass, but attach no screenshots, so there is no evidence.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch attached no screenshots"

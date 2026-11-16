@@ -4,12 +4,6 @@ public import SettingsLogic
 public import ComposableArchitecture
 public import SwiftUI
 
-public enum NotificationSettingsUIID {
-    public static let toggle = "notificationSettings.toggle"
-    public static let saving = "notificationSettings.saving"
-    public static let error = "notificationSettings.error"
-}
-
 public struct NotificationSettingsView: View {
     @Bindable var store: StoreOf<NotificationSettings>
 
@@ -17,9 +11,9 @@ public struct NotificationSettingsView: View {
         self.store = store
     }
 
-    public init(saver: any NotificationPreferenceSaving) {
+    public init(saver: any NotificationPreferenceSaving, isEnabled: Bool) {
         self.init(
-            store: Store(initialState: NotificationSettings.State()) {
+            store: Store(initialState: NotificationSettings.State(isEnabled: isEnabled)) {
                 NotificationSettings(saver: saver)
             }
         )

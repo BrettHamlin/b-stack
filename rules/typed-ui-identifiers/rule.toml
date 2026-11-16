@@ -7,5 +7,5 @@ escape_hatches = ["String literals: Harmonize rule.", "Tests matching on visible
 origin = "Design discussion on verification, Nov 2026."
 
 [ios]
-compiler = "A shared UIID enum used by both the app and the UI tests/driver."
-harmonize = "TypedUIIdentifiers.swift: no string literals passed to .accessibilityIdentifier (text match: Harmonize 1.3.0 can't see calls inside a SwiftUI body)."
+compiler = "UIID enums live in the feature's Interface module, imported by both the view and the UI journeys."
+harmonize = "TypedUIIdentifiers.swift: no string literals passed to .accessibilityIdentifier, and in Targets/*UITests no string-literal subscript except launchEnvironment, identifier argument or identifier predicate (text matches: Harmonize 1.3.0 can't see calls inside a SwiftUI body)."

@@ -1,19 +1,30 @@
 import Core
+import Foundation
 public import SettingsInterface
 
-public actor FakeNotificationPreferenceSaver: NotificationPreferenceSaving {
-    public private(set) var savedValues: [Bool] = []
-    private let delay: Duration
-    private let failure: NotificationPreferenceError?
+/// The notification preference, kept in UserDefaults on the device.
+public struct StoredNotificationPreferences: NotificationPreferenceSaving {
+    private static let key = "notificationsEnabled"
+    private let suiteName: String?
 
-    public init(delay: Duration = .milliseconds(300), failure: NotificationPreferenceError? = nil) {
-        self.delay = delay
-        self.failure = failure
+    /// `suiteName` selects a separate UserDefaults store; nil uses the app's standard one.
+    public init(suiteName: String? = nil) {
+        self.suiteName = suiteName
+    }
+
+    private var defaults: UserDefaults {
+        suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
+    }
+
+    public func load() -> Bool {
+        defaults.bool(forKey: Self.key)
+    }
+
+    public func store(enabled: Bool) {
+        defaults.set(enabled, forKey: Self.key)
     }
 
     public func save(enabled: Bool) async throws(NotificationPreferenceError) {
-        do { try await Task.sleep(for: delay) } catch { throw NotificationPreferenceError(message: "Cancelled") }
-        if let failure { throw failure }
-        savedValues.append(enabled)
+        store(enabled: enabled)
     }
 }

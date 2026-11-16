@@ -22,15 +22,16 @@ rules/<rule-id>/
 | `message` | What the agent sees: what's wrong, what to use instead, stop and report if blocked |
 | `escape_hatches` | Ways around the rule, and what blocks each |
 | `origin` | Where the rule came from |
-| `[ios]` | One key per enforcing tool (`compiler`, `tuist`, `swiftlint`, `harmonize`, `repo`) saying how. `tests_pending` if no cases exist yet, with the reason. |
+| `[ios]` | One key per enforcing tool (`compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `repo`) saying how. `tests_pending` if no cases exist yet, with the reason. |
 
 ### case.toml
 
 | Key | Meaning |
 |---|---|
-| `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate) |
-| `enforced_by` | The gate that must reject a fail case: `compiler`, `tuist`, `swiftlint`, `harmonize` or `tests` |
+| `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate except `verify`, which drives a simulator and runs on the untouched project) |
+| `enforced_by` | The gate that must reject a fail case: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
+| `adds_targets` | Optional: targets the case adds that the project doesn't have (otherwise a missing target is a SKIP) |
 
 Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 
@@ -46,7 +47,9 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-concurrency-escapes](no-concurrency-escapes/rule.toml) | 1+2 | compiler, Harmonize | Strict concurrency on; its escape hatches banned |
 | [no-force-operations](no-force-operations/rule.toml) | 2 | SwiftLint | No force unwrap, force try or force cast |
 | [no-suppressions](no-suppressions/rule.toml) | 2 | SwiftLint | No lint suppression comments |
-| [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | Harmonize | UI identifiers are constants, not string literals |
+| [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | Harmonize | UI identifiers are constants in views and journeys, not string literals |
 | [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | Feature logic does no I/O; effects call injected clients |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | TCA tests stay exhaustive (no exhaustivity off or skips) |
+| [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | Only the test-mode app (AppVerify) can use fixtures |
+| [verified-features](verified-features/rule.toml) | 3 | verify | Every feature is in the feature map and its journeys pass in the running app |
 | [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | Enforcement files need a human code owner to change |

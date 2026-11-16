@@ -1,13 +1,14 @@
 import Platform
 import Settings
-import SettingsInterface
 import SwiftUI
 
 @main
 struct StarterApp: App {
+    private let preferences = StoredNotificationPreferences()
+
     var body: some Scene {
         WindowGroup {
-            NotificationSettingsView(saver: FakeNotificationPreferenceSaver())
+            NotificationSettingsView(saver: preferences, isEnabled: preferences.load())
         }
     }
 }

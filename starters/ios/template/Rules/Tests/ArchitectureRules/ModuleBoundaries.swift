@@ -9,7 +9,9 @@ let allowedImports: [String: Set<String>] = [
     "SettingsLogic": ["Foundation", "Core", "SettingsInterface", "ComposableArchitecture"],
     "Settings": ["Foundation", "SwiftUI", "Observation", "Core", "SettingsInterface", "SettingsLogic", "ComposableArchitecture"],
     "Platform": ["Foundation", "Core", "SettingsInterface"],
+    "Fixtures": ["Foundation", "Core", "SettingsInterface", "Platform"],
     "App": ["Foundation", "SwiftUI", "Settings", "SettingsInterface", "Platform"],
+    "AppVerify": ["Foundation", "SwiftUI", "Settings", "SettingsInterface", "Fixtures"],
 ]
 
 @Test func moduleBoundaries() {
