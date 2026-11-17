@@ -1,5 +1,4 @@
-# Legitimate journey code: typed lookups and predicates, dictionaries in every common form (typed, literal,
-# [K: V](), Dictionary<K, V>(), cast, parameter, copy of a copy, ProcessInfo environment), a "//" inside a string,
-# literals in comments, and system UI (keyboard keys, springboard alerts) that can't carry our identifiers.
+# Journeys through JourneyKit, plus ordinary code that is not a lookup: dictionaries in any form, the process
+# environment, Locale/TimeZone identifiers, a "//" inside a string, and system UI through JourneyKit's helpers.
 expect = "pass"
 enforced_by = "harmonize"

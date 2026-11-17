@@ -1,4 +1,4 @@
-import Core
+public import Core
 
 public struct NotificationPreferenceError: Error, Equatable, Sendable {
     public let message: String
@@ -19,7 +19,7 @@ public protocol NotificationPreferences: NotificationPreferenceSaving {
 /// elements by them, so a renamed or mistyped identifier is a compile error rather than a journey that can't find
 /// its element.
 public enum NotificationSettingsUIID {
-    public static let toggle = "notificationSettings.toggle"
-    public static let saving = "notificationSettings.saving"
-    public static let error = "notificationSettings.error"
+    public static let toggle = UIID("notificationSettings.toggle")
+    public static let saving = UIID("notificationSettings.saving")
+    public static let error = UIID("notificationSettings.error")
 }

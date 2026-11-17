@@ -37,8 +37,8 @@ Run `doctor` before driving and again whenever something looks off. Exploring is
 
 ## Add a feature
 
-1. Give its views identifiers from a `<Feature>UIID` enum in `<Feature>Interface`. Journeys find elements by those constants, never string literals.
-2. Write journeys in `Targets/AppVerifyUITests` (`XCTestCase`, `testXxx()`). Each launches through the `launch(fixture:reset:)` helper, which records the fixture so the gate can check it against the map. A journey uses exactly one fixture; two starting states are two journeys. It then acts like a user, asserts what the user would see, and attaches screenshots (`XCTAttachment`, `.keepAlways`).
+1. Give its views identifiers from a `<Feature>UIID` enum in `<Feature>Interface` (`static let x = UIID("feature.x")`, set with `.accessibilityIdentifier(<Feature>UIID.x.rawValue)`). Only Interface modules may create a `UIID`.
+2. Write journeys in `Targets/AppVerifyUITests` (`XCTestCase`, `testXxx()`) using `JourneyKit.swift`: `launchApp(fixture:reset:readyWhen:)` returns a `Screen`; find elements with `screen.find(<Feature>UIID.x)` (or `toggle(_:)`, `switchValue(_:)`), tap with `tapWhenHittable`, wait with `waitUntilGone`, and attach screenshots with `capture`. Journeys may not use XCUITest's lookup API (`.buttons`, `.switches`, `descendants`, `XCUIApplication`, `NSPredicate`, ...) directly; if JourneyKit lacks something, add a helper there. Each launches through `launchApp`, which records the fixture so the gate can check it against the map. A journey uses exactly one fixture; two starting states are two journeys. It then acts like a user, asserts what the user would see, and attaches screenshots (`XCTAttachment`, `.keepAlways`).
 3. Add `feature-map/<id>.toml`: `module`, `summary`, `entry_points`, `gotchas`, and one `[[journeys]]` per journey with `test`, `fixture` and `proves`. A journey belongs to one feature only.
 4. Compose the feature the same way in `App` and `AppVerify`: both call the same view initializer, and only the services passed in differ.
 

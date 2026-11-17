@@ -1,0 +1,4 @@
+# A journey inventing an identifier from a string.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] UIIDs created outside an Interface module"

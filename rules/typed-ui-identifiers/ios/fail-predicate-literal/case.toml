@@ -1,4 +1,4 @@
 # A literal identifier inside an NSPredicate format string.
 expect = "fail"
 enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] String literal element lookups"
+diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"

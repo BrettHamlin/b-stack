@@ -4,9 +4,8 @@ import XCTest
 /// The test is declared only on the base class, so ProfileJourneys runs it as ProfileJourneys/testEditsName.
 class JourneyBase: XCTestCase {
     func testEditsName() {
-        let app = XCUIApplication()
-        app.launch()
-        XCTAssertTrue(app.switches[NotificationSettingsUIID.toggle].waitForExistence(timeout: 20))
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
+        XCTAssertTrue(screen.find(NotificationSettingsUIID.toggle).exists)
     }
 }
 

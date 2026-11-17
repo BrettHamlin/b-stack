@@ -12,8 +12,7 @@ final class CheckpointJourneys: XCTestCase {
     }
 
     func testReachesSettings() {
-        let app = XCUIApplication()
-        app.launch()
-        XCTAssertTrue(app.switches[NotificationSettingsUIID.toggle].waitForExistence(timeout: 20), Checkpoint.start.rawValue)
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
+        XCTAssertTrue(screen.find(NotificationSettingsUIID.toggle).exists, Checkpoint.start.rawValue)
     }
 }

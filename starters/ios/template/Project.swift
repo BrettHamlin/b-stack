@@ -72,7 +72,7 @@ let project = Project(
             bundleId: "dev.bstack.starter.verifyuitests",
             deploymentTargets: .iOS("18.0"),
             sources: ["Targets/AppVerifyUITests/**"],
-            dependencies: [.target(name: "AppVerify"), .target(name: "SettingsInterface")],
+            dependencies: [.target(name: "AppVerify"), .target(name: "SettingsInterface"), .target(name: "Core")],
             settings: .settings(base: strict)
         ),
     ],

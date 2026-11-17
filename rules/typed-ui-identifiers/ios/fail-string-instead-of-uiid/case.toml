@@ -1,0 +1,4 @@
+# A string where an identifier is expected does not compile.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "cannot convert value of type 'String' to expected argument type 'UIID'"

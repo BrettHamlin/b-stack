@@ -1,4 +1,0 @@
-# Queries reached through another subscript (an array element, a value pulled out of a dictionary) are not dictionaries.
-expect = "fail"
-enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] String literal element lookups"

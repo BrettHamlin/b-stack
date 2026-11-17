@@ -3,45 +3,32 @@ import SettingsInterface
 import XCTest
 
 final class TypedLookupJourneys: XCTestCase {
-    func testTogglesNotifications() {
-        let app = XCUIApplication()
-        let original = app.launchEnvironment
-        var copied = original
-        copied["BSTACK_FIXTURE"] = "standard"
-        app.launchEnvironment = copied
-        app.launch()
-        // Never app.switches["notificationSettings.toggle"]: use the constant.
-        let typed = NSPredicate(format: "label == %@ AND identifier == %@", "Notifications", NotificationSettingsUIID.toggle)
-        app.switches.element(matching: typed).switches.firstMatch.tap()
-        XCTAssertEqual(app.switches[NotificationSettingsUIID.toggle].identifier, NotificationSettingsUIID.toggle)
-        let site = "https://example.com"; XCTAssertTrue(app.switches[NotificationSettingsUIID.toggle].exists, site)
+    private let env: [String: String] = ["CI": "1"]
 
-        let notes: [String: String] = ["result": "toggled"]
+    func testTogglesNotifications() {
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
+        // Never app.switches["notificationSettings.toggle"]: find it by the constant.
+        tapWhenHittable(screen.toggle(NotificationSettingsUIID.toggle))
+        XCTAssertTrue(screen.find(NotificationSettingsUIID.toggle).exists)
+
         var built = [String: String]()
         built["a"] = "1"
-        var generic = Dictionary<String, String>()
-        generic["b"] = "2"
-        let raw: Any = ["c": "3"]
-        let cast = raw as? [String: String]
+        let notes: [String: String] = ["result": "toggled"]
+        let lookup = { (values: [String: String]) in values["CI"] }
         XCTAssertEqual(notes["result"], "toggled")
-        XCTAssertEqual(cast?["c"], "3")
-        XCTAssertEqual(lookup(built, generic), "12")
+        XCTAssertEqual(self.env["CI"], lookup(env))
+        XCTAssertEqual(built["a"], "1")
         _ = ProcessInfo.processInfo.environment["CI"]
-        let again = copied
-        XCTAssertEqual(again["BSTACK_FIXTURE"], "standard")
-        let other: Dictionary<String, String> = ["d": "4"]
-        XCTAssertEqual(other["d"], "4")
+        _ = Locale(identifier: "en_US_POSIX")
+        _ = TimeZone(identifier: "UTC")
+        let site = "https://example.com"
+        XCTAssertFalse(site.isEmpty)
 
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        if springboard.buttons["Allow"].exists {
-            springboard.buttons["Allow"].tap()
+        if screen.systemAlertButton("Allow").exists {
+            screen.systemAlertButton("Allow").tap()
         }
-        if app.keyboards.buttons["Return"].exists {
-            app.keyboards.buttons["Return"].tap()
+        if screen.keyboardKey("Return").exists {
+            screen.keyboardKey("Return").tap()
         }
-    }
-
-    private func lookup(_ first: [String: String], _ second: Dictionary<String, String>) -> String {
-        (first["a"] ?? "") + (second["b"] ?? "")
     }
 }

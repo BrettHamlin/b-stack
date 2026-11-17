@@ -24,15 +24,15 @@ public struct NotificationSettingsView: View {
     public var body: some View {
         Form {
             Toggle("Notifications", isOn: $store.isEnabled.sending(\.toggleChanged))
-                .accessibilityIdentifier(NotificationSettingsUIID.toggle)
+                .accessibilityIdentifier(NotificationSettingsUIID.toggle.rawValue)
             if store.isSaving {
                 ProgressView("Saving…")
-                    .accessibilityIdentifier(NotificationSettingsUIID.saving)
+                    .accessibilityIdentifier(NotificationSettingsUIID.saving.rawValue)
             }
             if let message = store.errorMessage {
                 Text(message)
                     .foregroundStyle(.red)
-                    .accessibilityIdentifier(NotificationSettingsUIID.error)
+                    .accessibilityIdentifier(NotificationSettingsUIID.error.rawValue)
             }
         }
         .onDisappear { store.send(.screenClosed) }

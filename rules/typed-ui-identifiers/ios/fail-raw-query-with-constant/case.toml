@@ -1,0 +1,4 @@
+# Even with the typed constant, a journey may not use the raw query API; only JourneyKit may.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"
