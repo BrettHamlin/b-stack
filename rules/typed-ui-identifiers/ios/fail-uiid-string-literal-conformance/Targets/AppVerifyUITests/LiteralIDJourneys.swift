@@ -1,4 +1,4 @@
-import Core
+public import Core
 import SettingsInterface
 import XCTest
 

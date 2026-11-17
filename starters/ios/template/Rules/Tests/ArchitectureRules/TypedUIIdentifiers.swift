@@ -5,9 +5,10 @@ import SwiftSyntax
 import Testing
 
 @Test func typedUIIdentifiers() {
-    // Views set identifiers from UIID constants: the argument (or the value assigned to a UIKit accessibilityIdentifier)
-    // must be `.rawValue` of a `<Feature>UIID.<name>` constant, or `.rawValue` of a value passed in (a parameter or
-    // variable, trusted; review). A literal, String(...), concatenation or a String variable fails.
+    // Views set identifiers from UIIDs: the argument (or the value assigned to a UIKit accessibilityIdentifier) must be
+    // `.rawValue` of a `<Feature>UIID.<name>` constant (module-qualified too), `.rawValue` reached from a variable,
+    // parameter or self (trusted; review), or a ternary between such values. A UIKit assignment may also be nil.
+    // A literal, String(...), concatenation or a String variable fails.
     // Parsed with SwiftSyntax: Harmonize 1.3.0 doesn't expose calls inside computed properties such as a SwiftUI body.
     var hits: [String] = []
     for source in Harmonize.productionCode().sources() {
@@ -22,8 +23,8 @@ import Testing
 @Test func uiIdentifiersAreOnlyDeclaredInInterfaces() {
     // Core and the *Interface modules are the only ones that can reach UIID's package initializer. Keep it that way:
     // - Core's UIID initializers are all `package` (none public or open).
-    // - In Core and *Interface, a UIID is only ever created from a plain string literal, so nothing there can forward
-    //   an arbitrary string (a factory taking a String, an ExpressibleBy... conformance).
+    // - In Core and *Interface, an explicit UIID(...) / UIID.init(...) takes a plain string literal, so it never forwards
+    //   an arbitrary String. Indirect construction (.init, Self, init references) is review's job (escape hatches).
     // - Nowhere outside Core may UIID be extended or aliased.
     var hits: [String] = []
     for source in Harmonize.productionCode().sources() + Harmonize.testCode().sources() {
@@ -68,8 +69,11 @@ private final class ViewIdentifierFinder: SyntaxVisitor {
             let target = elements[index - 1].as(MemberAccessExprSyntax.self).map { bare($0.declName.baseName) }
                 ?? elements[index - 1].as(DeclReferenceExprSyntax.self).map { bare($0.baseName) }   // implicit self
             guard target == "accessibilityIdentifier" else { continue }
-            // The whole right-hand side must be the UIID value: `x.rawValue + ".typo"` is more than one element.
-            if index + 2 != elements.count || !isUIIDRawValue(elements[index + 1]) { report(node) }
+            // Everything after `=` is the value: a UIID value, a ternary between two, or nil (clearing it).
+            // `x.rawValue + ".typo"` leaves an extra operator in the sequence, so it fails.
+            let value = Array(elements[(index + 1)...])
+            if value.count == 1, value[0].is(NilLiteralExprSyntax.self) { continue }
+            if !isUIIDValue(value) { report(node) }
         }
         return .visitChildren
     }
@@ -79,27 +83,48 @@ private final class ViewIdentifierFinder: SyntaxVisitor {
     }
 }
 
-/// `.rawValue` of a UIID: `<Feature>UIID.<name>.rawValue`, or `.rawValue` on a value reached from a variable,
-/// parameter or `self` (`id.rawValue`, `self.id.rawValue`, `row.id.rawValue`; trusted, review), or a ternary between
-/// two such values. A chain rooted at a type name must be a `...UIID` type, so a local String enum doesn't pass.
+/// `.rawValue` of a UIID: `<Feature>UIID.<name>.rawValue` (also module-qualified), or `.rawValue` on a value reached
+/// from a variable, parameter or `self` (`id.rawValue`, `self.id.rawValue`, `row.id.rawValue`; trusted, review), or a
+/// ternary between two such values with any condition. A chain through a type name must pass a `...UIID` type, so a
+/// local String enum doesn't pass.
 private func isUIIDRawValue(_ expr: ExprSyntax) -> Bool {
     var expr = expr
     while let tuple = expr.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first { expr = only.expression }
-    if let sequence = expr.as(SequenceExprSyntax.self) {                      // cond ? a : b, unfolded
-        let elements = Array(sequence.elements)
-        guard elements.count == 3, let ternary = elements[1].as(UnresolvedTernaryExprSyntax.self) else { return false }
-        return isUIIDRawValue(ternary.thenExpression) && isUIIDRawValue(elements[2])
-    }
+    if let sequence = expr.as(SequenceExprSyntax.self) { return isUIIDValue(Array(sequence.elements)) }
     guard let raw = expr.as(MemberAccessExprSyntax.self), bare(raw.declName.baseName) == "rawValue", var base = raw.base else { return false }
-    while let member = base.as(MemberAccessExprSyntax.self), let next = member.base {      // walk to the root of the chain
-        if let owner = next.as(DeclReferenceExprSyntax.self), bare(owner.baseName).first?.isUppercase == true {
-            return bare(owner.baseName).hasSuffix("UIID")                      // a type: must be a <Feature>UIID
+    var names: [String] = []                                        // the chain before .rawValue, root last
+    while true {                                                    // row?.id, row!.id and items[i].id walk through
+        if let member = base.as(MemberAccessExprSyntax.self), let next = member.base {
+            names.append(bare(member.declName.baseName))
+            base = next
+        } else if let optional = base.as(OptionalChainingExprSyntax.self) {
+            base = optional.expression
+        } else if let forced = base.as(ForceUnwrapExprSyntax.self) {
+            base = forced.expression
+        } else if let subscripted = base.as(SubscriptCallExprSyntax.self) {
+            base = subscripted.calledExpression
+        } else {
+            break
         }
-        base = next
     }
     guard let root = base.as(DeclReferenceExprSyntax.self) else { return false }
-    let name = bare(root.baseName)
-    return name == "self" || name.first?.isLowercase == true               // a variable, parameter or self
+    let rootName = bare(root.baseName)
+    // A chain from a variable, parameter or self is a value, whatever its properties are called (row.ID): trusted.
+    guard rootName.first?.isUppercase == true else { return true }
+    // A chain from a type name (Module.Type.member) must pass through a <Feature>UIID type before the member, so a
+    // String enum's case named `toggleUIID` doesn't count.
+    return ([rootName] + names.dropFirst().reversed()).contains { $0.hasSuffix("UIID") }
+}
+
+/// An unfolded expression that is one UIID value, `<UIID value> ?? <UIID value>`, or `<any condition> ? <UIID value> : <UIID value>`.
+private func isUIIDValue(_ elements: [ExprSyntax]) -> Bool {
+    if elements.count == 1 { return isUIIDRawValue(elements[0]) }
+    if elements.count == 3, let op = elements[1].as(BinaryOperatorExprSyntax.self), op.operator.text == "??" {
+        return isUIIDRawValue(elements[0]) && isUIIDRawValue(elements[2])     // a?.id.rawValue ?? <UIID value>
+    }
+    let ternaries = elements.indices.filter { elements[$0].is(UnresolvedTernaryExprSyntax.self) }
+    guard ternaries == [elements.count - 2], let ternary = elements[elements.count - 2].as(UnresolvedTernaryExprSyntax.self) else { return false }
+    return isUIIDRawValue(ternary.thenExpression) && isUIIDRawValue(elements[elements.count - 1])
 }
 
 private final class UIIDDeclarationFinder: SyntaxVisitor {
@@ -146,8 +171,8 @@ private final class UIIDDeclarationFinder: SyntaxVisitor {
         return .visitChildren
     }
 
-    // In Core and *Interface: UIID(...), UIID.init(...), .init(...), Self(...) with one unlabeled argument must be a
-    // plain string literal, so nothing there forwards an arbitrary String into a UIID.
+    // In Core and *Interface: an explicit UIID(...) / UIID.init(...) with one unlabeled argument must be a plain string
+    // literal. Indirect construction (.init, Self, init references) is review's job; see rule.toml's escape hatches.
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
         guard isCore || isInterface else { return .visitChildren }
         let callee = node.calledExpression.trimmedDescription.replacingOccurrences(of: "`", with: "")

@@ -1,4 +1,6 @@
-# @testable import would reach the package-level initializer; Core is built without testability.
+# @testable import would reach the package-level initializer. Core is built with ENABLE_TESTABILITY = NO, so Xcode's
+# explicit-module build can't find a testable Core and rejects the import (Xcode 27.2 wording; a plain swiftc build
+# says "was not compiled for testing").
 expect = "fail"
 enforced_by = "compiler"
-diagnostic = "was not compiled for testing"
+diagnostic = "Unable to resolve Swift module dependency to a compatible module: 'Core'"

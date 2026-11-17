@@ -60,9 +60,46 @@ def known_fixtures() -> set[str]:
     """Fixture names AppVerify accepts: the raw values of the `Fixture` enum's cases in Targets/Fixtures."""
     names: set[str] = set()
     for source in (ROOT / 'Targets/Fixtures').glob('**/*.swift'):
-        for case in re.finditer(r'(?m)^\s*case\s+(\w+)\s*(?:=\s*"([^"]+)")?\s*$', source.read_text()):
-            names.add(case.group(2) or case.group(1))
+        # Comments become a space and each string literal a numbered placeholder, so neither the enum search nor the
+        # case regex can match inside them, and braces in strings don't move the depth.
+        text, strings = source.read_text(), []
+        masked, i = [], 0
+        while i < len(text):
+            after = skip_literal(text, i)
+            if after == i:
+                masked.append(text[i])
+                i += 1
+                continue
+            if text[i] in '"#':
+                strings.append(string_value(text[i:after]))
+                masked.append(f'\x00{len(strings) - 1}\x00')
+            else:
+                masked.append(' ')
+            i = after
+        masked = ''.join(masked)
+        start = re.search(r'\benum\s+Fixture\b[^{]*\{', masked)
+        if not start:
+            continue
+        depth, body = 1, []                                         # the enum's own body, nested bodies dropped
+        for ch in masked[start.end():]:
+            depth += {'{': 1, '}': -1}.get(ch, 0)
+            if not depth:
+                break
+            if depth == 1 and ch not in '{}':
+                body.append(ch)
+        item = r'(\w+)\s*(?:=\s*\x00(\d+)\x00)?'
+        for declaration in re.finditer(r'\bcase\s+(' + item + r'(?:\s*,\s*' + item + r')*)', ''.join(body)):
+            for match in re.finditer(item, declaration.group(1)):     # case a, b = "b-raw", across lines too
+                names.add(strings[int(match.group(2))] if match.group(2) is not None else match.group(1))
     return names
+
+
+def string_value(literal: str) -> str:
+    """The contents of a plain or raw ("...", #"..."#, \"\"\"...\"\"\") string literal, escapes left as written."""
+    hashes = len(literal) - len(literal.lstrip('#'))
+    inner = literal[hashes:len(literal) - hashes]
+    quote = '\"\"\"' if inner.startswith('\"\"\"') else '"'
+    return inner[len(quote):-len(quote)]
 
 
 def journeys_in_code() -> set[str]:
@@ -334,8 +371,9 @@ def attachments(directory: Path) -> dict[str, list[tuple[str, str]]]:
 
 
 def fixtures_used(shots: list[tuple[str, str]]) -> set[str]:
-    """Fixtures a journey launched with, from the `fixture-<name>` attachments its launch helper adds."""
-    return {name.removeprefix('fixture-') for name, _ in shots if name.startswith('fixture-')}
+    """Fixtures a journey launched with, from the `fixture-<name>` text attachments its launch helper adds. A
+    screenshot that happens to be named `fixture-...` is evidence, not a launch, so images don't count."""
+    return {name.removeprefix('fixture-') for name, file in shots if name.startswith('fixture-') and not is_image(file)}
 
 
 def is_image(file: str) -> bool:
