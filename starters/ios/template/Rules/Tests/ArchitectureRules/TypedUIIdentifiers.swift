@@ -116,15 +116,19 @@ private func isUIIDRawValue(_ expr: ExprSyntax) -> Bool {
     return ([rootName] + names.dropFirst().reversed()).contains { $0.hasSuffix("UIID") }
 }
 
-/// An unfolded expression that is one UIID value, `<UIID value> ?? <UIID value>`, or `<any condition> ? <UIID value> : <UIID value>`.
+/// An unfolded expression that is a UIID value: one value, a `??` chain of values (`a?.id.rawValue ?? <UIID value>`),
+/// or `<any condition> ? <UIID value> : <UIID value>`, where the else side may itself be such an expression
+/// (`a ? A : b ? B : C`; `?:` is right-associative, so the first ternary's else side is everything after it).
 private func isUIIDValue(_ elements: [ExprSyntax]) -> Bool {
-    if elements.count == 1 { return isUIIDRawValue(elements[0]) }
-    if elements.count == 3, let op = elements[1].as(BinaryOperatorExprSyntax.self), op.operator.text == "??" {
-        return isUIIDRawValue(elements[0]) && isUIIDRawValue(elements[2])     // a?.id.rawValue ?? <UIID value>
+    if let first = elements.firstIndex(where: { $0.is(UnresolvedTernaryExprSyntax.self) }),
+       let ternary = elements[first].as(UnresolvedTernaryExprSyntax.self) {
+        return first > 0 && isUIIDRawValue(ternary.thenExpression) && isUIIDValue(Array(elements[(first + 1)...]))
     }
-    let ternaries = elements.indices.filter { elements[$0].is(UnresolvedTernaryExprSyntax.self) }
-    guard ternaries == [elements.count - 2], let ternary = elements[elements.count - 2].as(UnresolvedTernaryExprSyntax.self) else { return false }
-    return isUIIDRawValue(ternary.thenExpression) && isUIIDRawValue(elements[elements.count - 1])
+    guard elements.count % 2 == 1 else { return false }
+    return elements.indices.allSatisfy { index in
+        index % 2 == 0 ? isUIIDRawValue(elements[index])
+                       : elements[index].as(BinaryOperatorExprSyntax.self)?.operator.text == "??"
+    }
 }
 
 private final class UIIDDeclarationFinder: SyntaxVisitor {

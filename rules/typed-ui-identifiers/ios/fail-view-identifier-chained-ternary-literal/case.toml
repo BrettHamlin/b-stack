@@ -1,0 +1,4 @@
+# A chained ternary with a String literal in the middle: every branch must be a UIID value.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"
