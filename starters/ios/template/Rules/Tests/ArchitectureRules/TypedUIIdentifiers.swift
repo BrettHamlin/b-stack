@@ -65,10 +65,11 @@ private final class ViewIdentifierFinder: SyntaxVisitor {
     override func visit(_ node: SequenceExprSyntax) -> SyntaxVisitorContinueKind {
         let elements = Array(node.elements)
         for index in elements.indices.dropFirst().dropLast() where elements[index].is(AssignmentExprSyntax.self) {
-            if let target = elements[index - 1].as(MemberAccessExprSyntax.self), bare(target.declName.baseName) == "accessibilityIdentifier",
-               !isUIIDRawValue(elements[index + 1]) {
-                report(node)
-            }
+            let target = elements[index - 1].as(MemberAccessExprSyntax.self).map { bare($0.declName.baseName) }
+                ?? elements[index - 1].as(DeclReferenceExprSyntax.self).map { bare($0.baseName) }   // implicit self
+            guard target == "accessibilityIdentifier" else { continue }
+            // The whole right-hand side must be the UIID value: `x.rawValue + ".typo"` is more than one element.
+            if index + 2 != elements.count || !isUIIDRawValue(elements[index + 1]) { report(node) }
         }
         return .visitChildren
     }
@@ -78,16 +79,27 @@ private final class ViewIdentifierFinder: SyntaxVisitor {
     }
 }
 
-/// `<Feature>UIID.<name>.rawValue`, or `<value>.rawValue` where the value is a plain name (a parameter or variable).
+/// `.rawValue` of a UIID: `<Feature>UIID.<name>.rawValue`, or `.rawValue` on a value reached from a variable,
+/// parameter or `self` (`id.rawValue`, `self.id.rawValue`, `row.id.rawValue`; trusted, review), or a ternary between
+/// two such values. A chain rooted at a type name must be a `...UIID` type, so a local String enum doesn't pass.
 private func isUIIDRawValue(_ expr: ExprSyntax) -> Bool {
     var expr = expr
     while let tuple = expr.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first { expr = only.expression }
-    guard let raw = expr.as(MemberAccessExprSyntax.self), bare(raw.declName.baseName) == "rawValue", let base = raw.base else { return false }
-    if base.is(DeclReferenceExprSyntax.self) { return true }
-    guard let constant = base.as(MemberAccessExprSyntax.self), let owner = constant.base else { return false }
-    let ownerName = owner.as(DeclReferenceExprSyntax.self).map { bare($0.baseName) }
-        ?? owner.as(MemberAccessExprSyntax.self).map { bare($0.declName.baseName) }
-    return ownerName?.hasSuffix("UIID") == true
+    if let sequence = expr.as(SequenceExprSyntax.self) {                      // cond ? a : b, unfolded
+        let elements = Array(sequence.elements)
+        guard elements.count == 3, let ternary = elements[1].as(UnresolvedTernaryExprSyntax.self) else { return false }
+        return isUIIDRawValue(ternary.thenExpression) && isUIIDRawValue(elements[2])
+    }
+    guard let raw = expr.as(MemberAccessExprSyntax.self), bare(raw.declName.baseName) == "rawValue", var base = raw.base else { return false }
+    while let member = base.as(MemberAccessExprSyntax.self), let next = member.base {      // walk to the root of the chain
+        if let owner = next.as(DeclReferenceExprSyntax.self), bare(owner.baseName).first?.isUppercase == true {
+            return bare(owner.baseName).hasSuffix("UIID")                      // a type: must be a <Feature>UIID
+        }
+        base = next
+    }
+    guard let root = base.as(DeclReferenceExprSyntax.self) else { return false }
+    let name = bare(root.baseName)
+    return name == "self" || name.first?.isLowercase == true               // a variable, parameter or self
 }
 
 private final class UIIDDeclarationFinder: SyntaxVisitor {
@@ -139,9 +151,11 @@ private final class UIIDDeclarationFinder: SyntaxVisitor {
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
         guard isCore || isInterface else { return .visitChildren }
         let callee = node.calledExpression.trimmedDescription.replacingOccurrences(of: "`", with: "")
-        let constructs = ["UIID", "UIID.init", "Core.UIID", "Core.UIID.init", ".init", "Self", "Self.init", "self.init"].contains(callee)
+        // Explicit construction only: unrelated `Self(x)` / `.init(x)` stay legal, and deliberate indirection
+        // (init references, metatypes) is review's job until identifiers become enums (follow-up).
+        let constructs = ["UIID", "UIID.init", "Core.UIID", "Core.UIID.init"].contains(callee)
         if constructs, node.arguments.count == 1, let only = node.arguments.first, only.label == nil,
-           !isPlainStringLiteral(only.expression), !(isCore && inUIID) {
+           !isPlainStringLiteral(only.expression) {
             report(node)
         }
         return .visitChildren

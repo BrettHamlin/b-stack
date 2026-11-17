@@ -1,4 +1,4 @@
-# A UIKit view whose identifier is assigned a literal.
+# A UIKit view assigning a literal through self.
 expect = "fail"
 enforced_by = "harmonize"
 diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"
