@@ -23,7 +23,11 @@ struct Screen {
 
     /// A Toggle's value: "1" on, "0" off.
     func switchValue(_ id: UIID) -> String? {
-        app.switches[id.rawValue].value as? String
+        switchElement(id).value as? String
+    }
+
+    fileprivate func switchElement(_ id: UIID) -> XCUIElement {
+        app.switches[id.rawValue]
     }
 
     func terminate() {
@@ -70,6 +74,13 @@ extension XCTestCase {
         let hittable = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: element)
         wait(for: [hittable], timeout: timeout)
         element.tap()
+    }
+
+    /// Waits until a Toggle shows `expected` ("1" on, "0" off). UI updates land a moment after a tap, especially on a
+    /// loaded machine; asserting immediately is flaky. Returns false if it never does, so a swallowed tap still fails.
+    func waitForSwitchValue(_ screen: Screen, _ id: UIID, _ expected: String, timeout: TimeInterval = 10) -> Bool {
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: screen.switchElement(id))
+        return XCTWaiter().wait(for: [settled], timeout: timeout) == .completed
     }
 
     func waitUntilGone(_ element: XCUIElement, timeout: TimeInterval = 10) {

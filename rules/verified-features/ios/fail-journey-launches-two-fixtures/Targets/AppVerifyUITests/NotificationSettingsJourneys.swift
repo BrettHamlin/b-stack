@@ -16,7 +16,7 @@ final class NotificationSettingsJourneys: XCTestCase {
 
         tapWhenHittable(screen.toggle(NotificationSettingsUIID.toggle))
         waitUntilGone(screen.find(NotificationSettingsUIID.saving))
-        XCTAssertEqual(screen.switchValue(NotificationSettingsUIID.toggle), "0", "toggle shows off after the save")
+        XCTAssertTrue(waitForSwitchValue(screen, NotificationSettingsUIID.toggle, "0"), "toggle shows off after the save")
         capture(screen, "2-turned-off")
 
         screen.terminate()
