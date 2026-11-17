@@ -2,11 +2,13 @@
 
 Commands:
   run        check the feature map, run every journey on a simulator, write evidence (the `verify` gate)
+             option: --workers N, the most simulators to split journeys across (see Parallel journeys)
   map        only check the feature map (no simulator)
   launch     build AppVerify, boot a simulator, install and start it, for exploring with agent-device
              options: --fixture NAME (default standard), --reset (restore the fixture's starting data)
   doctor     read-only: is the simulator booted, AppVerify installed and running? Run it whenever anything looks off.
-  cleanup    stop AppVerify and shut down a simulator this script booted. Evidence is kept.
+  cleanup    stop AppVerify and shut down a simulator this script booted, and delete simulator clones a crashed run
+             left behind. Evidence is kept.
 
 Test mode: AppVerify is the app composed with Targets/Fixtures instead of real services. It reads BSTACK_FIXTURE
 (a Fixture case, e.g. standard or save-fails) and BSTACK_RESET=1. The shipped App can't import Fixtures.
@@ -15,6 +17,12 @@ Feature map: feature-map/*.toml, one file per feature. Every feature module (eac
 entry, and each entry's module must be a feature. Each journey is named by exactly one entry, with a fixture that
 exists. Every journey that runs must be in the map, and every journey in the map must run and pass, using the fixture
 the map names.
+
+Parallel journeys: if the simulator is shut down, `run` clones it and splits the journeys across it and its clones,
+one xcodebuild per simulator, then merges the result bundles and checks the merged results exactly as a single run's.
+The first simulator runs every journey not given to another (-skip-testing), so a journey the source scan can't see
+still runs. Clones are deleted afterwards. Workers: --workers, else $BSTACK_VERIFY_WORKERS, else one per 4 cores and
+8 GB of memory. A simulator that's already booted belongs to someone else: it's borrowed, alone, and never cloned.
 
 Evidence: .build/evidence/<time>-<commit>/ (in the cache folder if one is configured): evidence.md, screenshots,
 the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed generation, boots, builds
@@ -30,6 +38,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import tomllib
 
@@ -313,7 +322,7 @@ def commit() -> str:
 DYLD_KEYS = ('DYLD_FRAMEWORK_PATH', 'DYLD_LIBRARY_PATH', '__XPC_DYLD_FRAMEWORK_PATH', '__XPC_DYLD_LIBRARY_PATH')
 
 
-def isolated_xctestrun() -> Path | None:
+def isolated_xctestrun(built: Path | None = None) -> Path | None:
     """Copy of the built .xctestrun without the build folder on the runner's and app's DYLD_* search paths.
 
     Xcode puts the build folder first on DYLD_FRAMEWORK_PATH. A framework there named like an Apple one (TCA's
@@ -321,10 +330,12 @@ def isolated_xctestrun() -> Path | None:
     the test runner, which crashes before any test runs. The app and the test bundle embed their own frameworks, so
     they run without it, the way the shipped app does.
     """
-    built = sorted((DERIVED / 'Build/Products').glob(f'{SCHEME}_*.xctestrun'), key=lambda p: p.stat().st_mtime)
-    if not built:
-        return None
-    plan = plistlib.loads(built[-1].read_bytes())
+    if built is None:
+        found = sorted((DERIVED / 'Build/Products').glob(f'{SCHEME}_*.xctestrun'), key=lambda p: p.stat().st_mtime)
+        if not found:
+            return None
+        built = found[-1]
+    plan = plistlib.loads(built.read_bytes())
     targets = [t for config in plan.get('TestConfigurations', []) for t in config.get('TestTargets', [])]
     targets += [v for k, v in plan.items() if isinstance(v, dict) and 'TestBundlePath' in v]
     for target in targets:
@@ -337,7 +348,7 @@ def isolated_xctestrun() -> Path | None:
                         env[key] = ':'.join(kept)
                     else:
                         del env[key]
-    isolated = built[-1].with_name(f'{SCHEME}-isolated.xctestrun')
+    isolated = built.with_name(f'{SCHEME}-isolated.xctestrun')
     isolated.write_bytes(plistlib.dumps(plan))
     return isolated
 
@@ -387,7 +398,8 @@ def write_evidence(directory: Path, entries: list[dict], results: dict[str, dict
         '| | |', '|---|---|',
         f'| Commit | `{sha}` |',
         f'| Run | {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")} |',
-        f'| Simulator | {device.get("name", "?")} ({device.get("runtime", "?")}), `{device.get("udid", "?")}` |',
+        f'| Simulator | {device.get("name", "?")} ({device.get("runtime", "?")}), `{device.get("udid", "?")}`'
+        + (f', with journeys split across it and {device["clones"]} clone(s) of it' if device.get('clones') else '') + ' |',
         f'| App | AppVerify (`{BUNDLE_ID}`), test mode with fixtures |', '',
     ]
     for entry in entries:
@@ -419,7 +431,90 @@ def write_failure(directory: Path, sha: str, device: dict, reason: str) -> None:
     fail(reason)
 
 
-def run() -> bool:
+def default_workers() -> int:
+    """How many simulators journeys may run on at once: $BSTACK_VERIFY_WORKERS, else one per 4 cores and 8 GB of memory
+    (2 on a 10-core, 16 GB laptop). Each booted simulator with its test runner and app needs about 2 GB; too many, and
+    memory pressure kills test runners, which looks like a real failure."""
+    if os.environ.get('BSTACK_VERIFY_WORKERS'):
+        return max(1, int(os.environ['BSTACK_VERIFY_WORKERS']))
+    memory = int(sh(['sysctl', '-n', 'hw.memsize']).stdout.strip() or 0)
+    return max(1, min((os.cpu_count() or 1) // 4, memory // (8 << 30)))
+
+
+def shards(entries: list[dict], count: int) -> list[list[str]]:
+    """Split the mapped journeys the source scan can see into up to `count` groups, one per simulator.
+
+    Group 0 runs everything except the other groups' journeys (-skip-testing), so a journey the scan can't see, or one
+    missing from the map, still runs and is still caught. The others run only their own journeys (-only-testing).
+    """
+    named = sorted({j['test'] for e in entries for j in e['journeys']} & journeys_in_code())
+    count = max(1, min(count, len(named)))
+    return [named[k::count] for k in range(count)]
+
+
+def test_target(xctestrun: Path) -> str | None:
+    """The one UI test target in the .xctestrun (journey IDs for -only-testing are Target/Class/test), else None."""
+    plan = plistlib.loads(xctestrun.read_bytes())
+    targets = [t for config in plan.get('TestConfigurations', []) for t in config.get('TestTargets', [])]
+    targets += [v for k, v in plan.items() if isinstance(v, dict) and 'TestBundlePath' in v]
+    names = {t.get('BlueprintName') for t in targets}
+    return names.pop() if len(names) == 1 and None not in names else None
+
+
+CLONES = ROOT / '.build/verify-clones.json'
+
+
+def make_clones(udid: str, count: int) -> list[str]:
+    """Clone a shut-down simulator `count` times. Clones are recorded in CLONES until deleted, so `cleanup` can remove
+    any a crashed run left behind."""
+    name = state(udid).get('name', 'iPhone')
+    made: list[str] = []
+    for k in range(1, count + 1):
+        proc = sh(['xcrun', 'simctl', 'clone', udid, f'{name} (b-stack verify {k})'])
+        if proc.returncode != 0 or not proc.stdout.strip():
+            fail(f'could not clone simulator {udid} ({proc.stderr.strip()}); running on fewer simulators')
+            break
+        made.append(proc.stdout.strip())
+        CLONES.write_text(json.dumps(sorted(set(made) | set(recorded_clones()))))
+    return made
+
+
+def recorded_clones() -> list[str]:
+    return json.loads(CLONES.read_text()) if CLONES.is_file() else []
+
+
+def delete_clones(clones: list[str]) -> None:
+    for clone in clones:
+        sh(['xcrun', 'simctl', 'shutdown', clone], timeout=120)
+        sh(['xcrun', 'simctl', 'delete', clone], timeout=120)
+    left = [c for c in recorded_clones() if c not in clones]
+    if left:
+        CLONES.write_text(json.dumps(left))
+    else:
+        CLONES.unlink(missing_ok=True)
+
+
+def in_parallel(work: list) -> list:
+    """Run functions on threads and return their results in order; an exception is returned, not raised."""
+    results: list = [None] * len(work)
+
+    def call(i: int) -> None:
+        try:
+            results[i] = work[i]()
+        except BaseException as error:  # noqa: BLE001 - handed back to the caller
+            results[i] = error
+
+    threads = [threading.Thread(target=call, args=(i,)) for i in range(len(work))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return results
+
+
+def run(generated: bool = False, prebuilt: Path | None = None, workers: int | None = None) -> bool:
+    """Run the mapped journeys. check.py passes generated=True when it already generated the project, and prebuilt when
+    its compiler gate already built AppVerify for testing, so neither happens twice."""
     latest = ROOT / '.build/evidence/latest'
     latest.unlink(missing_ok=True)  # never leave an older run's evidence looking current
     entries, errors = check_map()
@@ -433,7 +528,7 @@ def run() -> bool:
     directory.mkdir(parents=True)
     latest.symlink_to(directory.name)
     device: dict = {}
-    if not generate():
+    if not generated and not generate():
         write_failure(directory, sha, device, 'project generation (tuist install/generate) failed')
         return False
     try:
@@ -443,39 +538,95 @@ def run() -> bool:
         return False
 
     result_bundle = directory / 'Journeys.xcresult'
+    groups = shards(entries, default_workers() if workers is None else workers)
+    clones: list[str] = []
+    # Clones need a shut-down simulator. One that's already booted is someone else's: borrow it, alone.
+    if len(groups) > 1 and state(udid).get('state') == 'Shutdown':
+        clones = make_clones(udid, len(groups) - 1)
     booted_here = boot(udid)
+    devices = [udid]
+    status = 0
     step = 'booting the simulator'
     try:
-        if not wait_booted(udid):
+        for clone in clones:
+            boot(clone)
+        ready = in_parallel([lambda d=d: wait_booted(d) for d in [udid] + clones])
+        if ready[0] is not True:
             write_failure(directory, sha, device, f'simulator {udid} did not finish booting')
             return False
+        devices = [d for d, ok in zip([udid] + clones, ready) if ok is True]
         device = state(udid)
         step = 'build for testing'
-        built = sh(['xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', SCHEME,
-                    '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', str(DERIVED),
-                    '-skipMacroValidation', 'build-for-testing', 'CODE_SIGNING_ALLOWED=NO'],
-                   timeout=JOURNEY_TIMEOUT, log=directory / 'build.log')
-        xctestrun = isolated_xctestrun() if built.returncode == 0 else None
+        if prebuilt is not None:
+            (directory / 'build.log').write_text(f'Not built here: running {prebuilt}, built by check.py\'s compiler gate.\n')
+            xctestrun = isolated_xctestrun(prebuilt)
+        else:
+            built = sh(['xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', SCHEME,
+                        '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', str(DERIVED),
+                        '-skipMacroValidation', 'build-for-testing', 'CODE_SIGNING_ALLOWED=NO'],
+                       timeout=JOURNEY_TIMEOUT, log=directory / 'build.log')
+            xctestrun = isolated_xctestrun() if built.returncode == 0 else None
         if xctestrun is None:
             errors = [l.strip() for l in (directory / 'build.log').read_text(errors='replace').splitlines() if 'error:' in l]
             write_failure(directory, sha, device, 'build for testing failed: '
                           + ('; '.join(dict.fromkeys(errors[:10])) or f'see {directory / "build.log"}'))
             return False
         step = 'the journeys'
-        proc = sh(['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun),
-                   '-destination', f'platform=iOS Simulator,id={udid}', '-resultBundlePath', str(result_bundle)],
-                  timeout=JOURNEY_TIMEOUT, log=directory / 'xcodebuild.log')
-        status = proc.returncode
+        target = test_target(xctestrun)
+        if target is None or len(devices) == 1:
+            groups = [[]]  # one simulator runs everything
+        elif len(devices) < len(groups):
+            groups = shards(entries, len(devices))
+        others = [f'{target}/{test}' for group in groups[1:] for test in group]
+        plans = [(devices[0], [f'-skip-testing:{t}' for t in others])]
+        plans += [(devices[k], [f'-only-testing:{target}/{t}' for t in group]) for k, group in enumerate(groups[1:], 1)]
+        bundles = [result_bundle] if len(plans) == 1 else [directory / f'Journeys-{k}.xcresult' for k in range(len(plans))]
+        logs = [directory / 'xcodebuild.log'] if len(plans) == 1 else [directory / f'xcodebuild-{k}.log' for k in range(len(plans))]
+        outcomes = in_parallel([
+            lambda d=d, f=f, b=b, l=l: sh(['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun),
+                                           '-destination', f'platform=iOS Simulator,id={d}', '-resultBundlePath', str(b)] + f,
+                                          timeout=JOURNEY_TIMEOUT, log=l)
+            for (d, f), b, l in zip(plans, bundles, logs)])
+        if len(plans) > 1:
+            # One log in run order, so failures read the same as from a single run.
+            (directory / 'xcodebuild.log').write_text(''.join(
+                f'==== simulator {d}: {" ".join(f) or "all journeys"}\n' + l.read_text(errors='replace')
+                for (d, f), l in zip(plans, logs) if l.is_file()))
+        for outcome in outcomes:
+            if isinstance(outcome, subprocess.TimeoutExpired):
+                raise outcome
+            if isinstance(outcome, BaseException):
+                raise outcome
+            status = status or outcome.returncode
+        present = [b for b in bundles if b.exists()]
+        if len(plans) > 1 and present:
+            merged = sh(['xcrun', 'xcresulttool', 'merge', '--output-path', str(result_bundle)] + [str(b) for b in present]) \
+                if len(present) > 1 else None
+            if merged is None:
+                present[0].rename(result_bundle)
+            elif merged.returncode == 0:
+                for bundle in present:
+                    shutil.rmtree(bundle)
+            else:
+                write_failure(directory, sha, device, f'could not merge the result bundles in {directory}: '
+                              f'{merged.stderr.strip()}')
+                return False
     except subprocess.TimeoutExpired:
         write_failure(directory, sha, device, f'{step} timed out after {JOURNEY_TIMEOUT}s. Logs are in {directory}'
                       + ('' if booted_here else '. The simulator was already booted, so it was left running; it may need a restart.'))
         return False
     finally:
+        try:
+            delete_clones(clones)
+        except subprocess.TimeoutExpired:  # never let cleanup hide the run's own result; `verify.py cleanup` retries
+            fail(f'could not delete simulator clones {clones}; run `python3 scripts/verify.py cleanup`')
         if booted_here:
             try:
                 shutdown(udid)
             except subprocess.TimeoutExpired:  # never let a slow shutdown hide the run's own result or evidence
                 fail(f'simulator {udid} did not shut down within 120 s; shut it down with `xcrun simctl shutdown {udid}`')
+    if len(devices) > 1:
+        device = {**device, 'clones': len(devices) - 1}
 
     results: dict[str, dict] = {}
     system: list[dict] = []
@@ -590,6 +741,10 @@ def doctor() -> bool:
 
 
 def cleanup() -> bool:
+    if recorded_clones():
+        left = recorded_clones()
+        delete_clones(left)
+        print(f'[verify] deleted simulator clones a run left behind: {", ".join(left)}')
     if not SESSION.is_file():
         print('[verify] nothing to clean up')
         return True
@@ -609,6 +764,10 @@ if __name__ == '__main__':
     parser.add_argument('command', nargs='?', default='run', choices=['run', 'map', 'launch', 'doctor', 'cleanup'])
     parser.add_argument('--fixture', default='standard')
     parser.add_argument('--reset', action='store_true')
+    parser.add_argument('--workers', type=int, help='run: most simulators to split journeys across '
+                        '(default $BSTACK_VERIFY_WORKERS, else one per 4 cores and 8 GB of memory)')
+    parser.add_argument('--generated', action='store_true', help=argparse.SUPPRESS)  # check.py already generated
+    parser.add_argument('--xctestrun', type=Path, help=argparse.SUPPRESS)  # check.py's compiler gate already built it
     args = parser.parse_args()
     link_build_dirs(ROOT)
     if args.command == 'map':
@@ -618,7 +777,7 @@ if __name__ == '__main__':
         print('[verify] feature map OK' if not problems else '', end='\n' if not problems else '')
         ok = not problems
     elif args.command == 'run':
-        ok = run()
+        ok = run(args.generated, args.xctestrun, args.workers)
     elif args.command == 'launch':
         ok = launch(args.fixture, args.reset)
     elif args.command == 'doctor':
