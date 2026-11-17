@@ -18,11 +18,13 @@ entry, and each entry's module must be a feature. Each journey is named by exact
 exists. Every journey that runs must be in the map, and every journey in the map must run and pass, using the fixture
 the map names.
 
-Parallel journeys: if the simulator is shut down, `run` clones it and splits the journeys across it and its clones,
+Parallel journeys: off by default. With --workers N (or $BSTACK_VERIFY_WORKERS) above 1 and a shut-down simulator,
+`run` clones it and splits the journeys across it and its clones,
 one xcodebuild per simulator, then merges the result bundles and checks the merged results exactly as a single run's.
 The first simulator runs every journey not given to another (-skip-testing), so a journey the source scan can't see
-still runs. Clones are deleted afterwards. Workers: --workers, else $BSTACK_VERIFY_WORKERS, else one per 4 cores and
-8 GB of memory. A simulator that's already booted belongs to someone else: it's borrowed, alone, and never cloned.
+still runs. Clones are deleted afterwards. A fresh clone boots like a new device and starts every first-boot service:
+on a 10-core, 16 GB Mac (Xcode 27.2, iOS 27.2) cloning for the starter's 2 journeys took them from under a minute to
+about 5 minutes each, so cloning only pays off for many journeys. A simulator that's already booted belongs to someone else: it's borrowed, alone, and never cloned.
 
 Evidence: .build/evidence/<time>-<commit>/ (in the cache folder if one is configured): evidence.md, screenshots,
 the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed generation, boots, builds
@@ -432,13 +434,11 @@ def write_failure(directory: Path, sha: str, device: dict, reason: str) -> None:
 
 
 def default_workers() -> int:
-    """How many simulators journeys may run on at once: $BSTACK_VERIFY_WORKERS, else one per 4 cores and 8 GB of memory
-    (2 on a 10-core, 16 GB laptop). Each booted simulator with its test runner and app needs about 2 GB; too many, and
-    memory pressure kills test runners, which looks like a real failure."""
+    """How many simulators journeys may run on at once: $BSTACK_VERIFY_WORKERS, else 1. Cloning is opt-in: a fresh
+    clone's first boot costs minutes (see Parallel journeys), more than splitting a few journeys saves."""
     if os.environ.get('BSTACK_VERIFY_WORKERS'):
         return max(1, int(os.environ['BSTACK_VERIFY_WORKERS']))
-    memory = int(sh(['sysctl', '-n', 'hw.memsize']).stdout.strip() or 0)
-    return max(1, min((os.cpu_count() or 1) // 4, memory // (8 << 30)))
+    return 1
 
 
 def shards(entries: list[dict], count: int) -> list[list[str]]:
@@ -765,7 +765,7 @@ if __name__ == '__main__':
     parser.add_argument('--fixture', default='standard')
     parser.add_argument('--reset', action='store_true')
     parser.add_argument('--workers', type=int, help='run: most simulators to split journeys across '
-                        '(default $BSTACK_VERIFY_WORKERS, else one per 4 cores and 8 GB of memory)')
+                        '(default $BSTACK_VERIFY_WORKERS, else 1: cloning a simulator costs minutes)')
     parser.add_argument('--generated', action='store_true', help=argparse.SUPPRESS)  # check.py already generated
     parser.add_argument('--xctestrun', type=Path, help=argparse.SUPPRESS)  # check.py's compiler gate already built it
     args = parser.parse_args()
