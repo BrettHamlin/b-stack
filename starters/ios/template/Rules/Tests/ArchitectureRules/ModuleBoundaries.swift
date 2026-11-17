@@ -4,6 +4,8 @@ import Testing
 /// Imports each module may use, including system frameworks. Module-to-module dependencies
 /// are declared in Project.swift and checked by `tuist inspect dependencies`.
 let allowedImports: [String: Set<String>] = [
+    "JourneyKit": ["Core", "XCTest"],
+    "AppVerifyJourneys": ["Foundation", "JourneyKit", "Core", "SettingsInterface"],
     "Core": ["Foundation"],
     "SettingsInterface": ["Foundation", "Core"],
     "SettingsLogic": ["Foundation", "Core", "SettingsInterface", "ComposableArchitecture"],

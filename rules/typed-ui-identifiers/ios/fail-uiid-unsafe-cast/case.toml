@@ -1,4 +1,4 @@
 # Forging a UIID by reinterpreting a String.
 expect = "fail"
 enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"
+diagnostic = "[typed-ui-identifiers] Dynamic UI access in journey bodies"

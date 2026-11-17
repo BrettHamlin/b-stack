@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Compilation search paths unable to resolve module dependency: 'XCUIAutomation'"

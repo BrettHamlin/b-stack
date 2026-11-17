@@ -1,4 +1,3 @@
-# Backticked names are the same names: they must not slip past the ban.
 expect = "fail"
-enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"
+enforced_by = "compiler"
+diagnostic = "value of type 'Element' has no member 'switches'"

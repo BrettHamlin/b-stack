@@ -1,4 +1,3 @@
-# A query returned by a helper, subscripted with a literal.
 expect = "fail"
-enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"
+enforced_by = "compiler"
+diagnostic = "cannot find 'XCUIApplication' in scope"
