@@ -1,0 +1,4 @@
+# A journey file extending XCUIElement to wrap the raw lookup in a new name, using implicit self.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"

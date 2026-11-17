@@ -5,11 +5,37 @@ import SwiftSyntax
 import Testing
 
 @Test func typedUIIdentifiers() {
-    // Text match: Harmonize 1.3.0 doesn't expose calls inside computed properties such as a SwiftUI body.
-    let files = Harmonize.productionCode().sources()
-        .filter { $0.source.contains(".accessibilityIdentifier(\"") }
-        .compactMap(\.fileName)
-    #expect(files.isEmpty, "[typed-ui-identifiers] String literal accessibility identifiers in \(files). Use a UIID constant.")
+    // Views set identifiers from UIID constants (.accessibilityIdentifier(<Feature>UIID.x.rawValue)), never a literal.
+    // Parsed with SwiftSyntax: Harmonize 1.3.0 doesn't expose calls inside computed properties such as a SwiftUI body.
+    var hits: [String] = []
+    for source in Harmonize.productionCode().sources() {
+        let tree = Parser.parse(source: source.source)
+        let finder = LiteralIdentifierFinder(tree, file: source.fileName ?? "?")
+        finder.walk(tree)
+        hits += finder.hits
+    }
+    #expect(hits.isEmpty, "[typed-ui-identifiers] String literal accessibility identifiers in \(hits). Use a UIID constant.")
+}
+
+private final class LiteralIdentifierFinder: SyntaxVisitor {
+    private let converter: SourceLocationConverter
+    private let file: String
+    var hits: [String] = []
+
+    init(_ tree: SourceFileSyntax, file: String) {
+        converter = SourceLocationConverter(fileName: file, tree: tree)
+        self.file = file
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        let token = node.calledExpression.as(MemberAccessExprSyntax.self)?.declName.baseName
+            ?? node.calledExpression.as(DeclReferenceExprSyntax.self)?.baseName
+        if let token, bare(token) == "accessibilityIdentifier", node.arguments.contains(where: { isStringLiteral($0.expression) }) {
+            hits.append("\(file):\(node.startLocation(converter: converter).line)")
+        }
+        return .visitChildren
+    }
 }
 
 @Test func typedUIIdentifiersInJourneys() {
@@ -18,8 +44,10 @@ import Testing
     // API at all. The rule bans it by name, a closed list from XCUIAutomation's XCUIElementTypeQueryProvider.h and
     // XCUIElementQuery.h (Xcode 27.2): every element-type query (.buttons, .switches, ...), .descendants, .children,
     // .matching, .containing, .element, .allElementsBoundByIndex, plus XCUIApplication, XCUIElementQuery, NSPredicate
-    // and .identifier, as member accesses or key-path components. A dictionary subscript is never confused with a
-    // query, because nothing here inspects subscripts.
+    // and .identifier, as member accesses, bare references (implicit self inside an extension) or key-path
+    // components, and extending XCUIElement / XCUIElementQuery / XCUIApplication / XCUIElementTypeQueryProvider.
+    // Those names are reserved in journey files. A dictionary subscript is never confused with a query, because
+    // nothing here inspects subscripts. Creating a UIID outside Core and *Interface is a compile error (package init).
     var hits: [String] = []
     for source in Harmonize.testCode().sources() {
         guard let path = source.filePath?.path, path.range(of: #"/Targets/[^/]+UITests/"#, options: .regularExpression) != nil,
@@ -30,20 +58,6 @@ import Testing
         hits += finder.hits
     }
     #expect(hits.isEmpty, "[typed-ui-identifiers] Raw XCUITest lookups in journeys at \(hits). Find elements with JourneyKit's find(_:) and a UIID constant; add a JourneyKit helper if none fits.")
-}
-
-@Test func uiIdentifiersComeFromInterfaces() {
-    // Only *Interface modules create UIIDs, so views and journeys share one set of constants and nobody invents one
-    // from a string elsewhere. Core declares the type; every other UIID(...) call outside Targets/*Interface fails.
-    var hits: [String] = []
-    for source in Harmonize.productionCode().sources() + Harmonize.testCode().sources() {
-        guard let path = source.filePath?.path, path.range(of: #"/Targets/[^/]+Interface/"#, options: .regularExpression) == nil else { continue }
-        let tree = Parser.parse(source: source.source)
-        let finder = UIIDConstructionFinder(tree, file: source.fileName ?? path)
-        finder.walk(tree)
-        hits += finder.hits
-    }
-    #expect(hits.isEmpty, "[typed-ui-identifiers] UIIDs created outside an Interface module at \(hits). Add the constant to the feature's <Feature>UIID enum in its Interface module.")
 }
 
 /// XCUITest lookup API, by name. Element-type queries are XCUIElementTypeQueryProvider's properties; firstMatch is
@@ -61,8 +75,11 @@ private let rawLookupNames: Set<String> = [
     "tableRows", "tables", "tabs", "textFields", "textViews", "timelines", "toggles", "toolbarButtons", "toolbars",
     "touchBars", "valueIndicators", "webViews", "windows",
     "descendants", "children", "matching", "containing", "element", "allElementsBoundByIndex",
-    "allElementsBoundByAccessibilityElement", "identifier",
+    "allElementsBoundByAccessibilityElement", "identifier", "dictionaryRepresentation",
 ]
+
+/// Types journeys may not extend outside JourneyKit: an extension could wrap the raw API in a new name.
+private let rawLookupExtended: Set<String> = ["XCUIElement", "XCUIElementQuery", "XCUIApplication", "XCUIElementTypeQueryProvider"]
 
 /// Types journeys may not name outside JourneyKit.
 private let rawLookupTypes: Set<String> = ["XCUIApplication", "XCUIElementQuery", "NSPredicate"]
@@ -79,24 +96,31 @@ private final class RawLookupFinder: SyntaxVisitor {
     }
 
     override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupNames.contains(node.declName.baseName.text) { report(node) }
-        if node.declName.baseName.text == "init", let base = node.base?.as(DeclReferenceExprSyntax.self),
-           rawLookupTypes.contains(base.baseName.text) { report(node) }
+        if rawLookupNames.contains(bare(node.declName.baseName)) { report(node) }
+        if bare(node.declName.baseName) == "init", let base = node.base?.as(DeclReferenceExprSyntax.self),
+           rawLookupTypes.contains(bare(base.baseName)) { report(node) }
         return .visitChildren
     }
 
     override func visit(_ node: DeclReferenceExprSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupTypes.contains(node.baseName.text) { report(node) }
+        // Bare names too: inside an extension, `descendants(matching:)` needs no `self.`.
+        if rawLookupTypes.contains(bare(node.baseName)) || rawLookupNames.contains(bare(node.baseName)) { report(node) }
+        return .visitChildren
+    }
+
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        let extended = node.extendedType.trimmedDescription.replacingOccurrences(of: "`", with: "")
+        if rawLookupExtended.contains(extended) { report(node.extendedType) }
         return .visitChildren
     }
 
     override func visit(_ node: IdentifierTypeSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupTypes.contains(node.name.text) { report(node) }
+        if rawLookupTypes.contains(bare(node.name)) { report(node) }
         return .visitChildren
     }
 
     override func visit(_ node: KeyPathPropertyComponentSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupNames.contains(node.declName.baseName.text) { report(node) }
+        if rawLookupNames.contains(bare(node.declName.baseName)) { report(node) }
         return .visitChildren
     }
 
@@ -105,22 +129,20 @@ private final class RawLookupFinder: SyntaxVisitor {
     }
 }
 
-private final class UIIDConstructionFinder: SyntaxVisitor {
-    private let converter: SourceLocationConverter
-    private let file: String
-    var hits: [String] = []
+/// An identifier's name without backticks: `` `switches` `` and `switches` are the same name.
+private func bare(_ token: TokenSyntax) -> String {
+    token.identifier?.name ?? token.text.replacingOccurrences(of: "`", with: "")
+}
 
-    init(_ tree: SourceFileSyntax, file: String) {
-        converter = SourceLocationConverter(fileName: file, tree: tree)
-        self.file = file
-        super.init(viewMode: .sourceAccurate)
+/// A string literal, also in parentheses or cast (`"x" as String`).
+private func isStringLiteral(_ expr: ExprSyntax) -> Bool {
+    if expr.is(StringLiteralExprSyntax.self) { return true }
+    if let tuple = expr.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first {
+        return isStringLiteral(only.expression)
     }
-
-    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        let callee = node.calledExpression.trimmedDescription
-        if ["UIID", "UIID.init", "Core.UIID", "Core.UIID.init"].contains(callee) {
-            hits.append("\(file):\(node.startLocation(converter: converter).line): \(node.trimmedDescription.prefix(60))")
-        }
-        return .visitChildren
+    if let sequence = expr.as(SequenceExprSyntax.self), let first = sequence.elements.first {
+        return isStringLiteral(first) && sequence.elements.dropFirst().first?.is(UnresolvedAsExprSyntax.self) == true
     }
+    if let cast = expr.as(AsExprSyntax.self) { return isStringLiteral(cast.expression) }
+    return false
 }

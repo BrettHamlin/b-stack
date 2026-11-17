@@ -47,7 +47,7 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-concurrency-escapes](no-concurrency-escapes/rule.toml) | 1+2 | compiler, Harmonize | Strict concurrency on; its escape hatches banned |
 | [no-force-operations](no-force-operations/rule.toml) | 2 | SwiftLint | No force unwrap, force try or force cast |
 | [no-suppressions](no-suppressions/rule.toml) | 2 | SwiftLint | No lint suppression comments |
-| [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | Harmonize | UI identifiers are constants in views and journeys, not string literals |
+| [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | Compiler, Harmonize | UI identifiers are constants in views and journeys, not string literals |
 | [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | Feature logic does no I/O; effects call injected clients |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | TCA tests stay exhaustive (no exhaustivity off or skips) |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | Only the test-mode app (AppVerify) can use fixtures |

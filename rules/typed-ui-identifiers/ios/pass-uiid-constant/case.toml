@@ -1,2 +1,3 @@
+# A view sets its identifier from the Interface module's UIID constant.
 expect = "pass"
 enforced_by = "harmonize"

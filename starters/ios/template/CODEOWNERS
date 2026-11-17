@@ -24,4 +24,6 @@
 /Targets/AppVerify/           @OWNER
 /Targets/AppVerifyUITests/    @OWNER
 /Targets/Fixtures/            @OWNER
+# The shipped app's composition root: which real services it passes (journeys run AppVerify, not App)
+/Targets/App/                 @OWNER
 /.agents/                     @OWNER

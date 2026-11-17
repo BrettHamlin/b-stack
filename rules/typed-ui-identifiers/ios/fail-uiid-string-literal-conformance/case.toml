@@ -1,0 +1,4 @@
+# Making UIID ExpressibleByStringLiteral in the journey module would undo the typed check; the package-level initializer stops it.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "is inaccessible due to 'package' protection level"

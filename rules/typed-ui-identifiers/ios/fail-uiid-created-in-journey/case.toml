@@ -1,4 +1,5 @@
-# A journey inventing an identifier from a string.
+# A journey inventing an identifier from a string: UIID's initializer is package-level, visible only to Core and
+# the *Interface modules.
 expect = "fail"
-enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] UIIDs created outside an Interface module"
+enforced_by = "compiler"
+diagnostic = "is inaccessible due to 'package' protection level"

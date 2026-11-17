@@ -16,7 +16,10 @@ let allowedImports: [String: Set<String>] = [
 
 @Test func moduleBoundaries() {
     for (module, allowed) in allowedImports.sorted(by: { $0.key < $1.key }) {
-        Harmonize.productionCode().on("Targets/\(module)").imports().assertTrue(
+        // Harmonize 1.3.0's productionCode() skips every folder named Tests or Fixtures (testCode() is only those),
+        // so Targets/Fixtures must be read through testCode() or its allowlist is never applied.
+        let code = module == "Fixtures" ? Harmonize.testCode() : Harmonize.productionCode()
+        code.on("Targets/\(module)").imports().assertTrue(
             rule: Rule(
                 id: "module-boundaries",
                 description: "[module-boundaries] \(module) may only import: \(allowed.sorted().joined(separator: ", "))",

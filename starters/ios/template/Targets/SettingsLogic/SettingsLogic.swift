@@ -29,8 +29,8 @@ public struct NotificationSettings: Sendable {
 
     enum CancelID { case save }
 
-    // Injected through init rather than `@Dependency`: this project links TCA statically into each module, so a
-    // `withDependencies` override made from another module would set a different task-local than the one read here.
+    // Injected through init rather than `@Dependency` (explicit-dependencies): the reducer's needs are visible in its
+    // signature, and tests and fixtures pass their own conformer without global overrides.
     let saver: any NotificationPreferenceSaving
 
     public init(saver: any NotificationPreferenceSaving) {

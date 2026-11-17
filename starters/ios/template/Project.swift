@@ -7,6 +7,9 @@ let strict: SettingsDictionary = [
     "OTHER_SWIFT_FLAGS": "$(inherited) -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature ExistentialAny",
 ]
 let mainActorByDefault: SettingsDictionary = ["SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor"]
+/// Core and the *Interface modules share a Swift package name, so `package` declarations (UIID's initializer) are
+/// visible to them and to nothing else: only an Interface module can create a UIID.
+let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers"]
 
 func module(_ name: String, dependencies: [String] = [], external: [String] = [], ui: Bool = false) -> Target {
     .target(
@@ -17,7 +20,8 @@ func module(_ name: String, dependencies: [String] = [], external: [String] = []
         deploymentTargets: .iOS("18.0"),
         sources: ["Targets/\(name)/**"],
         dependencies: dependencies.map { .target(name: $0) } + external.map { .external(name: $0) },
-        settings: .settings(base: ui ? strict.merging(mainActorByDefault) { $1 } : strict)
+        settings: .settings(base: (ui ? strict.merging(mainActorByDefault) { $1 } : strict)
+            .merging(name == "Core" || name.hasSuffix("Interface") ? identifierPackage : [:]) { $1 })
     )
 }
 

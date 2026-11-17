@@ -1,0 +1,4 @@
+# The same, with the type inferred: .init("...") where a UIID is expected.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "is inaccessible due to 'package' protection level"
