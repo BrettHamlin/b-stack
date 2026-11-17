@@ -1,0 +1,4 @@
+# An Interface module making UIID string-literal-convertible would let journeys invent identifiers.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] UIID creation opened up"

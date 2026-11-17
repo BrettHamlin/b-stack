@@ -5,19 +5,42 @@ import SwiftSyntax
 import Testing
 
 @Test func typedUIIdentifiers() {
-    // Views set identifiers from UIID constants (.accessibilityIdentifier(<Feature>UIID.x.rawValue)), never a literal.
+    // Views set identifiers from UIID constants: the argument (or the value assigned to a UIKit accessibilityIdentifier)
+    // must be `.rawValue` of a `<Feature>UIID.<name>` constant, or `.rawValue` of a value passed in (a parameter or
+    // variable, trusted; review). A literal, String(...), concatenation or a String variable fails.
     // Parsed with SwiftSyntax: Harmonize 1.3.0 doesn't expose calls inside computed properties such as a SwiftUI body.
     var hits: [String] = []
     for source in Harmonize.productionCode().sources() {
         let tree = Parser.parse(source: source.source)
-        let finder = LiteralIdentifierFinder(tree, file: source.fileName ?? "?")
+        let finder = ViewIdentifierFinder(tree, file: source.fileName ?? "?")
         finder.walk(tree)
         hits += finder.hits
     }
-    #expect(hits.isEmpty, "[typed-ui-identifiers] String literal accessibility identifiers in \(hits). Use a UIID constant.")
+    #expect(hits.isEmpty, "[typed-ui-identifiers] String literal accessibility identifiers in \(hits). Use a UIID constant: .accessibilityIdentifier(<Feature>UIID.<name>.rawValue).")
 }
 
-private final class LiteralIdentifierFinder: SyntaxVisitor {
+@Test func uiIdentifiersAreOnlyDeclaredInInterfaces() {
+    // Core and the *Interface modules are the only ones that can reach UIID's package initializer. Keep it that way:
+    // - Core's UIID initializers are all `package` (none public or open).
+    // - In Core and *Interface, a UIID is only ever created from a plain string literal, so nothing there can forward
+    //   an arbitrary string (a factory taking a String, an ExpressibleBy... conformance).
+    // - Nowhere outside Core may UIID be extended or aliased.
+    var hits: [String] = []
+    for source in Harmonize.productionCode().sources() + Harmonize.testCode().sources() {
+        guard let path = source.filePath?.path else { continue }
+        let tree = Parser.parse(source: source.source)
+        let finder = UIIDDeclarationFinder(
+            tree, file: source.fileName ?? path,
+            isCore: path.contains("/Targets/Core/"),
+            isInterface: path.range(of: #"/Targets/[^/]+Interface/"#, options: .regularExpression) != nil
+        )
+        finder.walk(tree)
+        hits += finder.hits
+    }
+    #expect(hits.isEmpty, "[typed-ui-identifiers] UIID creation opened up at \(hits). Declare identifiers as `static let x = UIID(\"feature.x\")` in the feature's Interface module; never forward a String into a UIID.")
+}
+
+private final class ViewIdentifierFinder: SyntaxVisitor {
     private let converter: SourceLocationConverter
     private let file: String
     var hits: [String] = []
@@ -31,11 +54,107 @@ private final class LiteralIdentifierFinder: SyntaxVisitor {
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
         let token = node.calledExpression.as(MemberAccessExprSyntax.self)?.declName.baseName
             ?? node.calledExpression.as(DeclReferenceExprSyntax.self)?.baseName
-        if let token, bare(token) == "accessibilityIdentifier", node.arguments.contains(where: { isStringLiteral($0.expression) }) {
-            hits.append("\(file):\(node.startLocation(converter: converter).line)")
+        if let token, bare(token) == "accessibilityIdentifier",
+           let argument = node.arguments.first(where: { $0.label == nil })?.expression, !isUIIDRawValue(argument) {
+            report(node)
         }
         return .visitChildren
     }
+
+    // UIKit: view.accessibilityIdentifier = ... (an unfolded sequence: [target, =, value])
+    override func visit(_ node: SequenceExprSyntax) -> SyntaxVisitorContinueKind {
+        let elements = Array(node.elements)
+        for index in elements.indices.dropFirst().dropLast() where elements[index].is(AssignmentExprSyntax.self) {
+            if let target = elements[index - 1].as(MemberAccessExprSyntax.self), bare(target.declName.baseName) == "accessibilityIdentifier",
+               !isUIIDRawValue(elements[index + 1]) {
+                report(node)
+            }
+        }
+        return .visitChildren
+    }
+
+    private func report(_ node: some SyntaxProtocol) {
+        hits.append("\(file):\(node.startLocation(converter: converter).line)")
+    }
+}
+
+/// `<Feature>UIID.<name>.rawValue`, or `<value>.rawValue` where the value is a plain name (a parameter or variable).
+private func isUIIDRawValue(_ expr: ExprSyntax) -> Bool {
+    var expr = expr
+    while let tuple = expr.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first { expr = only.expression }
+    guard let raw = expr.as(MemberAccessExprSyntax.self), bare(raw.declName.baseName) == "rawValue", let base = raw.base else { return false }
+    if base.is(DeclReferenceExprSyntax.self) { return true }
+    guard let constant = base.as(MemberAccessExprSyntax.self), let owner = constant.base else { return false }
+    let ownerName = owner.as(DeclReferenceExprSyntax.self).map { bare($0.baseName) }
+        ?? owner.as(MemberAccessExprSyntax.self).map { bare($0.declName.baseName) }
+    return ownerName?.hasSuffix("UIID") == true
+}
+
+private final class UIIDDeclarationFinder: SyntaxVisitor {
+    private let converter: SourceLocationConverter
+    private let file: String
+    private let isCore: Bool
+    private let isInterface: Bool
+    private var inUIID = false
+    var hits: [String] = []
+
+    init(_ tree: SourceFileSyntax, file: String, isCore: Bool, isInterface: Bool) {
+        converter = SourceLocationConverter(fileName: file, tree: tree)
+        self.file = file
+        self.isCore = isCore
+        self.isInterface = isInterface
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        inUIID = bare(node.name) == "UIID"
+        return .visitChildren
+    }
+
+    override func visitPost(_ node: StructDeclSyntax) {
+        if bare(node.name) == "UIID" { inUIID = false }
+    }
+
+    override func visit(_ node: InitializerDeclSyntax) -> SyntaxVisitorContinueKind {
+        if isCore, inUIID, !node.modifiers.contains(where: { $0.name.text == "package" }) { report(node) }
+        return .visitChildren
+    }
+
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        let name = node.extendedType.as(IdentifierTypeSyntax.self).map { bare($0.name) }
+            ?? node.extendedType.as(MemberTypeSyntax.self).map { bare($0.name) }
+        if name == "UIID", !isCore { report(node) }
+        return .visitChildren
+    }
+
+    override func visit(_ node: TypeAliasDeclSyntax) -> SyntaxVisitorContinueKind {
+        let target = node.initializer.value.as(IdentifierTypeSyntax.self).map { bare($0.name) }
+            ?? node.initializer.value.as(MemberTypeSyntax.self).map { bare($0.name) }
+        if target == "UIID", !isCore { report(node) }
+        return .visitChildren
+    }
+
+    // In Core and *Interface: UIID(...), UIID.init(...), .init(...), Self(...) with one unlabeled argument must be a
+    // plain string literal, so nothing there forwards an arbitrary String into a UIID.
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        guard isCore || isInterface else { return .visitChildren }
+        let callee = node.calledExpression.trimmedDescription.replacingOccurrences(of: "`", with: "")
+        let constructs = ["UIID", "UIID.init", "Core.UIID", "Core.UIID.init", ".init", "Self", "Self.init", "self.init"].contains(callee)
+        if constructs, node.arguments.count == 1, let only = node.arguments.first, only.label == nil,
+           !isPlainStringLiteral(only.expression), !(isCore && inUIID) {
+            report(node)
+        }
+        return .visitChildren
+    }
+
+    private func report(_ node: some SyntaxProtocol) {
+        hits.append("\(file):\(node.startLocation(converter: converter).line): \(node.trimmedDescription.prefix(60))")
+    }
+}
+
+private func isPlainStringLiteral(_ expr: ExprSyntax) -> Bool {
+    guard let literal = expr.as(StringLiteralExprSyntax.self) else { return false }
+    return literal.segments.allSatisfy { $0.is(StringSegmentSyntax.self) }
 }
 
 @Test func typedUIIdentifiersInJourneys() {
@@ -76,6 +195,9 @@ private let rawLookupNames: Set<String> = [
     "touchBars", "valueIndicators", "webViews", "windows",
     "descendants", "children", "matching", "containing", "element", "allElementsBoundByIndex",
     "allElementsBoundByAccessibilityElement", "identifier", "dictionaryRepresentation",
+    // Reinterpreting memory could forge a UIID from a String: not for journeys.
+    "unsafeBitCast", "unsafeDowncast", "withUnsafeBytes", "withUnsafeMutableBytes", "withUnsafePointer",
+    "withUnsafeMutablePointer",
 ]
 
 /// Types journeys may not extend outside JourneyKit: an extension could wrap the raw API in a new name.
@@ -109,8 +231,10 @@ private final class RawLookupFinder: SyntaxVisitor {
     }
 
     override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
-        let extended = node.extendedType.trimmedDescription.replacingOccurrences(of: "`", with: "")
-        if rawLookupExtended.contains(extended) { report(node.extendedType) }
+        // Compare the type's own name, so XCTest.XCUIElement or XCUIAutomation.XCUIElement count too.
+        let last = node.extendedType.as(MemberTypeSyntax.self).map { bare($0.name) }
+            ?? node.extendedType.as(IdentifierTypeSyntax.self).map { bare($0.name) }
+        if let last, rawLookupExtended.contains(last) { report(node.extendedType) }
         return .visitChildren
     }
 
@@ -134,15 +258,3 @@ private func bare(_ token: TokenSyntax) -> String {
     token.identifier?.name ?? token.text.replacingOccurrences(of: "`", with: "")
 }
 
-/// A string literal, also in parentheses or cast (`"x" as String`).
-private func isStringLiteral(_ expr: ExprSyntax) -> Bool {
-    if expr.is(StringLiteralExprSyntax.self) { return true }
-    if let tuple = expr.as(TupleExprSyntax.self), tuple.elements.count == 1, let only = tuple.elements.first {
-        return isStringLiteral(only.expression)
-    }
-    if let sequence = expr.as(SequenceExprSyntax.self), let first = sequence.elements.first {
-        return isStringLiteral(first) && sequence.elements.dropFirst().first?.is(UnresolvedAsExprSyntax.self) == true
-    }
-    if let cast = expr.as(AsExprSyntax.self) { return isStringLiteral(cast.expression) }
-    return false
-}

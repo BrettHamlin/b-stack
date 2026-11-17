@@ -26,4 +26,7 @@
 /Targets/Fixtures/            @OWNER
 # The shipped app's composition root: which real services it passes (journeys run AppVerify, not App)
 /Targets/App/                 @OWNER
+# Identifiers: UIID (Core) and each feature's <Feature>UIID constants
+/Targets/Core/                @OWNER
+/Targets/*Interface/          @OWNER
 /.agents/                     @OWNER

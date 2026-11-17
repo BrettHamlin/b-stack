@@ -1,0 +1,4 @@
+# @testable import would reach the package-level initializer; Core is built without testability.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "was not compiled for testing"

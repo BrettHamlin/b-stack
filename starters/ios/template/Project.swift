@@ -8,8 +8,9 @@ let strict: SettingsDictionary = [
 ]
 let mainActorByDefault: SettingsDictionary = ["SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor"]
 /// Core and the *Interface modules share a Swift package name, so `package` declarations (UIID's initializer) are
-/// visible to them and to nothing else: only an Interface module can create a UIID.
-let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers"]
+/// visible to them and to nothing else: only an Interface module can create a UIID. Testability is off for them, so
+/// `@testable import` can't reach that initializer either (nothing tests these modules through @testable).
+let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers", "ENABLE_TESTABILITY": "NO"]
 
 func module(_ name: String, dependencies: [String] = [], external: [String] = [], ui: Bool = false) -> Target {
     .target(

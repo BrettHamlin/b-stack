@@ -1,0 +1,4 @@
+# An Interface module forwarding an arbitrary String into a UIID.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] UIID creation opened up"

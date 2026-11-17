@@ -1,0 +1,4 @@
+# A UIKit view whose identifier is assigned a literal.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"

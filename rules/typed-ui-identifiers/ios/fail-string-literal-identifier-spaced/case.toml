@@ -1,4 +1,4 @@
-# Whitespace, or a cast, around the literal used to slip past the old text match.
+# Whitespace before the literal used to slip past the old text match.
 expect = "fail"
 enforced_by = "harmonize"
 diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"
