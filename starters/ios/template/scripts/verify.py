@@ -400,8 +400,8 @@ def run() -> bool:
         return False
     try:
         udid = simulator()
-    except SystemExit as missing:
-        write_failure(directory, sha, device, str(missing))
+    except (SystemExit, subprocess.CalledProcessError) as missing:  # no simulator, or simctl itself failed
+        write_failure(directory, sha, device, f'could not pick a simulator: {missing}')
         return False
 
     result_bundle = directory / 'Journeys.xcresult'
@@ -434,7 +434,10 @@ def run() -> bool:
         return False
     finally:
         if booted_here:
-            shutdown(udid)
+            try:
+                shutdown(udid)
+            except subprocess.TimeoutExpired:  # never let a slow shutdown hide the run's own result or evidence
+                fail(f'simulator {udid} did not shut down within 120 s; shut it down with `xcrun simctl shutdown {udid}`')
 
     results: dict[str, dict] = {}
     system: list[dict] = []

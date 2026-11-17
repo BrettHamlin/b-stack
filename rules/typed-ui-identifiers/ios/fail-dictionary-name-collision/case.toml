@@ -1,0 +1,4 @@
+# A dictionary named like a query (buttons) must not exempt the real query.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal element lookups"

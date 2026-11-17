@@ -1,0 +1,4 @@
+# %K with the key "identifier" and a literal value.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal element lookups"
