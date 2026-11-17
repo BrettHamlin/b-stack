@@ -1,0 +1,4 @@
+# A query kept in a variable and subscripted with a literal later.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal element lookups"

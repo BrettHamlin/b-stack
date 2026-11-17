@@ -1,0 +1,3 @@
+# Typed lookups, typed predicates and ordinary dictionaries are fine in journeys, as are literals in comments.
+expect = "pass"
+enforced_by = "harmonize"

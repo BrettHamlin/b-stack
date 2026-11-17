@@ -12,10 +12,13 @@ Test mode: AppVerify is the app composed with Targets/Fixtures instead of real s
 (a Fixture case, e.g. standard or save-fails) and BSTACK_RESET=1. The shipped App can't import Fixtures.
 
 Feature map: feature-map/*.toml, one file per feature. Every feature module (each Targets/<Feature>Interface) needs an
-entry; every journey an entry names must exist in Targets/*UITests, and every journey there must be named by an entry.
+entry, and each entry's module must be a feature. Each journey is named by exactly one entry, with a fixture that
+exists. Every journey that runs must be in the map, and every journey in the map must run and pass, using the fixture
+the map names.
 
 Evidence: .build/evidence/<time>-<commit>/ (in the cache folder if one is configured): evidence.md, screenshots,
-the .xcresult bundle and the xcodebuild log. .build/evidence/latest points at the newest run.
+the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed boots
+and builds. .build/evidence/latest points at the newest run.
 """
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +30,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -52,12 +56,22 @@ def features() -> list[str]:
     return sorted(p.name.removesuffix('Interface') for p in (ROOT / 'Targets').glob('*Interface') if p.is_dir())
 
 
+def known_fixtures() -> set[str]:
+    """Fixture names AppVerify accepts: the raw values of the `Fixture` enum's cases in Targets/Fixtures."""
+    names: set[str] = set()
+    for source in (ROOT / 'Targets/Fixtures').glob('**/*.swift'):
+        for case in re.finditer(r'(?m)^\s*case\s+(\w+)\s*(?:=\s*"([^"]+)")?\s*$', source.read_text()):
+            names.add(case.group(2) or case.group(1))
+    return names
+
+
 def journeys_in_code() -> set[str]:
     """Class/test pairs XCTest would run: classes that inherit from XCTestCase directly or through a base class,
-    with their own and inherited `test...()` methods. Results the run reports are also checked against the map."""
+    with their own and inherited `test...()` methods. A fast first check only: anything it can't see (a test in an
+    extension, a base class behind a typealias) is still caught from the run's results."""
     classes: dict[str, tuple[list[str], set[str]]] = {}
     for source in (ROOT / 'Targets').glob('*UITests/**/*.swift'):
-        text = source.read_text()
+        text = without_literals(source.read_text())
         for cls in re.finditer(r'\bclass\s+(\w+)\s*:\s*([^{]+)\{', text):
             bases = [b.strip() for b in cls.group(2).split(',')]
             classes[cls.group(1)] = (bases, set(re.findall(r'func\s+(test\w+)\s*\(\s*\)', top_level(text, cls.end()))))
@@ -127,6 +141,20 @@ def skip_parens(text: str, j: int) -> int:
     return j
 
 
+def without_literals(text: str) -> str:
+    """The text with comments and string literals replaced by a space, so declarations inside them aren't seen."""
+    kept, i = [], 0
+    while i < len(text):
+        after = skip_literal(text, i)
+        if after != i:
+            kept.append(' ')
+            i = after
+        else:
+            kept.append(text[i])
+            i += 1
+    return ''.join(kept)
+
+
 def top_level(text: str, start: int) -> str:
     """The text of a type body that opens just before `start`, without nested bodies (helper types, closures,
     function bodies), comments or string literals, so only the type's own declarations remain."""
@@ -168,20 +196,32 @@ def load_map() -> tuple[list[dict], list[str]]:
 
 def check_map() -> tuple[list[dict], list[str]]:
     entries, errors = load_map()
+    feature_modules = set(features())
     mapped = {e.get('module') for e in entries}
-    for feature in features():
+    for feature in sorted(feature_modules):
         if feature not in mapped:
             errors.append(f'feature {feature} has no feature-map entry. Add feature-map/<id>.toml with module = "{feature}" '
                           'and at least one journey that proves it works.')
-    in_code = journeys_in_code()
-    named = {j.get('test') for e in entries for j in e.get('journeys', [])}
+    fixtures = known_fixtures()
+    owners: dict[str, str] = {}
     for entry in entries:
+        if 'module' in entry and entry['module'] not in feature_modules:
+            errors.append(f'feature-map/{entry["file"]}: module "{entry["module"]}" is not a feature '
+                          f'(no Targets/{entry["module"]}Interface).')
         if not entry.get('journeys'):
             errors.append(f'feature-map/{entry["file"]}: no journeys. Every feature needs at least one.')
         for journey in entry.get('journeys', []):
-            if journey.get('test') not in in_code:
-                errors.append(f'journey {journey.get("test")} (feature-map/{entry["file"]}) does not exist in Targets/*UITests.')
-    for test in sorted(in_code - named):
+            test, fixture = journey.get('test', ''), journey.get('fixture')
+            if not re.fullmatch(r'\w+/test\w+', test):
+                errors.append(f'feature-map/{entry["file"]}: journey "{test}" is not Class/testName.')
+            if test in owners:
+                errors.append(f'journey {test} is named by both feature-map/{owners[test]} and feature-map/{entry["file"]}. '
+                              'A journey proves one feature.')
+            owners.setdefault(test, entry['file'])
+            if fixture is not None and fixture not in fixtures:
+                errors.append(f'journey {test} (feature-map/{entry["file"]}): fixture "{fixture}" does not exist. '
+                              f'Known fixtures: {", ".join(sorted(fixtures))}.')
+    for test in sorted(journeys_in_code() - set(owners)):
         errors.append(f'journey {test} is not in the feature map. Name it under the feature it proves.')
     return entries, errors
 
@@ -293,6 +333,11 @@ def attachments(directory: Path) -> dict[str, list[tuple[str, str]]]:
     return found
 
 
+def fixtures_used(shots: list[tuple[str, str]]) -> set[str]:
+    """Fixtures a journey launched with, from the `fixture-<name>` attachments its launch helper adds."""
+    return {name.removeprefix('fixture-') for name, _ in shots if name.startswith('fixture-')}
+
+
 def is_image(file: str) -> bool:
     return file.lower().endswith(('.png', '.jpg', '.jpeg'))
 
@@ -311,16 +356,29 @@ def write_evidence(directory: Path, entries: list[dict], results: dict[str, dict
         lines += [f'## {entry["id"]}', '', entry['summary'], '']
         for journey in entry['journeys']:
             result = results.get(journey['test'], {'result': 'Not run', 'messages': []})
+            used = ', '.join(f'`{f}`' for f in sorted(fixtures_used(shots.get(journey['test'], [])))) or 'none recorded'
             lines += [f'### {journey["test"]}: {result["result"]}', '',
-                      f'Fixture `{journey["fixture"]}`. Proves: {journey["proves"]}', '']
+                      f'Fixture launched: {used} (map: `{journey["fixture"]}`). Proves: {journey["proves"]}', '']
             lines += [f'- Failure: {m}' for m in result['messages']]
             for name, file in sorted(shots.get(journey['test'], [])):
-                lines.append(f'- {"!" if is_image(file) else ""}[{name}](attachments/{file})')
+                if is_image(file):
+                    lines.append(f'- ![{name}](attachments/{file})')
             lines.append('')
     lines += ['## Not covered', '',
               '- Real services: journeys run against fixtures, not production backends.',
-              '- One simulator model and OS version; no physical device.', '']
+              '- One simulator model and OS version; no physical device.',
+              '- The shipped App\'s choice of services (Targets/App): it composes features through the same view '
+              'initializers as AppVerify, but only AppVerify runs here.', '']
     (directory / 'evidence.md').write_text('\n'.join(lines))
+
+
+def write_failure(directory: Path, sha: str, device: dict, reason: str) -> None:
+    """evidence.md for a run that stopped before any journey finished, so `latest` always has one to read."""
+    (directory / 'evidence.md').write_text('\n'.join([
+        f'# Evidence: {sha}', '',
+        f'**Run failed before any journey finished:** {reason}', '',
+        f'Simulator: {device.get("name", "?")} ({device.get("runtime", "?")}). Logs are in this folder.', '']))
+    fail(reason)
 
 
 def run() -> bool:
@@ -346,7 +404,7 @@ def run() -> bool:
     booted_here = boot(udid)
     try:
         if not wait_booted(udid):
-            fail(f'simulator {udid} did not finish booting')
+            write_failure(directory, sha, device, f'simulator {udid} did not finish booting')
             return False
         device = state(udid)
         built = sh(['xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', SCHEME,
@@ -356,21 +414,23 @@ def run() -> bool:
         xctestrun = isolated_xctestrun() if built.returncode == 0 else None
         if xctestrun is None:
             errors = [l.strip() for l in (directory / 'build.log').read_text(errors='replace').splitlines() if 'error:' in l]
-            fail('build for testing failed: ' + ('; '.join(dict.fromkeys(errors[:10])) or f'see {directory / "build.log"}'))
+            write_failure(directory, sha, device, 'build for testing failed: '
+                          + ('; '.join(dict.fromkeys(errors[:10])) or f'see {directory / "build.log"}'))
             return False
         proc = sh(['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun),
                    '-destination', f'platform=iOS Simulator,id={udid}', '-resultBundlePath', str(result_bundle)],
                   timeout=JOURNEY_TIMEOUT, log=directory / 'xcodebuild.log')
         status = proc.returncode
     except subprocess.TimeoutExpired:
-        fail(f'journeys timed out after {JOURNEY_TIMEOUT}s. Log: {directory / "xcodebuild.log"}'
-             + ('' if booted_here else '. The simulator was already booted, so it was left running; it may need a restart.'))
+        write_failure(directory, sha, device, f'journeys timed out after {JOURNEY_TIMEOUT}s. Log: {directory / "xcodebuild.log"}'
+                      + ('' if booted_here else '. The simulator was already booted, so it was left running; it may need a restart.'))
         return False
     finally:
         if booted_here:
             shutdown(udid)
 
     results: dict[str, dict] = {}
+    system: list[dict] = []
     exported = False
     if result_bundle.exists():
         exported = sh(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result_bundle),
@@ -380,7 +440,9 @@ def run() -> bool:
             found: list[dict] = []
             for node in json.loads(tree.stdout).get('testNodes', []):
                 collect_tests(node, [], found)
-            results = {t['test']: t for t in found}
+            # Xcode reports a runner crash as a test under "System Failures"; that's a failed run, not a journey.
+            system = [t for t in found if t['test'].startswith('System Failures/')]
+            results = {t['test']: t for t in found if t not in system}
     write_evidence(directory, entries, results, device, sha)
 
     ok = status == 0
@@ -399,12 +461,19 @@ def run() -> bool:
                 ok = False
                 fail(f'journey {journey["test"]} attached no screenshots. Attach one at each checkpoint '
                      '(XCTAttachment(screenshot:), lifetime .keepAlways): they are the evidence.')
+            elif journey['fixture'] not in (used := fixtures_used(shots.get(journey['test'], []))):
+                ok = False
+                fail(f'journey {journey["test"]} launched with {sorted(used) or "no recorded fixture"}, but the map says '
+                     f'"{journey["fixture"]}". Launch through the journey helper, which records the fixture.')
     for test in sorted(set(results) - named):
         ok = False
         fail(f'journey {test} ran but is not in the feature map. Name it under the feature it proves.')
     if result_bundle.exists() and not exported:
         ok = False
         fail(f'could not export screenshots from {result_bundle}')
+    for crash in system:
+        ok = False
+        fail(f'the test runner failed: {crash["test"].removeprefix("System Failures/")}: {"; ".join(crash["messages"])}')
     if status != 0 and not any(r['result'] != 'Passed' for r in results.values()):
         log = (directory / 'xcodebuild.log').read_text(errors='replace')
         reasons = log.split('Testing failed:', 1)[1].strip().splitlines()[:5] if 'Testing failed:' in log else []
@@ -416,16 +485,22 @@ def run() -> bool:
 # ---------------------------------------------------------------- explore
 
 def launch(fixture: str, reset: bool) -> bool:
-    if not generate():
+    if fixture not in known_fixtures():
+        fail(f'unknown fixture "{fixture}". Known fixtures: {", ".join(sorted(known_fixtures()))}.')
         return False
     udid = simulator()
+    session = json.loads(SESSION.read_text()) if SESSION.is_file() else {}
+    if session and session.get('udid') != udid:
+        fail(f'a session is already open on simulator {session.get("udid")}; run `python3 scripts/verify.py cleanup` first')
+        return False
+    if not generate():
+        return False
     proc = sh(['xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', SCHEME,
                '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', str(DERIVED),
                '-quiet', '-skipMacroValidation', 'build', 'CODE_SIGNING_ALLOWED=NO'])
     if proc.returncode != 0:
         print((proc.stdout + proc.stderr).strip()[-3000:])
         return False
-    session = json.loads(SESSION.read_text()) if SESSION.is_file() else {}
     booted_here = boot(udid) or (session.get('udid') == udid and session.get('booted_here', False))
     # Recorded before anything else can fail, so `cleanup` can always find a simulator this script booted.
     SESSION.write_text(json.dumps({'udid': udid, 'booted_here': booted_here}))
@@ -441,6 +516,10 @@ def launch(fixture: str, reset: bool) -> bool:
                              cwd=ROOT, capture_output=True, text=True, env={**os.environ, **env})
     if started.returncode != 0:
         fail(f'launch failed: {started.stderr.strip()}')
+        return False
+    time.sleep(2)  # an app that crashes on launch (e.g. a bad fixture) is gone within this
+    if BUNDLE_ID not in sh(['xcrun', 'simctl', 'spawn', udid, 'launchctl', 'list']).stdout:
+        fail('AppVerify exited right after launch. Check the fixture, then `python3 scripts/verify.py doctor`.')
         return False
     print(json.dumps({'udid': udid, 'bundle_id': BUNDLE_ID, 'fixture': fixture, 'reset': reset,
                       'drive': f'agent-device snapshot --platform ios --udid {udid}',

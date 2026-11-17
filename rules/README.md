@@ -22,7 +22,7 @@ rules/<rule-id>/
 | `message` | What the agent sees: what's wrong, what to use instead, stop and report if blocked |
 | `escape_hatches` | Ways around the rule, and what blocks each |
 | `origin` | Where the rule came from |
-| `[ios]` | One key per enforcing tool (`compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `repo`) saying how. `tests_pending` if no cases exist yet, with the reason. |
+| `[ios]` | One key per enforcing tool (`compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`) saying how. `tests_pending` if no cases exist yet, with the reason. |
 
 ### case.toml
 

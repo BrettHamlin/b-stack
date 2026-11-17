@@ -11,10 +11,11 @@ public struct NotificationSettingsView: View {
         self.store = store
     }
 
-    public init(saver: any NotificationPreferenceSaving, isEnabled: Bool) {
+    /// The screen as both apps compose it: it starts from the saved value and saves changes to the same place.
+    public init(preferences: any NotificationPreferences) {
         self.init(
-            store: Store(initialState: NotificationSettings.State(isEnabled: isEnabled)) {
-                NotificationSettings(saver: saver)
+            store: Store(initialState: NotificationSettings.State(isEnabled: preferences.load())) {
+                NotificationSettings(saver: preferences)
             }
         )
     }

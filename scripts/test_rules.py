@@ -1,6 +1,6 @@
 """Prove every rule fires, by running each case through the project's own gate command (scripts/check.py).
 
-For each case, Targets/ is reset to the project's and the case's Targets/ is overlaid:
+For each case, Targets/ and feature-map/ are reset to the project's, and the case's own copies are overlaid:
   fail case   `check.py --only <enforced_by>` must fail, and its output must contain the case's diagnostic
   pass case   `check.py` must pass every gate except verify, so correct code never trips any rule
 The untouched project must pass every gate first, including verify (journeys in the running app). Pass cases skip
@@ -54,11 +54,17 @@ def check(*gates: str) -> tuple[bool, str]:
     return proc.returncode == 0, proc.stdout + proc.stderr
 
 
+OVERLAYS = ('Targets', 'feature-map')  # project folders a case may add files to or replace files in
+
+
 def reset_targets(case_dir: Path | None = None) -> None:
-    shutil.rmtree(work / 'Targets')
-    shutil.copytree(project / 'Targets', work / 'Targets')
-    if case_dir:
-        shutil.copytree(case_dir / 'Targets', work / 'Targets', dirs_exist_ok=True)
+    for folder in OVERLAYS:
+        if (work / folder).exists():
+            shutil.rmtree(work / folder)
+        if (project / folder).exists():
+            shutil.copytree(project / folder, work / folder)
+        if case_dir and (case_dir / folder).is_dir():
+            shutil.copytree(case_dir / folder, work / folder, dirs_exist_ok=True)
 
 
 def tail(output: str) -> str:
@@ -80,7 +86,8 @@ for case_file in sorted(ROOT.glob('rules/*/ios/*/case.toml')):
         continue
     case = tomllib.loads(case_file.read_text())
     adds = set(case.get('adds_targets', []))
-    missing = [m.name for m in (case_file.parent / 'Targets').iterdir()
+    case_targets = case_file.parent / 'Targets'
+    missing = [m.name for m in (case_targets.iterdir() if case_targets.is_dir() else [])
                if not (project / 'Targets' / m.name).is_dir() and m.name not in adds]
     if missing:
         status, detail = 'SKIP', f'project has no target {", ".join(missing)}'

@@ -2,25 +2,19 @@ import Core
 import Foundation
 public import SettingsInterface
 
-/// The notification preference, kept in UserDefaults on the device.
-public struct StoredNotificationPreferences: NotificationPreferenceSaving {
+/// The notification preference, kept in the app's standard UserDefaults. Each app has its own container, so the
+/// test-mode app (a separate bundle) never sees the shipped app's data.
+public struct StoredNotificationPreferences: NotificationPreferences {
     private static let key = "notificationsEnabled"
-    private let suiteName: String?
 
-    public init(suiteName: String? = nil) {
-        self.suiteName = suiteName
-    }
-
-    private var defaults: UserDefaults {
-        suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
-    }
+    public init() {}
 
     public func load() -> Bool {
-        defaults.bool(forKey: Self.key)
+        UserDefaults.standard.bool(forKey: Self.key)
     }
 
     public func store(enabled: Bool) {
-        defaults.set(enabled, forKey: Self.key)
+        UserDefaults.standard.set(enabled, forKey: Self.key)
     }
 
     public func save(enabled: Bool) async throws(NotificationPreferenceError) {

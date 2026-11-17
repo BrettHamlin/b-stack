@@ -1,0 +1,4 @@
+# The map names a fixture AppVerify doesn't have, so the evidence would claim a setup that never ran.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch (feature-map/notification-settings.toml): fixture \"standard-typo\" does not exist"

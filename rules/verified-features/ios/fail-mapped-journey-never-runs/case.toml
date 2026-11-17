@@ -1,0 +1,4 @@
+# The map names a journey that doesn't exist, so nothing proves that behaviour.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] journey NotificationSettingsJourneys/testRestoresAfterReinstall did not run"

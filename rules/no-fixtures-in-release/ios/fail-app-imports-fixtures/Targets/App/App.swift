@@ -4,11 +4,11 @@ import SwiftUI
 
 @main
 struct StarterApp: App {
-    private let setup = Fixture.launch()
+    private let preferences = Fixture.launch()
 
     var body: some Scene {
         WindowGroup {
-            NotificationSettingsView(saver: setup.saver, isEnabled: setup.notificationsEnabled)
+            NotificationSettingsView(preferences: preferences)
         }
     }
 }

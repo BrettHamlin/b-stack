@@ -38,7 +38,12 @@ final class NotificationSettingsJourneys: XCTestCase {
         capture(app, "2-reverted-with-error")
     }
 
+    /// Launches AppVerify with a fixture and records which one, so verify.py can check it against the feature map.
     private func launch(fixture: String, reset: Bool) -> XCUIApplication {
+        let record = XCTAttachment(string: fixture)
+        record.name = "fixture-\(fixture)"
+        record.lifetime = .keepAlways
+        add(record)
         let app = XCUIApplication()
         app.launchEnvironment["BSTACK_FIXTURE"] = fixture
         if reset {
