@@ -17,8 +17,8 @@ exists. Every journey that runs must be in the map, and every journey in the map
 the map names.
 
 Evidence: .build/evidence/<time>-<commit>/ (in the cache folder if one is configured): evidence.md, screenshots,
-the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed boots
-and builds. .build/evidence/latest points at the newest run.
+the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed generation, boots, builds
+and timeouts. .build/evidence/latest points at the newest such run, and is removed when the map check fails.
 """
 from datetime import datetime, timezone
 from pathlib import Path
@@ -358,7 +358,7 @@ def write_evidence(directory: Path, entries: list[dict], results: dict[str, dict
             result = results.get(journey['test'], {'result': 'Not run', 'messages': []})
             used = ', '.join(f'`{f}`' for f in sorted(fixtures_used(shots.get(journey['test'], [])))) or 'none recorded'
             lines += [f'### {journey["test"]}: {result["result"]}', '',
-                      f'Fixture launched: {used} (map: `{journey["fixture"]}`). Proves: {journey["proves"]}', '']
+                      f'Fixture recorded by the journey: {used} (map: `{journey["fixture"]}`). Proves: {journey["proves"]}', '']
             lines += [f'- Failure: {m}' for m in result['messages']]
             for name, file in sorted(shots.get(journey['test'], [])):
                 if is_image(file):
@@ -382,31 +382,37 @@ def write_failure(directory: Path, sha: str, device: dict, reason: str) -> None:
 
 
 def run() -> bool:
+    latest = ROOT / '.build/evidence/latest'
+    latest.unlink(missing_ok=True)  # never leave an older run's evidence looking current
     entries, errors = check_map()
     for error in errors:
         fail(error)
     if errors:
         return False
-    if not generate():
-        fail('project generation failed')
-        return False
 
     sha = commit()
     directory = ROOT / '.build/evidence' / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{sha}'
     directory.mkdir(parents=True)
-    latest = ROOT / '.build/evidence/latest'
-    latest.unlink(missing_ok=True)
     latest.symlink_to(directory.name)
-
-    udid = simulator()
     device: dict = {}
+    if not generate():
+        write_failure(directory, sha, device, 'project generation (tuist install/generate) failed')
+        return False
+    try:
+        udid = simulator()
+    except SystemExit as missing:
+        write_failure(directory, sha, device, str(missing))
+        return False
+
     result_bundle = directory / 'Journeys.xcresult'
     booted_here = boot(udid)
+    step = 'booting the simulator'
     try:
         if not wait_booted(udid):
             write_failure(directory, sha, device, f'simulator {udid} did not finish booting')
             return False
         device = state(udid)
+        step = 'build for testing'
         built = sh(['xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', SCHEME,
                     '-destination', f'platform=iOS Simulator,id={udid}', '-derivedDataPath', str(DERIVED),
                     '-skipMacroValidation', 'build-for-testing', 'CODE_SIGNING_ALLOWED=NO'],
@@ -417,12 +423,13 @@ def run() -> bool:
             write_failure(directory, sha, device, 'build for testing failed: '
                           + ('; '.join(dict.fromkeys(errors[:10])) or f'see {directory / "build.log"}'))
             return False
+        step = 'the journeys'
         proc = sh(['xcodebuild', 'test-without-building', '-xctestrun', str(xctestrun),
                    '-destination', f'platform=iOS Simulator,id={udid}', '-resultBundlePath', str(result_bundle)],
                   timeout=JOURNEY_TIMEOUT, log=directory / 'xcodebuild.log')
         status = proc.returncode
     except subprocess.TimeoutExpired:
-        write_failure(directory, sha, device, f'journeys timed out after {JOURNEY_TIMEOUT}s. Log: {directory / "xcodebuild.log"}'
+        write_failure(directory, sha, device, f'{step} timed out after {JOURNEY_TIMEOUT}s. Logs are in {directory}'
                       + ('' if booted_here else '. The simulator was already booted, so it was left running; it may need a restart.'))
         return False
     finally:
@@ -461,10 +468,11 @@ def run() -> bool:
                 ok = False
                 fail(f'journey {journey["test"]} attached no screenshots. Attach one at each checkpoint '
                      '(XCTAttachment(screenshot:), lifetime .keepAlways): they are the evidence.')
-            elif journey['fixture'] not in (used := fixtures_used(shots.get(journey['test'], []))):
+            elif (used := fixtures_used(shots.get(journey['test'], []))) != {journey['fixture']}:
                 ok = False
                 fail(f'journey {journey["test"]} launched with {sorted(used) or "no recorded fixture"}, but the map says '
-                     f'"{journey["fixture"]}". Launch through the journey helper, which records the fixture.')
+                     f'only "{journey["fixture"]}". Launch through the journey helper, which records each fixture; '
+                     'a journey that needs two starting states is two journeys.')
     for test in sorted(set(results) - named):
         ok = False
         fail(f'journey {test} ran but is not in the feature map. Name it under the feature it proves.')
@@ -490,7 +498,7 @@ def launch(fixture: str, reset: bool) -> bool:
         return False
     udid = simulator()
     session = json.loads(SESSION.read_text()) if SESSION.is_file() else {}
-    if session and session.get('udid') != udid:
+    if session and session.get('udid') != udid:  # relaunching on the session's own simulator is fine
         fail(f'a session is already open on simulator {session.get("udid")}; run `python3 scripts/verify.py cleanup` first')
         return False
     if not generate():

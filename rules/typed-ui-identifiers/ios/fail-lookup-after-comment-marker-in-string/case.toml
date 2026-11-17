@@ -1,0 +1,4 @@
+# A "/*" inside a string must not start a comment that hides the lookup after it.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal element lookups"

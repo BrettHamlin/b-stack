@@ -4,13 +4,21 @@ import XCTest
 final class TypedLookupJourneys: XCTestCase {
     func testTogglesNotifications() {
         let app = XCUIApplication()
-        app.launchEnvironment["BSTACK_FIXTURE"] = "standard"
+        var environment = app.launchEnvironment
+        environment["BSTACK_FIXTURE"] = "standard"
+        app.launchEnvironment = environment
         app.launch()
         // Never app.switches["notificationSettings.toggle"]: use the constant.
         let typed = NSPredicate(format: "identifier == %@", NotificationSettingsUIID.toggle)
         app.switches.element(matching: typed).switches.firstMatch.tap()
         let notes: [String: String] = ["result": "toggled"]
         XCTAssertEqual(notes["result"], "toggled")
-        XCTAssertEqual(app.switches[NotificationSettingsUIID.toggle].identifier, NotificationSettingsUIID.toggle)
+        let site = "https://example.com"; XCTAssertTrue(app.switches[NotificationSettingsUIID.toggle].exists, site)
+        let other: [String: String] = defaults()
+        XCTAssertEqual(other["other"], "value")
+    }
+
+    private func defaults() -> [String: String] {
+        return ["other": "value"]
     }
 }

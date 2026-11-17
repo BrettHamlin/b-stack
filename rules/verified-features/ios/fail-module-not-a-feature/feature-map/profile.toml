@@ -1,5 +1,6 @@
 # Feature map entry: what a user can do, how they reach it, and which journeys prove it works.
-# scripts/verify.py checks that every feature module has an entry and every journey exists, then runs the journeys.
+# scripts/verify.py checks the map (every feature has an entry, each journey is named once, fixtures exist), then runs
+# the journeys: each one named here must run, pass, attach screenshots and launch the fixture named here.
 # If a journey fails, record why under `gotchas` or fix the app. Never weaken a journey to make it pass.
 
 id = "profile"

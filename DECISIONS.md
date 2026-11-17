@@ -70,6 +70,7 @@ Most are tested on every run of `scripts/test_rules.py`; `~Copyable`, the `packa
   - The two Settings journeys take about 80 s, including the build for testing.
   - agent-device's runner can take the foreground after a launch; `agent-device open <bundle id>` brings the app back without relaunching it.
   - Tuist `--only redundant`, newly added to the gate, found an unused `SettingsTests → Core` dependency.
+  - A public struct's stored properties need their modules imported `public` even when the property and the initializer using it are internal: without library evolution, clients need the stored types' metadata to lay the struct out. With `internal import SettingsLogic`/`ComposableArchitecture` in Settings, App failed to link (undefined `nominal type descriptor` for `NotificationSettings.State` and `Store`). Keep those imports `public`; `init(store:)` is internal, so apps must use `init(preferences:)`.
 - **Harmonize 1.3.0 tests hang when run in parallel** (seen with 10 rules: every test passes alone in about 1 s, and the full parallel run never finished in 2 hours). The gate runs them with `--no-parallel`; the full set takes about 1 s.
 - **Tool details that bite:** Python's `zipfile` breaks macOS framework symlinks (use `ditto`); a placeholder type named like its module (`enum Core` in `Core`) breaks module-qualified lookup.
 

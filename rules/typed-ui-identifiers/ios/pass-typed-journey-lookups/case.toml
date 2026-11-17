@@ -1,3 +1,4 @@
-# Typed lookups, typed predicates and ordinary dictionaries are fine in journeys, as are literals in comments.
+# Typed lookups, typed predicates, dictionaries (launchEnvironment, a copy of it, typed or literal dictionaries) and a
+# "//" inside a string are all fine in journeys, as are literals in comments.
 expect = "pass"
 enforced_by = "harmonize"

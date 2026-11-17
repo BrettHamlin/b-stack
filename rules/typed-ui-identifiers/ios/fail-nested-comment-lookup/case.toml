@@ -1,0 +1,4 @@
+# A nested block comment inside the subscript must not hide the literal.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal element lookups"

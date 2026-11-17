@@ -7,7 +7,8 @@ public import SwiftUI
 public struct NotificationSettingsView: View {
     @Bindable var store: StoreOf<NotificationSettings>
 
-    public init(store: StoreOf<NotificationSettings>) {
+    /// Internal: apps compose the screen through init(preferences:), which loads the saved value.
+    init(store: StoreOf<NotificationSettings>) {
         self.store = store
     }
 
