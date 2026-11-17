@@ -2,27 +2,27 @@
 
 Gates:
   compiler   generate the Xcode project with Tuist, then build every target with strict Swift settings
-  tuist      every import of a project module is declared in Project.swift
+  tuist      every import of a project module is declared in Project.swift, and every declared one is used
   swiftlint  no force unwraps, force try/cast, or suppression comments
   harmonize  architecture rules in Rules/ (allowed imports, no singletons, concurrency escapes, ...)
   tests      unit tests on an iOS Simulator (TCA TestStore tests are exhaustive)
+  verify     the feature map is complete, and every journey passes in the running app (scripts/verify.py)
 
 Usage: python3 scripts/check.py [--only GATE ...]
 """
 from pathlib import Path
 import argparse
-import json
 import os
-import re
 import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paths import link_build_dirs  # noqa: E402
+from simulator import simulator  # noqa: E402
 from tools import tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'tuist', 'swiftlint', 'harmonize', 'tests']
+GATES = ['compiler', 'tuist', 'swiftlint', 'harmonize', 'tests', 'verify']
 ENV = {**os.environ, 'TUIST_STATS_OPT_OUT': '1', 'TUIST_DISABLE_ANALYTICS': '1'}
 
 
@@ -42,23 +42,6 @@ def generate(tuist: str) -> bool:
     return run([tuist, 'install']) and run([tuist, 'generate', '--no-open'])
 
 
-def simulator() -> str:
-    """$BSTACK_SIMULATOR_ID if set, else the first available iPhone simulator on the newest standard iOS runtime.
-
-    Device-specific runtimes (e.g. "...iOS-27-2-iPhone19-4") are skipped: their devices can fail to prepare for tests.
-    """
-    if os.environ.get('BSTACK_SIMULATOR_ID'):
-        return os.environ['BSTACK_SIMULATOR_ID']
-    listing = json.loads(subprocess.run(['xcrun', 'simctl', 'list', 'devices', 'available', '-j'],
-                                        capture_output=True, text=True, check=True).stdout)['devices']
-    standard = {r: tuple(map(int, m.groups())) for r in listing if (m := re.search(r'SimRuntime\.iOS-(\d+)-(\d+)$', r))}
-    for runtime in sorted(standard, key=standard.get, reverse=True):
-        for device in listing[runtime]:
-            if re.match(r'iPhone \d', device['name']):
-                return device['udid']
-    sys.exit('No available iPhone simulator. Install an iOS runtime in Xcode.')
-
-
 def gate(name: str) -> bool:
     tuist = str(tool_path('tuist'))
     if name == 'compiler':
@@ -66,6 +49,10 @@ def gate(name: str) -> bool:
             'xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', 'App',
             '-destination', 'generic/platform=iOS Simulator', '-derivedDataPath', '.build/DerivedData',
             '-quiet', '-skipMacroValidation', 'build', 'CODE_SIGNING_ALLOWED=NO',
+        ]) and run([
+            'xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', 'AppVerify',
+            '-destination', 'generic/platform=iOS Simulator', '-derivedDataPath', '.build/DerivedData',
+            '-quiet', '-skipMacroValidation', 'build-for-testing', 'CODE_SIGNING_ALLOWED=NO',
         ])
     if name == 'tests':
         return generate(tuist) and run([
@@ -74,11 +61,14 @@ def gate(name: str) -> bool:
             '-quiet', '-skipMacroValidation', 'test', 'CODE_SIGNING_ALLOWED=NO',
         ])
     if name == 'tuist':
-        return run([tuist, 'install']) and run([tuist, 'inspect', 'dependencies', '--only', 'implicit'])
+        return run([tuist, 'install']) and run([tuist, 'inspect', 'dependencies', '--only', 'implicit', '--only', 'redundant'])
     if name == 'swiftlint':
         return run([str(tool_path('swiftlint')), 'lint', '--strict', '--quiet'])
     if name == 'harmonize':
-        return run(['swift', 'test', '--package-path', 'Rules', '--scratch-path', '.build/rules'])
+        # Serial: run in parallel, Harmonize 1.3.0 rules can deadlock on its shared source cache and hang forever.
+        return run(['swift', 'test', '--no-parallel', '--package-path', 'Rules', '--scratch-path', '.build/rules'])
+    if name == 'verify':
+        return subprocess.run([sys.executable, str(ROOT / 'scripts/verify.py'), 'run'], cwd=ROOT, env=ENV).returncode == 0
     raise ValueError(name)
 
 

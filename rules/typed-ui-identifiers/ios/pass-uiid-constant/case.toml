@@ -1,2 +1,4 @@
+# A view sets its identifier from a UIID: an Interface constant, a passed-in value (id, self.id, row.id), or a
+# ternary between constants. Ordinary Self(x) construction in an Interface module is unaffected.
 expect = "pass"
 enforced_by = "harmonize"

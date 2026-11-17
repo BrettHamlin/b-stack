@@ -1,0 +1,4 @@
+# A second entry claims a journey that already proves another feature.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch is named by both feature-map/notification-settings.toml and feature-map/settings-copy.toml"

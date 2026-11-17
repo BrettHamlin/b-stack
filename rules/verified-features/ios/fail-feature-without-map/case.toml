@@ -1,0 +1,5 @@
+# A new feature (its Interface module exists) with no feature-map entry.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] feature Profile has no feature-map entry"
+adds_targets = ["ProfileInterface"]

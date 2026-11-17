@@ -1,0 +1,5 @@
+# A journey inventing an identifier from a string: UIID's initializer is package-level, visible only to Core and
+# the *Interface modules.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "is inaccessible due to 'package' protection level"

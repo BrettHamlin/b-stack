@@ -1,0 +1,4 @@
+# Importing one declaration still links Fixtures into the shipped app.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[no-fixtures-in-release]"

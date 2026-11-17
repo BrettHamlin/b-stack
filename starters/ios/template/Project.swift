@@ -7,6 +7,10 @@ let strict: SettingsDictionary = [
     "OTHER_SWIFT_FLAGS": "$(inherited) -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature ExistentialAny",
 ]
 let mainActorByDefault: SettingsDictionary = ["SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor"]
+/// Core and the *Interface modules share a Swift package name, so `package` declarations (UIID's initializer) are
+/// visible to them and to nothing else: only an Interface module can create a UIID. Testability is off for them, so
+/// `@testable import` can't reach that initializer either (nothing tests these modules through @testable).
+let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers", "ENABLE_TESTABILITY": "NO"]
 
 func module(_ name: String, dependencies: [String] = [], external: [String] = [], ui: Bool = false) -> Target {
     .target(
@@ -17,7 +21,8 @@ func module(_ name: String, dependencies: [String] = [], external: [String] = []
         deploymentTargets: .iOS("18.0"),
         sources: ["Targets/\(name)/**"],
         dependencies: dependencies.map { .target(name: $0) } + external.map { .external(name: $0) },
-        settings: .settings(base: ui ? strict.merging(mainActorByDefault) { $1 } : strict)
+        settings: .settings(base: (ui ? strict.merging(mainActorByDefault) { $1 } : strict)
+            .merging(name == "Core" || name.hasSuffix("Interface") ? identifierPackage : [:]) { $1 })
     )
 }
 
@@ -29,6 +34,8 @@ let project = Project(
         module("SettingsLogic", dependencies: ["SettingsInterface", "Core"], external: ["ComposableArchitecture"]),
         module("Settings", dependencies: ["SettingsLogic", "SettingsInterface", "Core"], external: ["ComposableArchitecture"], ui: true),
         module("Platform", dependencies: ["SettingsInterface", "Core"]),
+        // Test-mode setups. Only AppVerify links this (no-fixtures-in-release).
+        module("Fixtures", dependencies: ["Platform", "SettingsInterface", "Core"]),
         .target(
             name: "SettingsTests",
             destinations: .iOS,
@@ -36,7 +43,7 @@ let project = Project(
             bundleId: "dev.bstack.starter.settingstests",
             deploymentTargets: .iOS("18.0"),
             sources: ["Targets/SettingsTests/**"],
-            dependencies: [.target(name: "SettingsLogic"), .target(name: "SettingsInterface"), .target(name: "Core"), .external(name: "ComposableArchitecture")],
+            dependencies: [.target(name: "SettingsLogic"), .target(name: "SettingsInterface"), .external(name: "ComposableArchitecture")],
             settings: .settings(base: strict)
         ),
         .target(
@@ -47,8 +54,31 @@ let project = Project(
             deploymentTargets: .iOS("18.0"),
             infoPlist: .default,
             sources: ["Targets/App/**"],
-            dependencies: [.target(name: "Settings"), .target(name: "SettingsInterface"), .target(name: "Platform")],
+            dependencies: [.target(name: "Settings"), .target(name: "Platform")],
             settings: .settings(base: strict.merging(mainActorByDefault) { $1 })
+        ),
+        // The app in test mode, driven by scripts/verify.py. Never shipped.
+        .target(
+            name: "AppVerify",
+            destinations: .iOS,
+            product: .app,
+            bundleId: "dev.bstack.starter.verify",
+            deploymentTargets: .iOS("18.0"),
+            infoPlist: .default,
+            sources: ["Targets/AppVerify/**"],
+            dependencies: [.target(name: "Settings"), .target(name: "Fixtures")],
+            settings: .settings(base: strict.merging(mainActorByDefault) { $1 })
+        ),
+        // Feature-map journeys: XCUITest drives AppVerify like a user.
+        .target(
+            name: "AppVerifyUITests",
+            destinations: .iOS,
+            product: .uiTests,
+            bundleId: "dev.bstack.starter.verifyuitests",
+            deploymentTargets: .iOS("18.0"),
+            sources: ["Targets/AppVerifyUITests/**"],
+            dependencies: [.target(name: "AppVerify"), .target(name: "SettingsInterface"), .target(name: "Core")],
+            settings: .settings(base: strict)
         ),
     ],
     schemes: [
@@ -56,6 +86,12 @@ let project = Project(
             name: "SettingsTests",
             buildAction: .buildAction(targets: ["SettingsTests"]),
             testAction: .targets(["SettingsTests"])
+        ),
+        .scheme(
+            name: "AppVerify",
+            buildAction: .buildAction(targets: ["AppVerify", "AppVerifyUITests"]),
+            testAction: .targets(["AppVerifyUITests"]),
+            runAction: .runAction(executable: "AppVerify")
         ),
     ]
 )

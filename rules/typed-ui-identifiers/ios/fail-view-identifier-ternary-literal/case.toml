@@ -1,0 +1,4 @@
+# A ternary where one branch is a raw string.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"

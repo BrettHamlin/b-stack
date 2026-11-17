@@ -7,7 +7,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', 'origin', 'ios']
 LAYERS = {'1', '2', '1+2', '3', 'foundation'}
-ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests')
+ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests', 'verify')
 LINK = re.compile(r'\]\(([^)\s]+)\)')
 errors = []
 
@@ -52,8 +52,8 @@ for rule_dir in rule_dirs:
             errors.append(f'{rel(case_path)}: enforced_by must be one of {ENFORCERS}')
         if case.get('expect') == 'fail' and not case.get('diagnostic'):
             errors.append(f'{rel(case_path)}: fail cases need a diagnostic')
-        if not list((case_path.parent / 'Targets').glob('*/*.swift')):
-            errors.append(f'{rel(case_path)}: no Targets/<Target>/*.swift files')
+        if not list((case_path.parent / 'Targets').glob('*/*.swift')) and not list((case_path.parent / 'feature-map').glob('*.toml')):
+            errors.append(f'{rel(case_path)}: no Targets/<Target>/*.swift or feature-map/*.toml files')
     if 'fail' not in expects and not rule.get('ios', {}).get('tests_pending'):
         errors.append(f'{rel(rule_dir)}: needs an ios fail case, or ios.tests_pending explaining why not')
 

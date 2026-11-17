@@ -1,0 +1,4 @@
+# The map says the journey runs on save-fails, but it launches standard: caught from the fixture the run recorded.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch launched with ['standard'], but the map says only \"save-fails\""

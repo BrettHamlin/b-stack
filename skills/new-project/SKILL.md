@@ -14,7 +14,8 @@ Ask the user for the platform and a one-line description of the app. Available s
 ## 2. Agree the module plan with the user
 
 Propose, then confirm with the user. Don't decide alone:
-- the first features (each becomes `<Feature>Interface`, `<Feature>Logic`, `<Feature>` and `<Feature>Tests`, following the Settings example)
+- the first features (each becomes `<Feature>Interface`, `<Feature>Logic`, `<Feature>` and `<Feature>Tests`, plus a `feature-map/<id>.toml` entry and journeys, following the Settings example)
+- for each feature, the journeys that prove it works from the user's side, and the fixtures (starting states) they need
 - which module owns persistence and networking (default: Platform)
 - the one approved way to do subscriptions, timers, cancellation and background work
 
@@ -22,14 +23,14 @@ Propose, then confirm with the user. Don't decide alone:
 
 Copy `starters/ios/template/` into the new repo, then:
 - rename `AGENTS.template.md` → `AGENTS.md` and fill in its placeholders; add `CLAUDE.md` containing `@AGENTS.md`
-- replace the example Settings feature with the agreed features in `Project.swift`, `Targets/`, and `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`, keeping the `strict` settings on every target
+- replace the example Settings feature with the agreed features in `Project.swift`, `Targets/`, `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`, `Targets/Fixtures`, `Targets/AppVerify*` and `feature-map/`, keeping the `strict` settings on every target
 - replace `@OWNER` in `CODEOWNERS` with the user's GitHub handle
 
 Check `starters/ios/README.md` for what the template doesn't include yet. List each missing piece in your report; don't improvise substitutes.
 
 ## 4. Prove the gates work
 
-In the new repo: `python3 scripts/check.py` must PASS every gate.
+In the new repo: `python3 scripts/check.py` must PASS every gate, including `verify`. Open `.build/evidence/latest/evidence.md` and check its screenshots show what each journey claims.
 
 Then, from b-stack: `python3 scripts/test_rules.py --project <new-repo>`. Every case must PASS. A FAIL means the new repo doesn't enforce that rule: fix the setup, never the test case. A SKIP means the new repo lacks a target the case uses (e.g. you renamed Settings); report it.
 
@@ -37,5 +38,6 @@ Then, from b-stack: `python3 scripts/test_rules.py --project <new-repo>`. Every 
 
 - what was created
 - the gate results and the rule-test summary line
-- what's still missing (CI, branch protection, verification)
+- what's still missing (CI, branch protection)
+- the evidence path from the verify gate
 - what the user must do by hand (GitHub branch protection, code owners)

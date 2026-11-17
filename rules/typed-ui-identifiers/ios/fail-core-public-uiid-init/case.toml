@@ -1,0 +1,4 @@
+# Making UIID's initializer public would let any module create identifiers.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] UIID creation opened up"

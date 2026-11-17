@@ -1,0 +1,5 @@
+# A test class whose base is a typealias of XCTestCase: the source scan can't see it, so only the run's results
+# catch that the journey isn't in the map.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] journey AliasJourneys/testOpensSettings ran but is not in the feature map"

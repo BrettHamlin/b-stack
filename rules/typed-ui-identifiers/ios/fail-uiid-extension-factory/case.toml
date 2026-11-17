@@ -1,0 +1,4 @@
+# A factory in a UIID extension inside the journey module still can't reach the package-level initializer.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "is inaccessible due to 'package' protection level"

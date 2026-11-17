@@ -1,0 +1,4 @@
+# A UIKit assignment that extends a UIID value with a string.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"

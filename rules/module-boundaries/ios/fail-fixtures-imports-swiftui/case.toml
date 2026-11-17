@@ -1,0 +1,5 @@
+# Fixtures reaching for SwiftUI. Harmonize skips folders named Fixtures in production code, so this proves the
+# allowlist is applied to Targets/Fixtures at all.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[module-boundaries] Fixtures may only import"

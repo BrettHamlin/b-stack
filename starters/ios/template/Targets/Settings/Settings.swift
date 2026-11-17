@@ -4,23 +4,19 @@ public import SettingsLogic
 public import ComposableArchitecture
 public import SwiftUI
 
-public enum NotificationSettingsUIID {
-    public static let toggle = "notificationSettings.toggle"
-    public static let saving = "notificationSettings.saving"
-    public static let error = "notificationSettings.error"
-}
-
 public struct NotificationSettingsView: View {
     @Bindable var store: StoreOf<NotificationSettings>
 
-    public init(store: StoreOf<NotificationSettings>) {
+    /// Internal: apps compose the screen through init(preferences:), which loads the saved value.
+    init(store: StoreOf<NotificationSettings>) {
         self.store = store
     }
 
-    public init(saver: any NotificationPreferenceSaving) {
+    /// The screen as both apps compose it: it starts from the saved value and saves changes to the same place.
+    public init(preferences: any NotificationPreferences) {
         self.init(
-            store: Store(initialState: NotificationSettings.State()) {
-                NotificationSettings(saver: saver)
+            store: Store(initialState: NotificationSettings.State(isEnabled: preferences.load())) {
+                NotificationSettings(saver: preferences)
             }
         )
     }
@@ -28,15 +24,15 @@ public struct NotificationSettingsView: View {
     public var body: some View {
         Form {
             Toggle("Notifications", isOn: $store.isEnabled.sending(\.toggleChanged))
-                .accessibilityIdentifier(NotificationSettingsUIID.toggle)
+                .accessibilityIdentifier(NotificationSettingsUIID.toggle.rawValue)
             if store.isSaving {
                 ProgressView("Saving…")
-                    .accessibilityIdentifier(NotificationSettingsUIID.saving)
+                    .accessibilityIdentifier(NotificationSettingsUIID.saving.rawValue)
             }
             if let message = store.errorMessage {
                 Text(message)
                     .foregroundStyle(.red)
-                    .accessibilityIdentifier(NotificationSettingsUIID.error)
+                    .accessibilityIdentifier(NotificationSettingsUIID.error.rawValue)
             }
         }
         .onDisappear { store.send(.screenClosed) }

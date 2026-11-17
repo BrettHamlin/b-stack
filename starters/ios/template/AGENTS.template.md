@@ -4,16 +4,18 @@
 
 - Module dependencies are declared in `Project.swift`. Allowed system imports per module are in `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`.
 - Use the existing approved APIs for <lifecycle, background work, persistence, navigation>. Don't introduce a second way to do the same thing.
-- Pass dependencies in through initializers; `App` is the only place they're wired together.
-- Features use TCA, shaped like `Targets/Settings*`: types and client protocols in `<Feature>Interface`, a `@Reducer` in `<Feature>Logic` (no I/O; effects call injected clients), a view in `<Feature>` that only sends actions, exhaustive `TestStore` tests in `<Feature>Tests`.
+- Pass dependencies in through initializers. They're wired together in two places only: `App` (real services) and `AppVerify` (test mode, the only place that may use `Fixtures`). Both compose each feature through the same view initializer.
+- Features use TCA, shaped like `Targets/Settings*`: types and client protocols in `<Feature>Interface`, a `@Reducer` in `<Feature>Logic` (no I/O; effects call injected clients), a view in `<Feature>` that only sends actions, exhaustive `TestStore` tests in `<Feature>Tests`, plus a `feature-map/<id>.toml` entry and journeys in `Targets/AppVerifyUITests` that prove it works.
 
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, tuist, swiftlint, harmonize, tests: all must PASS
+python3 scripts/check.py        # compiler, tuist, swiftlint, harmonize, tests, verify: all must PASS
 ```
 
-Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it. Include an evidence package (`evidence.template.md` format) for behaviour changes.
+Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.
+
+`verify` runs every feature-map journey in the running app (test mode) and writes evidence to `.build/evidence/latest/evidence.md`. For behaviour changes, read its screenshots and include the evidence path in your report. How to run, explore and add journeys: the `verify` skill (`.agents/skills/verify/SKILL.md`).
 
 ## Never weaken enforcement
 

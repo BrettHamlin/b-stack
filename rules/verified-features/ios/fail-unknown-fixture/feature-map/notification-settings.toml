@@ -1,0 +1,24 @@
+# Feature map entry: what a user can do, how they reach it, and which journeys prove it works.
+# scripts/verify.py checks the map (every feature has an entry, each journey is named once, fixtures exist), then runs
+# the journeys: each one named here must run, pass, attach screenshots and launch the fixture named here.
+# If a journey fails, record why under `gotchas` or fix the app. Never weaken a journey to make it pass.
+
+id = "notification-settings"
+module = "Settings"
+summary = "User turns notifications on or off. The choice is saved and survives a relaunch."
+entry_points = ["Launch the app: notification settings is the first screen."]
+gotchas = [
+    "A SwiftUI Toggle in a Form is a cell wrapping the switch. Tap the inner switch; tapping the cell's centre lands on the label and does nothing.",
+    "The error message row is exposed as a cell, not static text: find it by identifier on any element type.",
+    "Wait for the switch to be hittable before tapping right after launch.",
+]
+
+[[journeys]]
+test = "NotificationSettingsJourneys/testTurningOffSurvivesRelaunch"
+fixture = "standard-typo"
+proves = "Turning notifications off is saved: the toggle stays off after the app is quit and relaunched."
+
+[[journeys]]
+test = "NotificationSettingsJourneys/testFailedSaveRevertsAndShowsError"
+fixture = "save-fails"
+proves = "When the save fails, the toggle reverts to its saved value and the error is shown."

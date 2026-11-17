@@ -1,0 +1,4 @@
+# Journeys through JourneyKit, plus ordinary code that is not a lookup: dictionaries in any form, the process
+# environment, Locale/TimeZone identifiers, a "//" inside a string, and system UI through JourneyKit's helpers.
+expect = "pass"
+enforced_by = "harmonize"

@@ -1,0 +1,4 @@
+# An entry for a module that isn't a feature (no Targets/ProfileInterface) "proves" it with another feature's journey.
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] feature-map/profile.toml: module \"Profile\" is not a feature (no Targets/ProfileInterface)"

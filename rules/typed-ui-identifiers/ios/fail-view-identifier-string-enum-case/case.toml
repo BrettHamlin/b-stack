@@ -1,0 +1,4 @@
+# A local String enum whose case name ends in UIID: the UIID suffix must be on the type, not the case.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"
