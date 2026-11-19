@@ -1,4 +1,3 @@
-# A journey file extending XCUIElement (module-qualified), which could wrap the raw lookup in a new name.
 expect = "fail"
-enforced_by = "harmonize"
-diagnostic = "[typed-ui-identifiers] Raw XCUITest lookups"
+enforced_by = "compiler"
+diagnostic = "cannot find type 'XCTest' in scope"

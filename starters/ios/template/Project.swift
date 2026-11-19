@@ -12,7 +12,7 @@ let mainActorByDefault: SettingsDictionary = ["SWIFT_DEFAULT_ACTOR_ISOLATION": "
 /// `@testable import` can't reach that initializer either (nothing tests these modules through @testable).
 let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers", "ENABLE_TESTABILITY": "NO"]
 
-func module(_ name: String, dependencies: [String] = [], external: [String] = [], ui: Bool = false) -> Target {
+func module(_ name: String, dependencies: [String] = [], external: [String] = [], ui: Bool = false, settings: SettingsDictionary = [:]) -> Target {
     .target(
         name: name,
         destinations: .iOS,
@@ -22,13 +22,16 @@ func module(_ name: String, dependencies: [String] = [], external: [String] = []
         sources: ["Targets/\(name)/**"],
         dependencies: dependencies.map { .target(name: $0) } + external.map { .external(name: $0) },
         settings: .settings(base: (ui ? strict.merging(mainActorByDefault) { $1 } : strict)
-            .merging(name == "Core" || name.hasSuffix("Interface") ? identifierPackage : [:]) { $1 })
+            .merging(name == "Core" || name.hasSuffix("Interface") ? identifierPackage : [:]) { $1 }
+            .merging(settings) { $1 })
     )
 }
 
 let project = Project(
     name: "Starter",
     targets: [
+        // Not resilient: a resilient Core would make its enums non-frozen, so every switch over one would need
+        // `@unknown default` and adding a state would no longer break unhandled sites (exhaustive-states).
         module("Core"),
         module("SettingsInterface", dependencies: ["Core"]),
         module("SettingsLogic", dependencies: ["SettingsInterface", "Core"], external: ["ComposableArchitecture"]),
@@ -69,15 +72,24 @@ let project = Project(
             dependencies: [.target(name: "Settings"), .target(name: "Fixtures")],
             settings: .settings(base: strict.merging(mainActorByDefault) { $1 })
         ),
-        // Feature-map journeys: XCUITest drives AppVerify like a user.
+        // Resilience keeps the internal XCTest import out of journey clients. Only this module sees the UI SDK.
+        module("JourneyKit", dependencies: ["Core"], settings: [
+            "ENABLE_TESTING_SEARCH_PATHS": "YES",
+            "OTHER_SWIFT_FLAGS": "$(inherited) -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature ExistentialAny -enable-library-evolution",
+        ]),
+        // Bodies have no testing framework paths: importing XCTest or XCUIAutomation is a compiler error.
+        module("AppVerifyJourneys", dependencies: ["JourneyKit", "SettingsInterface"], settings: [
+            "ENABLE_TESTING_SEARCH_PATHS": "NO",
+        ]),
+        // Generated XCTestCase adapters; scripts/verify.py checks them against the body source.
         .target(
             name: "AppVerifyUITests",
             destinations: .iOS,
             product: .uiTests,
             bundleId: "dev.bstack.starter.verifyuitests",
             deploymentTargets: .iOS("18.0"),
-            sources: ["Targets/AppVerifyUITests/**"],
-            dependencies: [.target(name: "AppVerify"), .target(name: "SettingsInterface"), .target(name: "Core")],
+            sources: ["Targets/AppVerifyUITests/GeneratedJourneys.swift"],
+            dependencies: [.target(name: "AppVerify"), .target(name: "AppVerifyJourneys")],
             settings: .settings(base: strict)
         ),
     ],

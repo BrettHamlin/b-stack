@@ -6,17 +6,23 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 
 | Piece | Path | Status |
 |---|---|---|
-| Tuist project: Core, SettingsInterface, SettingsLogic, Settings, SettingsTests, Platform, Fixtures, App, AppVerify, AppVerifyUITests | `template/Project.swift`, `template/Targets/` | ✅ Generates and builds for the iOS Simulator with strict Swift 6 settings |
+| Tuist project: Core, SettingsInterface, SettingsLogic, Settings, SettingsTests, Platform, Fixtures, App, AppVerify, JourneyKit, AppVerifyJourneys, AppVerifyUITests | `template/Project.swift`, `template/Targets/` | ✅ Generates and builds for the iOS Simulator with strict Swift 6 settings |
 | TCA 1.26.2, linked once as shared frameworks | `template/Tuist/Package.swift` | ✅ |
-| Example feature: notification toggle (save, failure revert, cancellation) with exhaustive TestStore tests | `Targets/Settings*` | ✅ Built by an agent in the state-flow trial; passes every gate |
-| Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | ✅ Passes on the template; every rule case runs through it |
-| Verification: test-mode app (`AppVerify` + `Fixtures`), XCUITest journeys, feature map, evidence with screenshots | `template/scripts/verify.py`, `template/Targets/AppVerify*`, `template/Targets/Fixtures`, `template/feature-map/` | ✅ Two Settings journeys (saved across relaunch; failed save reverts) |
+| Example feature: notification toggle (save, failure revert, cancellation) with exhaustive TestStore tests | `Targets/Settings*` | ✅ Built by an agent in the state-flow trial |
+| Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | Compiler, Tuist, SwiftLint and Harmonize pass; simulator gates and full rule suite pending for the module split |
+| Verification: test-mode app (`AppVerify` + `Fixtures`), XCUITest journeys, feature map, evidence with screenshots | `template/scripts/verify.py`, `template/Targets/AppVerify*`, `template/Targets/Fixtures`, `template/feature-map/` | Two Settings journeys (saved across relaunch; failed save reverts); module split builds, simulator regression pending |
 | Verify skill for agents in the new app: run, explore with agent-device, add journeys | `template/.agents/skills/verify/` | ✅ |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py` | ✅ Tuist 4.216.7, SwiftLint 0.65.1 |
 | Build output and tools in a configurable cache folder | `template/scripts/paths.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
 | Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers (views and journeys), no I/O in Logic, exhaustive tests, no fixtures outside AppVerify |
 | Lint rules | `template/.swiftlint.yml` | ✅ Force operations, suppression comments |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
+
+Journeys live in `Targets/AppVerifyJourneys`, inheriting JourneyKit's `Journey` helpers. `Screen.find(_ id: UIID)`
+returns an `Element` wrapper; no SDK app, element, query or screenshot is public. `python3 scripts/verify.py adapters`
+generates the XCTestCase entry points in `Targets/AppVerifyUITests`; the map/verify gate rejects handwritten adapters
+or extra runner files. Reflection and Objective-C dynamic access remain a Harmonize ban. The SDK's XCTest
+module re-exports XCUIAutomation, so putting journey bodies in the XCTestCase target would reopen raw lookups.
 
 The Settings feature is a small, complete example of the feature shape, including its feature-map entry and journeys. New features copy its pattern; replace it once real features exist.
 
@@ -33,7 +39,9 @@ The Settings feature is a small, complete example of the feature shape, includin
 | Fixtures (test-mode setups) | Platform, Interfaces, Core | Foundation |
 | App (composition root, shipped) | features, Interfaces, Platform | Foundation, SwiftUI |
 | AppVerify (composition root, test mode) | features, Interfaces, Fixtures | Foundation, SwiftUI |
-| AppVerifyUITests (journeys) | AppVerify, Interfaces | (test code) |
+| JourneyKit (typed UI driver) | Core | XCTest (internal import; library evolution enabled) |
+| AppVerifyJourneys (journey bodies) | JourneyKit, Interfaces | Foundation; no testing search paths |
+| AppVerifyUITests (generated adapters) | AppVerify, AppVerifyJourneys | XCTest |
 
 Module dependencies live in `Project.swift`; Tuist checks code against them. System-framework allowlists live in `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`; Harmonize checks them.
 
@@ -45,6 +53,8 @@ Module dependencies live in `Project.swift`; Tuist checks code against them. Sys
 | `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` on feature and App targets | UI code is main-actor by default |
 | `InternalImportsByDefault`, `MemberImportVisibility`, `ExistentialAny` | Imports aren't re-exported; no member leakage; explicit `any` |
 | `SWIFT_TREAT_WARNINGS_AS_ERRORS` | Warnings block the build |
+| `-enable-library-evolution` on JourneyKit; distribution build on Core | Internal XCTest types stay out of journey clients |
+| `ENABLE_TESTING_SEARCH_PATHS = NO` on AppVerifyJourneys | XCTest/XCUIAutomation imports fail in journey bodies |
 
 ## Not built yet (in order)
 

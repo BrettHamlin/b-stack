@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "value of type 'Screen' has no member 'app'"

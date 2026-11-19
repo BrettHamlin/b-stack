@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "value of type 'Element' has no member 'XCUIAutomation::buttons'"

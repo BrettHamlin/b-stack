@@ -200,104 +200,54 @@ private func isPlainStringLiteral(_ expr: ExprSyntax) -> Bool {
     return literal.segments.allSatisfy { $0.is(StringSegmentSyntax.self) }
 }
 
-@Test func typedUIIdentifiersInJourneys() {
-    // Journeys find elements only through JourneyKit's typed find(_ id: UIID), so a string can't be passed where an
-    // identifier is expected (a compile error). Outside JourneyKit.swift, journey files may not use XCUITest's lookup
-    // API at all. The rule bans it by name, a closed list from XCUIAutomation's XCUIElementTypeQueryProvider.h and
-    // XCUIElementQuery.h (Xcode 27.2): every element-type query (.buttons, .switches, ...), .descendants, .children,
-    // .matching, .containing, .element, .allElementsBoundByIndex, plus XCUIApplication, XCUIElementQuery, NSPredicate
-    // and .identifier, as member accesses, bare references (implicit self inside an extension) or key-path
-    // components, and extending XCUIElement / XCUIElementQuery / XCUIApplication / XCUIElementTypeQueryProvider.
-    // Those names are reserved in journey files. A dictionary subscript is never confused with a query, because
-    // nothing here inspects subscripts. Creating a UIID outside Core and *Interface is a compile error (package init).
-    var hits: [String] = []
-    for source in Harmonize.testCode().sources() {
-        guard let path = source.filePath?.path, path.range(of: #"/Targets/[^/]+UITests/"#, options: .regularExpression) != nil,
-              !path.hasSuffix("/JourneyKit.swift") else { continue }
-        let tree = Parser.parse(source: source.source)
-        let finder = RawLookupFinder(tree, file: source.fileName ?? path)
-        finder.walk(tree)
-        hits += finder.hits
-    }
-    #expect(hits.isEmpty, "[typed-ui-identifiers] Raw XCUITest lookups in journeys at \(hits). Find elements with JourneyKit's find(_:) and a UIID constant; add a JourneyKit helper if none fits.")
-}
-
-/// XCUITest lookup API, by name. Element-type queries are XCUIElementTypeQueryProvider's properties; firstMatch is
-/// left out because it looks nothing up (an element's firstMatch is itself).
-private let rawLookupNames: Set<String> = [
-    "activityIndicators", "alerts", "browsers", "buttons", "cells", "checkBoxes", "collectionViews", "colorWells",
-    "comboBoxes", "datePickers", "decrementArrows", "dialogs", "disclosedChildRows", "disclosureTriangles",
-    "dockItems", "drawers", "grids", "groups", "handles", "helpTags", "icons", "images", "incrementArrows",
-    "keyboards", "keys", "layoutAreas", "layoutItems", "levelIndicators", "links", "maps", "mattes", "menuBarItems",
-    "menuBars", "menuButtons", "menuItems", "menus", "navigationBars", "otherElements", "outlineRows", "outlines",
-    "pageIndicators", "pickerWheels", "pickers", "popUpButtons", "popovers", "progressIndicators", "radioButtons",
-    "radioGroups", "ratingIndicators", "relevanceIndicators", "rulerMarkers", "rulers", "scrollBars", "scrollViews",
-    "searchFields", "secureTextFields", "segmentedControls", "sheets", "sliders", "splitGroups", "splitters",
-    "staticTexts", "statusBars", "statusItems", "steppers", "switches", "tabBars", "tabGroups", "tableColumns",
-    "tableRows", "tables", "tabs", "textFields", "textViews", "timelines", "toggles", "toolbarButtons", "toolbars",
-    "touchBars", "valueIndicators", "webViews", "windows",
-    "descendants", "children", "matching", "containing", "element", "allElementsBoundByIndex",
-    "allElementsBoundByAccessibilityElement", "identifier", "dictionaryRepresentation",
-    // Reinterpreting memory could forge a UIID from a String: not for journeys.
-    "unsafeBitCast", "unsafeDowncast", "withUnsafeBytes", "withUnsafeMutableBytes", "withUnsafePointer",
-    "withUnsafeMutablePointer",
-]
-
-/// Types journeys may not extend outside JourneyKit: an extension could wrap the raw API in a new name.
-private let rawLookupExtended: Set<String> = ["XCUIElement", "XCUIElementQuery", "XCUIApplication", "XCUIElementTypeQueryProvider"]
-
-/// Types journeys may not name outside JourneyKit.
-private let rawLookupTypes: Set<String> = ["XCUIApplication", "XCUIElementQuery", "NSPredicate"]
-
-private final class RawLookupFinder: SyntaxVisitor {
-    private let converter: SourceLocationConverter
-    private let file: String
-    var hits: [String] = []
-
-    init(_ tree: SourceFileSyntax, file: String) {
-        converter = SourceLocationConverter(fileName: file, tree: tree)
-        self.file = file
-        super.init(viewMode: .sourceAccurate)
-    }
-
-    override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupNames.contains(bare(node.declName.baseName)) { report(node) }
-        if bare(node.declName.baseName) == "init", let base = node.base?.as(DeclReferenceExprSyntax.self),
-           rawLookupTypes.contains(bare(base.baseName)) { report(node) }
-        return .visitChildren
-    }
-
-    override func visit(_ node: DeclReferenceExprSyntax) -> SyntaxVisitorContinueKind {
-        // Bare names too: inside an extension, `descendants(matching:)` needs no `self.`.
-        if rawLookupTypes.contains(bare(node.baseName)) || rawLookupNames.contains(bare(node.baseName)) { report(node) }
-        return .visitChildren
-    }
-
-    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
-        // Compare the type's own name, so XCTest.XCUIElement or XCUIAutomation.XCUIElement count too.
-        let last = node.extendedType.as(MemberTypeSyntax.self).map { bare($0.name) }
-            ?? node.extendedType.as(IdentifierTypeSyntax.self).map { bare($0.name) }
-        if let last, rawLookupExtended.contains(last) { report(node.extendedType) }
-        return .visitChildren
-    }
-
-    override func visit(_ node: IdentifierTypeSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupTypes.contains(bare(node.name)) { report(node) }
-        return .visitChildren
-    }
-
-    override func visit(_ node: KeyPathPropertyComponentSyntax) -> SyntaxVisitorContinueKind {
-        if rawLookupNames.contains(bare(node.declName.baseName)) { report(node) }
-        return .visitChildren
-    }
-
-    private func report(_ node: some SyntaxProtocol) {
-        hits.append("\(file):\(node.startLocation(converter: converter).line): \(node.trimmedDescription.prefix(60))")
-    }
-}
-
 /// An identifier's name without backticks: `` `switches` `` and `switches` are the same name.
 private func bare(_ token: TokenSyntax) -> String {
     token.identifier?.name ?? token.text.replacingOccurrences(of: "`", with: "")
 }
 
+
+@Test func noDynamicJourneyAccess() {
+    // The compiler hides the UI SDK and raw handles. Reflection and Objective-C dispatch can still recover
+    // private objects without naming SDK types, so only these dynamic escapes remain a syntax rule.
+    var hits: [String] = []
+    for source in Harmonize.productionAndTestCode().on("Targets/AppVerifyJourneys").sources() {
+        guard let path = source.filePath?.path, path.contains("/Targets/AppVerifyJourneys/") else { continue }
+        let tree = Parser.parse(source: source.source)
+        let finder = DynamicJourneyAccessFinder()
+        finder.walk(tree)
+        if finder.found { hits.append(source.fileName ?? path) }
+    }
+    #expect(hits.isEmpty, "[typed-ui-identifiers] Dynamic UI access in journey bodies at \(hits). Use typed JourneyKit helpers; stop and report if a helper is missing.")
+}
+
+private final class DynamicJourneyAccessFinder: SyntaxVisitor {
+    private let names: Set<String> = [
+        "Mirror", "NSClassFromString", "NSSelectorFromString", "Selector", "unsafeBitCast", "unsafeDowncast",
+        "perform", "value", "setValue", "valueForKey", "method", "class_getInstanceMethod",
+        "class_getClassMethod", "object_getClass", "dlsym",
+        "withUnsafeBytes", "withUnsafeMutableBytes", "withUnsafePointer", "withUnsafeMutablePointer",
+    ]
+    var found = false
+
+    init() { super.init(viewMode: .sourceAccurate) }
+
+    override func visit(_ node: DeclReferenceExprSyntax) -> SyntaxVisitorContinueKind {
+        if names.contains(bare(node.baseName)) { found = true }
+        return .visitChildren
+    }
+
+    override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
+        if names.contains(bare(node.declName.baseName)) { found = true }
+        return .visitChildren
+    }
+
+    override func visit(_ node: KeyPathPropertyComponentSyntax) -> SyntaxVisitorContinueKind {
+        if names.contains(bare(node.declName.baseName)) { found = true }
+        return .visitChildren
+    }
+
+    override func visit(_ node: IdentifierTypeSyntax) -> SyntaxVisitorContinueKind {
+        if names.contains(bare(node.name)) { found = true }
+        return .visitChildren
+    }
+}

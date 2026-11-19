@@ -1,0 +1,3 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] XCTest adapters differ from journey bodies"
