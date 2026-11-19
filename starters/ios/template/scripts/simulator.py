@@ -26,7 +26,7 @@ def devices() -> list[tuple[str, dict]]:
     found = []
     for runtime in sorted(standard, key=standard.get, reverse=True):
         for device in listing[runtime]:
-            if re.match(r'iPhone \d', device['name']):
+            if re.match(r'iPhone \d', device['name']) and 'b-stack verify' not in device['name']:  # not verify's clones
                 found.append((device['udid'], {**device, 'runtime': runtime.rsplit('.', 1)[-1]}))
     return found
 

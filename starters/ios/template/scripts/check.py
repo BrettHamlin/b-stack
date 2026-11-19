@@ -35,6 +35,7 @@ XCODE = ('compiler', 'tests', 'verify')  # share .build/DerivedData and the simu
 ENV = {**os.environ, 'TUIST_STATS_OPT_OUT': '1', 'TUIST_DISABLE_ANALYTICS': '1'}
 DERIVED = ROOT / '.build/DerivedData'
 PRINT = threading.Lock()
+STOP = threading.Event()  # set on Ctrl-C: gates not yet started are skipped
 
 
 class Step:
@@ -98,14 +99,21 @@ def check(selected: list[str]) -> list[str]:
         if any(g in selected for g in ('compiler', 'tests')):
             generated = pool.submit(lambda: chain(install.result(), lambda: run([tuist, 'generate', '--no-open'])))
 
+        tuist_done = threading.Event()  # verify without compiler/tests runs Tuist itself: only after this gate
+        if 'tuist' not in selected:
+            tuist_done.set()
+
         def tuist_gate(started: float) -> None:
             # After generate, so two Tuist commands never write its manifest cache at once. It doesn't touch the
             # generated project (checked with Tuist 4.216.7), so it runs alongside the Xcode builds.
-            if generated:
-                generated.result()
-            report('tuist', chain(install.result(),
-                                  lambda: run([tuist, 'inspect', 'dependencies', '--only', 'implicit', '--only', 'redundant'])),
-                   started)
+            try:
+                if generated:
+                    generated.result()
+                report('tuist', chain(install.result(),
+                                      lambda: run([tuist, 'inspect', 'dependencies', '--only', 'implicit', '--only', 'redundant'])),
+                       started)
+            finally:
+                tuist_done.set()
 
         def xcode_lane(started: float) -> None:
             xctestrun: Path | None = None
@@ -118,13 +126,18 @@ def check(selected: list[str]) -> list[str]:
                     started)
                 xctestrun = built_xctestrun(build_started) if ok else None
                 started = time.monotonic()
-            if 'tests' in selected:
+            if 'tests' in selected and not STOP.is_set():
                 report('tests', chain(
                     generated.result(),
                     lambda: run(xcodebuild('SettingsTests', f'platform=iOS Simulator,id={simulator()}', 'test'))),
                     started)
                 started = time.monotonic()
-            if 'verify' in selected:
+            if 'verify' in selected and not STOP.is_set():
+                if not generated:
+                    tuist_done.wait()  # verify.py installs and generates with Tuist itself
+                with PRINT:
+                    print('verify: running the journeys (output when they finish; evidence in .build/evidence/latest)',
+                          flush=True)
                 cmd = [sys.executable, str(ROOT / 'scripts/verify.py'), 'run']
                 if generated and generated.result().ok:
                     cmd.append('--generated')
@@ -145,8 +158,12 @@ def check(selected: list[str]) -> list[str]:
             jobs.append(pool.submit(tuist_gate, start))
         if any(g in XCODE for g in selected):
             jobs.append(pool.submit(xcode_lane, start))
-        for job in jobs:
-            job.result()  # re-raises a crash in a gate's thread instead of reporting it as a pass
+        try:
+            for job in jobs:
+                job.result()  # re-raises a crash in a gate's thread instead of reporting it as a pass
+        except KeyboardInterrupt:
+            STOP.set()  # the running commands got Ctrl-C too; don't start the next gate in the Xcode lane
+            raise
 
     if len(selected) > 1:
         print('Summary: ' + ', '.join(f'{name} {"PASS" if results[name] else "FAIL"}' for name in GATES if name in selected),
@@ -159,4 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--only', action='append', choices=GATES)
     chosen = parser.parse_args().only or GATES
     link_build_dirs(ROOT)
-    sys.exit(1 if check([g for g in GATES if g in chosen]) else 0)
+    try:
+        sys.exit(1 if check([g for g in GATES if g in chosen]) else 0)
+    except KeyboardInterrupt:
+        sys.exit('\nStopped.')

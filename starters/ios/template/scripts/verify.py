@@ -18,8 +18,8 @@ entry, and each entry's module must be a feature. Each journey is named by exact
 exists. Every journey that runs must be in the map, and every journey in the map must run and pass, using the fixture
 the map names.
 
-Parallel journeys: off by default. With --workers N (or $BSTACK_VERIFY_WORKERS) above 1 and a shut-down simulator,
-`run` clones it and splits the journeys across it and its clones,
+Parallel journeys: off by default. With --workers N (or $BSTACK_VERIFY_WORKERS, or verify_workers in the b-stack
+config) above 1 and a shut-down simulator, `run` clones it and splits the journeys across it and its clones,
 one xcodebuild per simulator, then merges the result bundles and checks the merged results exactly as a single run's.
 The first simulator runs every journey not given to another (-skip-testing), so a journey the source scan can't see
 still runs. Clones are deleted afterwards. A fresh clone boots like a new device and starts every first-boot service:
@@ -45,7 +45,7 @@ import time
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from paths import link_build_dirs  # noqa: E402
+from paths import link_build_dirs, machine_setting  # noqa: E402
 from simulator import simulator, state  # noqa: E402
 from tools import tool_path  # noqa: E402
 
@@ -434,11 +434,12 @@ def write_failure(directory: Path, sha: str, device: dict, reason: str) -> None:
 
 
 def default_workers() -> int:
-    """How many simulators journeys may run on at once: $BSTACK_VERIFY_WORKERS, else 1. Cloning is opt-in: a fresh
-    clone's first boot costs minutes (see Parallel journeys), more than splitting a few journeys saves."""
+    """How many simulators journeys may run on at once: $BSTACK_VERIFY_WORKERS, else `verify_workers` in
+    ~/.config/b-stack/config.toml, else 1. A machine setting: a fresh clone's first boot costs minutes (see Parallel
+    journeys), more than splitting a few journeys saves, so set it only after timing verify on that machine."""
     if os.environ.get('BSTACK_VERIFY_WORKERS'):
         return max(1, int(os.environ['BSTACK_VERIFY_WORKERS']))
-    return 1
+    return machine_setting('verify_workers', 1)
 
 
 def shards(entries: list[dict], count: int) -> list[list[str]]:
@@ -470,7 +471,7 @@ def make_clones(udid: str, count: int) -> list[str]:
     name = state(udid).get('name', 'iPhone')
     made: list[str] = []
     for k in range(1, count + 1):
-        proc = sh(['xcrun', 'simctl', 'clone', udid, f'{name} (b-stack verify {k})'])
+        proc = sh(['xcrun', 'simctl', 'clone', udid, f'b-stack verify clone {k} ({name})'])  # never matches devices()'s filter
         if proc.returncode != 0 or not proc.stdout.strip():
             fail(f'could not clone simulator {udid} ({proc.stderr.strip()}); running on fewer simulators')
             break
@@ -765,7 +766,7 @@ if __name__ == '__main__':
     parser.add_argument('--fixture', default='standard')
     parser.add_argument('--reset', action='store_true')
     parser.add_argument('--workers', type=int, help='run: most simulators to split journeys across '
-                        '(default $BSTACK_VERIFY_WORKERS, else 1: cloning a simulator costs minutes)')
+                        '(default $BSTACK_VERIFY_WORKERS, else verify_workers in the b-stack config, else 1)')
     parser.add_argument('--generated', action='store_true', help=argparse.SUPPRESS)  # check.py already generated
     parser.add_argument('--xctestrun', type=Path, help=argparse.SUPPRESS)  # check.py's compiler gate already built it
     args = parser.parse_args()

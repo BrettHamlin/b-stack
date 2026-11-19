@@ -8,13 +8,14 @@ counts and the run fails. Pass cases skip verify because it drives a simulator f
 cases still run it. A case may add a target the project doesn't have by listing it in `adds_targets`; otherwise a
 missing target is a SKIP.
 
-Cases run on --jobs workers (default 1), each in its own copy of the project with its own build folder, so no case
+Cases run on --jobs workers (default: rule_jobs in ~/.config/b-stack/config.toml, else 1), each in its own copy of the project with its own build folder, so no case
 sees another's files and the order doesn't matter. More workers only pay off on a machine with spare CPU and fast disk
 for every worker's builds and simulator: on a 10-core, 16 GB laptop with the cache and simulators on one external
 drive, 2 workers took 24 minutes against about 20 serially, and made journeys flaky (see DECISIONS.md). Cases that need a simulator (pass cases, and tests and verify fail cases)
 run only on workers that have one: one per --simulator, each used by one worker at a time. Results print in case
 order, whichever finishes first. Workers' folders are kept per project checkout: a worker's first run builds
-everything (TCA, Harmonize) in its folder, later runs are incremental.
+everything (TCA, Harmonize) in its folder, later runs are incremental. Older versions of this script used one shared
+folder, rule-tests/<project name>; once no checkout runs an older version, it can be deleted.
 
 Default project: starters/ios/template. Pass --project <new-app> to prove a new app's setup enforces the rules.
 Work and tool downloads go to the cache folder if one is configured (see starters/ios/template/scripts/paths.py),
@@ -36,7 +37,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'starters/ios/template/scripts'))
-from paths import cache_root  # noqa: E402
+from paths import cache_root, machine_setting  # noqa: E402
 from simulator import simulator, state  # noqa: E402
 SKIP = {'.build', '.tools', 'Derived'}
 ALL_BUT_VERIFY = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests')
@@ -46,15 +47,18 @@ COST = {'untouched': 6, 'verify': 2, 'pass': 2, 'compiler': 1, 'tests': 1, 'tuis
 
 
 def default_jobs() -> int:
-    """$BSTACK_RULE_JOBS, else 1. Parallel workers are opt-in: each Xcode build already uses every core, so workers
-    mostly compete for CPU and disk, and an overloaded simulator fails journeys that pass alone."""
-    return max(1, int(os.environ.get('BSTACK_RULE_JOBS', '1')))
+    """$BSTACK_RULE_JOBS, else `rule_jobs` in ~/.config/b-stack/config.toml, else 1. A machine setting, not a per-run
+    choice: each Xcode build already uses every core, so workers mostly compete for CPU and disk, and an overloaded
+    simulator fails journeys that pass alone. Set it only after timing the suite on that machine."""
+    if os.environ.get('BSTACK_RULE_JOBS'):
+        return max(1, int(os.environ['BSTACK_RULE_JOBS']))
+    return machine_setting('rule_jobs', 1)
 
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--project', type=Path, default=ROOT / 'starters/ios/template', help='project root containing scripts/check.py')
 parser.add_argument('--rule', action='append', help='only run this rule id (repeatable)')
-parser.add_argument('--jobs', type=int, help='cases to run at once (default $BSTACK_RULE_JOBS, else 1)')
+parser.add_argument('--jobs', type=int, help='cases to run at once (default $BSTACK_RULE_JOBS, else rule_jobs in the b-stack config, else 1)')
 parser.add_argument('--simulator', action='append', metavar='UDID',
                     help='a simulator cases may use (repeatable; one worker each). Default: $BSTACK_SIMULATOR_ID, '
                          'else the first available iPhone')
@@ -76,6 +80,16 @@ except BlockingIOError:
     sys.exit(f'Another test_rules.py run is using {work_root}. Wait for it to finish.')
 base_env = dict(os.environ) if cache else {**os.environ, 'BSTACK_TOOLS_DIR': str(ROOT / '.tools')}
 simulators = list(dict.fromkeys(args.simulator or [simulator()]))
+# Runs from different checkouts may pick the same simulator; one at a time per simulator, or one run's shutdown (or
+# journeys) breaks the other's. Held for the whole run, like the work-folder lock.
+simulator_locks = []
+for udid in simulators:
+    simulator_lock = (work_root.parent / f'simulator-{udid}.lock').open('w')
+    try:
+        fcntl.flock(simulator_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit(f'Another test_rules.py run is using simulator {udid}. Wait for it, or pass another with --simulator.')
+    simulator_locks.append(simulator_lock)
 
 
 @dataclass
@@ -170,8 +184,6 @@ pending = sorted((t for t in tasks if t.result is None), key=lambda t: -t.cost)
 jobs = max(1, min(args.jobs or default_jobs(), len(pending)))
 workers = [Worker(work_root / f'w{i}',
                   simulators[i] if i < len(simulators) else None) for i in range(jobs)]
-if not any(t.needs_simulator for t in pending):
-    workers = [Worker(w.work, None) for w in workers]
 lock = threading.Lock()
 timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
@@ -242,8 +254,17 @@ try:
     threads = [threading.Thread(target=work, args=(w,)) for w in workers]
     for thread in threads:
         thread.start()
-    for thread in threads:
-        thread.join()
+    try:
+        for thread in threads:
+            thread.join()
+    except KeyboardInterrupt:
+        # Ctrl-C also stops the running check.py (same process group); stop workers taking more cases, then exit.
+        with lock:
+            aborted = True
+        print('\nStopped: waiting for running cases to end.', flush=True)
+        for thread in threads:
+            thread.join()
+        sys.exit(130)
 finally:
     for udid in booted_here:
         subprocess.run(['xcrun', 'simctl', 'shutdown', udid], capture_output=True)
