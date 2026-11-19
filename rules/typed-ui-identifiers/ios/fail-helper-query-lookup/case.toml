@@ -1,3 +1,5 @@
+# A helper that takes or returns raw XCUITest types can't even be declared in a journey body: the body target has no
+# testing search paths, so Swift 6.4.2 (Xcode 27.2) rejects the signature's types before reaching the lookups.
 expect = "fail"
 enforced_by = "compiler"
-diagnostic = "cannot find 'XCUIApplication' in scope"
+diagnostic = "HelperQueryJourneys.swift:4:33: error: cannot find type 'XCUIApplication' in scope"
