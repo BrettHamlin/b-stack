@@ -23,6 +23,7 @@ from pathlib import Path
 import argparse
 import fcntl
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -171,6 +172,7 @@ workers = [Worker(work_root / f'w{i}',
 if not any(t.needs_simulator for t in pending):
     workers = [Worker(w.work, None) for w in workers]
 lock = threading.Lock()
+timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
 aborted = False
 
@@ -211,11 +213,13 @@ def work(worker: Worker) -> None:
     global aborted
     worker.prepare()
     while task := take(worker):
+        task_started = time.monotonic()
         try:
             result = run_case(worker, task)
         except Exception as error:  # noqa: BLE001 - a crash in the harness is a FAIL for that case, never a pass
             result = ('FAIL', f'test harness error: {error!r}')
         with lock:
+            timings.append((task.label, worker.work.name, worker.simulator is not None, time.monotonic() - task_started))
             task.result = result
             if task.case is None and result[0] != 'PASS':
                 aborted = True  # nothing else counts if the untouched project fails
@@ -257,4 +261,8 @@ for task in tasks[1:]:
     counts[task.result[0]] += 1
 print('\n' + ', '.join(f'{n} {s.lower()}' for s, n in counts.items()) + f'  (project: {project})')
 print(f'{len(workers)} workers, {len(used)} simulators, {time.monotonic() - started:.0f}s', flush=True)
+busy = {w.work.name: sum(t for _, name, _, t in timings if name == w.work.name) for w in workers}
+print('Busy time per worker: ' + ', '.join(f'{name} {seconds:.0f}s' for name, seconds in busy.items()), flush=True)
+(work_root / 'timings.json').write_text(json.dumps(
+    [{'case': label, 'worker': name, 'simulator': sim, 'seconds': round(t, 1)} for label, name, sim, t in timings], indent=1))
 sys.exit(1 if counts['FAIL'] else 0)
