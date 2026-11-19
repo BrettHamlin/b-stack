@@ -5,11 +5,13 @@ Tools go to $BSTACK_TOOLS_DIR if set, else <cache folder>/tools if one is config
 Usage: python3 scripts/tools.py <tool-name>
 """
 from pathlib import Path
+import fcntl
 import hashlib
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 import urllib.request
 
@@ -32,18 +34,30 @@ def tool_path(name: str) -> Path:
     binary = home / spec['binary']
     if binary.is_file():
         return binary
-    home.mkdir(parents=True, exist_ok=True)
-    archive = home / 'download.zip'
-    with urllib.request.urlopen(spec['url']) as response, archive.open('wb') as out:
-        shutil.copyfileobj(response, out)
-    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-    if digest != spec['sha256']:
-        shutil.rmtree(home)
-        sys.exit(f'{name}: checksum mismatch (expected {spec["sha256"]}, got {digest}). Refusing to use it.')
-    # ditto keeps the symlinks and permissions inside macOS frameworks; zipfile does not.
-    subprocess.run(['ditto', '-x', '-k', str(archive), str(home)], check=True)
-    archive.unlink()
-    binary.chmod(0o755)
+    # Several runs (other checkouts too) share this folder: one downloads at a time, into a staging folder that is
+    # renamed into place only once verified and unpacked, so no one sees a half-written tool.
+    home.parent.mkdir(parents=True, exist_ok=True)
+    with (home.parent / f'{name}.lock').open('w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if binary.is_file():
+            return binary
+        staging = Path(tempfile.mkdtemp(dir=home.parent, prefix=f'.{name}-'))
+        try:
+            archive = staging / 'download.zip'
+            with urllib.request.urlopen(spec['url']) as response, archive.open('wb') as out:
+                shutil.copyfileobj(response, out)
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            if digest != spec['sha256']:
+                sys.exit(f'{name}: checksum mismatch (expected {spec["sha256"]}, got {digest}). Refusing to use it.')
+            unpacked = staging / 'tool'
+            # ditto keeps the symlinks and permissions inside macOS frameworks; zipfile does not.
+            subprocess.run(['ditto', '-x', '-k', str(archive), str(unpacked)], check=True)
+            (unpacked / spec['binary']).chmod(0o755)
+            if home.exists():
+                shutil.rmtree(home)  # a partial folder from a run that crashed before this lock existed
+            unpacked.rename(home)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
     return binary
 
 
