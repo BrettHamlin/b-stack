@@ -25,6 +25,7 @@ import threading
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from handback import record_check  # noqa: E402
 from paths import link_build_dirs  # noqa: E402
 from simulator import simulator  # noqa: E402
 from tools import tool_path  # noqa: E402
@@ -177,6 +178,9 @@ if __name__ == '__main__':
     chosen = parser.parse_args().only or GATES
     link_build_dirs(ROOT)
     try:
-        sys.exit(1 if check([g for g in GATES if g in chosen]) else 0)
+        selected = [g for g in GATES if g in chosen]
+        failed = check(selected)
     except KeyboardInterrupt:
-        sys.exit('\nStopped.')
+        sys.exit('\nStopped.')  # an interrupted run isn't a check, so it isn't recorded
+    record_check(ROOT, selected, failed)  # observe mode: lets scripts/handback.py tell whether hand-backs were checked
+    sys.exit(1 if failed else 0)

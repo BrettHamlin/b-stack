@@ -5,7 +5,7 @@
 - Module dependencies are declared in `Project.swift`. Allowed system imports per module are in `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`.
 - Use the existing approved APIs for <lifecycle, background work, persistence, navigation>. Don't introduce a second way to do the same thing.
 - Pass dependencies in through initializers. They're wired together in two places only: `App` (real services) and `AppVerify` (test mode, the only place that may use `Fixtures`). Both compose each feature through the same view initializer.
-- Features use TCA, shaped like `Targets/Settings*`: types and client protocols in `<Feature>Interface`, a `@Reducer` in `<Feature>Logic` (no I/O; effects call injected clients), a view in `<Feature>` that only sends actions, exhaustive `TestStore` tests in `<Feature>Tests`, plus a `feature-map/<id>.toml` entry and journey bodies in `Targets/AppVerifyJourneys` (generated XCTestCase adapters in `Targets/AppVerifyUITests`) that prove it works.
+- Features use TCA, shaped like `Targets/Settings*`: types and client protocols in `<Feature>Interface`, a `@Reducer` in `<Feature>Logic` (no I/O; effects call injected clients), a view in `<Feature>` that only sends actions, exhaustive `TestStore` tests in `<Feature>Tests` (examples, plus a property test that checks random action sequences against a model of the spec, like `NotificationSettingsPropertyTests`), plus a `feature-map/<id>.toml` entry and journey bodies in `Targets/AppVerifyJourneys` (generated XCTestCase adapters in `Targets/AppVerifyUITests`) that prove it works.
 
 ## Checks
 
