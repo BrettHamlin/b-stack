@@ -30,7 +30,9 @@ func module(_ name: String, dependencies: [String] = [], external: [String] = []
 let project = Project(
     name: "Starter",
     targets: [
-        module("Core", settings: ["BUILD_LIBRARY_FOR_DISTRIBUTION": "YES"]),
+        // Not resilient: a resilient Core would make its enums non-frozen, so every switch over one would need
+        // `@unknown default` and adding a state would no longer break unhandled sites (exhaustive-states).
+        module("Core"),
         module("SettingsInterface", dependencies: ["Core"]),
         module("SettingsLogic", dependencies: ["SettingsInterface", "Core"], external: ["ComposableArchitecture"]),
         module("Settings", dependencies: ["SettingsLogic", "SettingsInterface", "Core"], external: ["ComposableArchitecture"], ui: true),
