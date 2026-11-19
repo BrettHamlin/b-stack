@@ -8,8 +8,10 @@ counts and the run fails. Pass cases skip verify because it drives a simulator f
 cases still run it. A case may add a target the project doesn't have by listing it in `adds_targets`; otherwise a
 missing target is a SKIP.
 
-Cases run in parallel, each worker in its own copy of the project with its own build folder, so no case sees
-another's files and the order doesn't matter. Cases that need a simulator (pass cases, and tests and verify fail cases)
+Cases run on --jobs workers (default 1), each in its own copy of the project with its own build folder, so no case
+sees another's files and the order doesn't matter. More workers only pay off on a machine with spare CPU and fast disk
+for every worker's builds and simulator: on a 10-core, 16 GB laptop with the cache and simulators on one external
+drive, 2 workers took 24 minutes against about 20 serially, and made journeys flaky (see DECISIONS.md). Cases that need a simulator (pass cases, and tests and verify fail cases)
 run only on workers that have one: one per --simulator, each used by one worker at a time. Results print in case
 order, whichever finishes first. Workers' folders are kept per project checkout: a worker's first run builds
 everything (TCA, Harmonize) in its folder, later runs are incremental.
@@ -44,16 +46,15 @@ COST = {'untouched': 6, 'verify': 2, 'pass': 2, 'compiler': 1, 'tests': 1, 'tuis
 
 
 def default_jobs() -> int:
-    """One worker per 3 cores and 5 GB of memory (3 on a 10-core, 16 GB laptop): each builds with Xcode and may run a
-    simulator, and memory pressure kills test runners, which looks like a real failure."""
-    memory = int(subprocess.run(['sysctl', '-n', 'hw.memsize'], capture_output=True, text=True).stdout.strip() or 0)
-    return max(1, min((os.cpu_count() or 1) // 3, memory // (5 << 30)))
+    """$BSTACK_RULE_JOBS, else 1. Parallel workers are opt-in: each Xcode build already uses every core, so workers
+    mostly compete for CPU and disk, and an overloaded simulator fails journeys that pass alone."""
+    return max(1, int(os.environ.get('BSTACK_RULE_JOBS', '1')))
 
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--project', type=Path, default=ROOT / 'starters/ios/template', help='project root containing scripts/check.py')
 parser.add_argument('--rule', action='append', help='only run this rule id (repeatable)')
-parser.add_argument('--jobs', type=int, help='cases to run at once (default: one per 3 cores and 5 GB of memory)')
+parser.add_argument('--jobs', type=int, help='cases to run at once (default $BSTACK_RULE_JOBS, else 1)')
 parser.add_argument('--simulator', action='append', metavar='UDID',
                     help='a simulator cases may use (repeatable; one worker each). Default: $BSTACK_SIMULATOR_ID, '
                          'else the first available iPhone')

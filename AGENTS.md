@@ -18,7 +18,7 @@ python3 scripts/test_rules.py
 python3 scripts/check_repo.py
 ```
 
-Zero FAIL in both. The first rule-test run downloads pinned tools and builds TCA and the Harmonize rules (a few minutes more); later runs take about 15 minutes, mostly simulator runs for the verify cases. Needs an iOS Simulator runtime.
+Zero FAIL in both. The first rule-test run downloads pinned tools and builds TCA and the Harmonize rules (a few minutes more); later runs take 20 to 30 minutes on a laptop, mostly simulator runs for the verify cases. Needs an iOS Simulator runtime. Each checkout has its own work folder; a second run in the same checkout is refused until the first finishes.
 
 ## Rules for changing this repo
 
