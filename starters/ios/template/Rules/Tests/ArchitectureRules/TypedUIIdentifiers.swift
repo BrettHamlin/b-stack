@@ -83,7 +83,7 @@ private final class ViewIdentifierFinder: SyntaxVisitor {
     }
 }
 
-/// `.rawValue` of a UIID: `<Feature>UIID.<name>.rawValue` (also module-qualified), or `.rawValue` on a value reached
+/// `.rawValue` of a UIID: `<Feature>UIID.<name>.rawValue` (also module-qualified, and indexed: `<Feature>UIID.<name>.at(i, j).rawValue`), or `.rawValue` on a value reached
 /// from a variable, parameter or `self` (`id.rawValue`, `self.id.rawValue`, `row.id.rawValue`; trusted, review), or a
 /// ternary between two such values with any condition. A chain through a type name must pass a `...UIID` type, so a
 /// local String enum doesn't pass.
@@ -94,7 +94,10 @@ private func isUIIDRawValue(_ expr: ExprSyntax) -> Bool {
     guard let raw = expr.as(MemberAccessExprSyntax.self), bare(raw.declName.baseName) == "rawValue", var base = raw.base else { return false }
     var names: [String] = []                                        // the chain before .rawValue, root last
     while true {                                                    // row?.id, row!.id and items[i].id walk through
-        if let member = base.as(MemberAccessExprSyntax.self), let next = member.base {
+        if let call = base.as(FunctionCallExprSyntax.self), let at = call.calledExpression.as(MemberAccessExprSyntax.self),
+           bare(at.declName.baseName) == "at", let next = at.base {
+            base = next                                             // an indexed UIID: <UIID>.at(...) is still that UIID
+        } else if let member = base.as(MemberAccessExprSyntax.self), let next = member.base {
             names.append(bare(member.declName.baseName))
             base = next
         } else if let optional = base.as(OptionalChainingExprSyntax.self) {

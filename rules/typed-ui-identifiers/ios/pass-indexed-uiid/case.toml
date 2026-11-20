@@ -1,0 +1,3 @@
+# A grid gives each cell its own identifier from a feature constant: UIID.at(...) appends integers only.
+expect = "pass"
+enforced_by = "harmonize"

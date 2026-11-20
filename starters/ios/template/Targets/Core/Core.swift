@@ -11,5 +11,19 @@ public struct UIID: Hashable, Sendable, CustomStringConvertible {
         self.rawValue = rawValue
     }
 
+    package init(indexing base: UIID, by indices: [Int]) {
+        rawValue = base.rawValue + indices.map { ".\($0)" }.joined()
+    }
+
+    /// One identifier per item of a grid or list, built from a feature's constant: `BoardUIID.cell.at(3, 5)` is
+    /// "board.cell.3.5". Only integers can be appended, so a String still can't become an identifier.
+    public func at(_ indices: Int...) -> UIID {
+        at(indices)
+    }
+
+    public func at(_ indices: [Int]) -> UIID {
+        UIID(indexing: self, by: indices)
+    }
+
     public var description: String { rawValue }
 }
