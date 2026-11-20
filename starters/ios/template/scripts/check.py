@@ -75,9 +75,9 @@ def unrun_tests() -> Step:
     would still pass. Unit-test targets are in the UnitTests scheme automatically (Project.swift); UI tests run in verify."""
     run_by: set[str] = set()
     for scheme in (ROOT / 'Starter.xcodeproj/xcshareddata/xcschemes').glob('*.xcscheme'):
-        action = ElementTree.parse(scheme).getroot().find('TestAction')
-        if action is not None:
-            run_by |= {ref.get('BlueprintName') for ref in action.iter('BuildableReference')}
+        for testable in ElementTree.parse(scheme).getroot().iterfind('TestAction/Testables/TestableReference'):
+            if testable.get('skipped') != 'YES':
+                run_by |= {ref.get('BlueprintName') for ref in testable.iter('BuildableReference')}
     unrun = sorted(d.name for d in (ROOT / 'Targets').iterdir() if d.is_dir() and d.name.endswith('Tests')
                    and d.name not in run_by)
     if unrun:
