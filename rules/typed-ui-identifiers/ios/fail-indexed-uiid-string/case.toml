@@ -1,0 +1,5 @@
+# Indexing takes integers only: a String can't be smuggled into an identifier through at(_:).
+# Swift 6.4.2, Xcode 27.2.
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "cannot convert value of type 'String' to expected argument type 'Int'"

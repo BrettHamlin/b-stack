@@ -1,0 +1,10 @@
+id = "tests-always-run"
+layer = "2"
+summary = "Every test target runs in the tests gate; a new feature's tests can't be silently left out."
+problem = "The tests gate ran one hard-coded scheme (SettingsTests), so a new feature's tests never ran and the gate still passed."
+message = "Declare each Targets/<Name>Tests folder as a .unitTests target in Project.swift; the UnitTests scheme runs every unit-test target. If that's not possible, stop and report."
+escape_hatches = ["A test folder not named *Tests: review. The feature shape names it <Feature>Tests.", "Removing the UnitTests scheme's filter or the check in scripts/check.py: both files are code-owned (protected-enforcement)."]
+origin = "Nov 2026: found by reading check.py before a new app replaced the Settings example; also on the enforcement audit's list."
+
+[ios]
+tests = "Project.swift builds the UnitTests scheme from every .unitTests target; check.py's tests gate runs it, after failing if any Targets/*Tests folder isn't run by a scheme's test action."

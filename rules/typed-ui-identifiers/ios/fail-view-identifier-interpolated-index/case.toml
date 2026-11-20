@@ -1,0 +1,4 @@
+# A per-cell identifier built by string interpolation instead of UIID.at(...).
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"

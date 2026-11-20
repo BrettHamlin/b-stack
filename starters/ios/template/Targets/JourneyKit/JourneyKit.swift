@@ -16,6 +16,11 @@ public struct Screen {
         Element(app.descendants(matching: .any)[id.rawValue])
     }
 
+    /// One item of a grid or list: the element the view marked `id.at(indices...)`.
+    public func find(_ id: UIID, at indices: Int...) -> Element {
+        find(id.at(indices))
+    }
+
     /// The control to tap for a SwiftUI Toggle with this identifier. A Toggle in a Form is a switch wrapping a
     /// switch; tapping the outer one's centre lands on the label and does nothing.
     public func toggle(_ id: UIID) -> Element {
