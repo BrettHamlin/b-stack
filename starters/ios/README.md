@@ -9,6 +9,7 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | Tuist project: Core, SettingsInterface, SettingsLogic, Settings, SettingsTests, Platform, Fixtures, App, AppVerify, JourneyKit, AppVerifyJourneys, AppVerifyUITests | `template/Project.swift`, `template/Targets/` | ✅ Generates and builds for the iOS Simulator with strict Swift 6 settings |
 | TCA 1.26.2, linked once as shared frameworks | `template/Tuist/Package.swift` | ✅ |
 | Example feature: notification toggle (save, failure revert, cancellation) with exhaustive TestStore tests | `Targets/Settings*` | ✅ Built by an agent in the state-flow trial |
+| Property test for the example feature: 200 seeded random sequences of toggles, waits and closes, checked step by step against a model of the spec; stops at the first divergence and prints its steps | `Targets/SettingsTests/NotificationSettingsPropertyTests.swift` | ✅ About 5 s. No library: a seeded generator in the file |
 | Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | Compiler, Tuist, SwiftLint and Harmonize pass; simulator gates and full rule suite pending for the module split |
 | Verification: test-mode app (`AppVerify` + `Fixtures`), XCUITest journeys, feature map, evidence with screenshots | `template/scripts/verify.py`, `template/Targets/AppVerify*`, `template/Targets/Fixtures`, `template/feature-map/` | Two Settings journeys (saved across relaunch; failed save reverts); module split builds, simulator regression pending |
 | Verify skill for agents in the new app: run, explore with agent-device, add journeys | `template/.agents/skills/verify/` | ✅ |
@@ -16,6 +17,7 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | Build output and tools in a configurable cache folder | `template/scripts/paths.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
 | Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers (views and journeys), no I/O in Logic, exhaustive tests, no fixtures outside AppVerify |
 | Lint rules | `template/.swiftlint.yml` | ✅ Force operations, suppression comments |
+| Hand-back log, observe mode: whether check.py passed on the files at each Claude Code hand-back (Stop hook) and in each commit (`Checked:` trailer); never blocks | `template/scripts/handback.py`, `template/.claude/settings.json`, `template/.githooks/` | ✅ `python3 scripts/handback.py summary`. Codex has no hand-back hook here; its commits are stamped |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
 
 Journeys live in `Targets/AppVerifyJourneys`, inheriting JourneyKit's `Journey` helpers. `Screen.find(_ id: UIID)`

@@ -25,6 +25,7 @@ Copy `starters/ios/template/` into the new repo, then:
 - rename `AGENTS.template.md` → `AGENTS.md` and fill in its placeholders; add `CLAUDE.md` containing `@AGENTS.md`
 - replace the example Settings feature with the agreed features in `Project.swift`, `Targets/`, `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`, `Targets/Fixtures`, `Targets/AppVerify*` and `feature-map/`, keeping the `strict` settings on every target
 - replace `@OWNER` in `CODEOWNERS` with the user's GitHub handle
+- `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer
 
 Check `starters/ios/README.md` for what the template doesn't include yet. List each missing piece in your report; don't improvise substitutes.
 
