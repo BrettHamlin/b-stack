@@ -14,7 +14,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 01. Title — 0:25
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=25s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/01-0025.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=25s) · [Full-resolution capture](../../artifacts/slides/01-0025.jpg)
 
 **Observed / reported:** Title identifies poteto, also Lauren Tan, working on Grok Bot. The title's 'except mine' joke sets up skepticism about how we judge other people's code.
 
@@ -24,7 +24,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 02. Our craft and their slop — 0:36
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=36s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/02-0036.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=36s) · [Full-resolution capture](../../artifacts/slides/02-0036.jpg)
 
 **Observed / reported:** 'Our blessed craft / their barbarous slop' labels equivalent agents, prompting, iteration, and 4,000-line PRs differently.
 
@@ -34,7 +34,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 03. Personal PR volume — 0:45
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=45s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/03-0045.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=45s) · [Full-resolution capture](../../artifacts/slides/03-0045.jpg)
 
 **Observed / reported:** Her personal chart shows March–October PR counts: 68, 254, 352, 685, 1,113, 2,401, 2,932, 3,127; total 10,932.
 
@@ -44,7 +44,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 04. Quality and quantity — 1:00
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=60s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/04-0060.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=60s) · [Full-resolution capture](../../artifacts/slides/04-0060.jpg)
 
 **Observed / reported:** 'Quality & quantity' and 'everyone can be a coding machine.' Her thesis is increasing output while maintaining or improving quality.
 
@@ -54,7 +54,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 05. Trust enables scale — 1:25
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=85s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/05-0085.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=85s) · [Full-resolution capture](../../artifacts/slides/05-0085.jpg)
 
 **Observed / reported:** A conceptual curve plots trust against the number of agents, from one through thousands. It is an illustration, without measured trust units.
 
@@ -64,7 +64,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 06. Low trust loop — 1:35
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=95s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/06-0095.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=95s) · [Full-resolution capture](../../artifacts/slides/06-0095.jpg)
 
 **Observed / reported:** The low-trust loop is 'agent writes slop code → human verifies it → issues found.' The human remains the bottleneck.
 
@@ -74,7 +74,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 07. High trust loop — 1:50
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=110s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/07-0110.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=110s) · [Full-resolution capture](../../artifacts/slides/07-0110.jpg)
 
 **Observed / reported:** The high-trust build adds 'agent writes good code → agent verifies it → issues found.' It still contains feedback and failure detection.
 
@@ -84,7 +84,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 08. The poteto pyramid — 2:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=125s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/08-0125.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=125s) · [Full-resolution capture](../../artifacts/slides/08-0125.jpg)
 
 **Observed / reported:** The inverted poteto pyramid lists codebase; static analysis; verification; prose; human review. A downward arrow is labeled cost. The slide groups tests and CI under 'static analysis,' although many tests execute code.
 
@@ -94,7 +94,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 09. Code is memory — 3:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=185s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/09-0185.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=185s) · [Full-resolution capture](../../artifacts/slides/09-0185.jpg)
 
 **Observed / reported:** 'Code is memory' overlays the pyramid. She says the codebase is one of an agent's largest inputs.
 
@@ -104,7 +104,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 10. Codebase as a garden — 3:35
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=215s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/10-0215.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=215s) · [Full-resolution capture](../../artifacts/slides/10-0215.jpg)
 
 **Observed / reported:** A building covered in vegetation illustrates code arriving as a continuous, almost organic stream.
 
@@ -114,7 +114,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 11. Organic architecture — 4:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=245s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/11-0245.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=245s) · [Full-resolution capture](../../artifacts/slides/11-0245.jpg)
 
 **Observed / reported:** The same building gains the label 'Organic Architecture.' She describes constraints as foundations around which new code grows.
 
@@ -124,7 +124,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 12. Copying workarounds — 4:30
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=270s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/12-0270.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=270s) · [Full-resolution capture](../../artifacts/slides/12-0270.jpg)
 
 **Observed / reported:** 'Each copy makes the next copy more likely' shows one workaround propagating through connected weeds into 'the pattern.'
 
@@ -134,7 +134,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 13. Read the code sometimes — 4:55
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=295s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/13-0295.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=295s) · [Full-resolution capture](../../artifacts/slides/13-0295.jpg)
 
 **Observed / reported:** 'Yes, you should read the code sometimes' appears beside a human asking the agent to walk through it.
 
@@ -144,7 +144,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 14. Dune framework — 5:10
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=310s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/14-0310.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=310s) · [Full-resolution capture](../../artifacts/slides/14-0310.jpg)
 
 **Observed / reported:** Dune combines an app framework for navigation, rendering, and IPC with one folder per feature, strict import bans, and no comments in code. She describes it as roughly Next.js for Electron.
 
@@ -154,7 +154,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 15. Nuance and API design — 5:45
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=345s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/15-0345.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=345s) · [Full-resolution capture](../../artifacts/slides/15-0345.jpg)
 
 **Observed / reported:** 'Nuance tends to lead to slop — just design better APIs.' She says useEffect is banned in product code and allowed only in selected Dune internals.
 
@@ -164,7 +164,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 16. Directory structure as context — 6:35
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=395s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/16-0395.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=395s) · [Full-resolution capture](../../artifacts/slides/16-0395.jpg)
 
 **Observed / reported:** electron-renderer contains features, client, primitives; electron-main contains startup, notifications, update. Direct imports are crossed out with 'not even types'; both depend on shared types in shared/. A side-project file src/sim/tick.hot.ts signals 'runs every tick' and 'no allocations.'
 
@@ -174,7 +174,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 17. Unsolicited markdown — 7:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=425s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/17-0425.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=425s) · [Full-resolution capture](../../artifacts/slides/17-0425.jpg)
 
 **Observed / reported:** 'Stop agents from writing unsolicited markdown.' The illustration says 'Source?' and 'I made it up.' She describes agents turning corrections into excessive hard rules or documenting excuses.
 
@@ -184,7 +184,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 18. Quick fixes and timers — 7:40
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=460s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/18-0460.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=460s) · [Full-resolution capture](../../artifacts/slides/18-0460.jpg)
 
 **Observed / reported:** The timer example progresses Sep 9 → Oct 3 → Oct 17: setTimeout(() => release(id), 0), justified as fixing flicker, is copied into a shared module and becomes '183 timers.'
 
@@ -194,7 +194,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 19. Comments are liabilities — 8:30
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=510s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/19-0510.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=510s) · [Full-resolution capture](../../artifacts/slides/19-0510.jpg)
 
 **Observed / reported:** 'Comments are liabilities' shows 65,824 on July 31 and 1,227 'today,' referencing /no-comments. She says they banned roughly 99% because comments stale and cannot enforce behavior.
 
@@ -204,7 +204,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 20. Corrections become checks — 9:20
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=560s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/20-0560.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=560s) · [Full-resolution capture](../../artifacts/slides/20-0560.jpg)
 
 **Observed / reported:** 'Whenever you correct your agent' shows an increasing staircase labeled 7, 17, 38, 90, 139, 149, 157, 167. The caption says 'lint against it or categorically eliminate the problem.' The y-axis does not specify a unit.
 
@@ -214,7 +214,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 21. Verification matters — 9:50
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=590s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/21-0590.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=590s) · [Full-resolution capture](../../artifacts/slides/21-0590.jpg)
 
 **Observed / reported:** 'Verification is the most important step' overlays the pyramid. She says review now focuses on videos, screenshots, diagrams, and formal verification.
 
@@ -224,7 +224,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 22. Runtime feature map — 10:20
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=620s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/22-0620.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=620s) · [Full-resolution capture](../../artifacts/slides/22-0620.jpg)
 
 **Observed / reported:** The feature map has three explicit columns: what features exist, how users reach it, what proves it works. The slide references /create-verification-skill.
 
@@ -234,7 +234,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 23. Feature map and CLI — 10:45
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=645s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/23-0645.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=645s) · [Full-resolution capture](../../artifacts/slides/23-0645.jpg)
 
 **Observed / reported:** A CLI is added: app aria-click --accessible-name "Settings"; app snapshot; app screenshot proof.png. Labels say 'drive the real app' and 'agent checks its own work.'
 
@@ -244,7 +244,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 24. TLA+ and Lean — 11:10
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=670s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/24-0670.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=670s) · [Full-resolution capture](../../artifacts/slides/24-0670.jpg)
 
 **Observed / reported:** TLA+ is presented for modeling state machines and checking rules; Lean for proofs about algorithms. She cites notification flows across devices and a custom virtualizer's flicker/jitter behavior, and calls the approach promising but experimental.
 
@@ -254,7 +254,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 25. UI property based testing — 11:40
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=700s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/25-0700.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=700s) · [Full-resolution capture](../../artifacts/slides/25-0700.jpg)
 
 **Observed / reported:** An embedded video demonstrates UI property-based testing with github.com/antithesishq/bombadil. It opens menus, settings, bot creation, and other states while entering unusual strings.
 
@@ -264,7 +264,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 26. Subtle bugs and manual verification — 11:55
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=715s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/26-0715.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=715s) · [Full-resolution capture](../../artifacts/slides/26-0715.jpg)
 
 **Observed / reported:** A May 15, 2026 Cindy Sridharan post says subtle bugs in AI-generated PRs required several additional days and substantial manual verification.
 
@@ -274,7 +274,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 27. Verification token spend — 12:10
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=730s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/27-0730.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=730s) · [Full-resolution capture](../../artifacts/slides/27-0730.jpg)
 
 **Observed / reported:** A Nov 5, 2026 follow-up says 70% of daily token spend verifies patches and about 20–30% creates them. Lauren says most of her own usage similarly goes to verification.
 
@@ -284,7 +284,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 28. Testing across the lifecycle — 12:35
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=755s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/28-0755.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=755s) · [Full-resolution capture](../../artifacts/slides/28-0755.jpg)
 
 **Observed / reported:** A lifecycle chart spans pre-production, deploy, release, post-release: unit/functional/component/fuzz/property/formal/static/mutation/coverage/benchmark/contract/lint/acceptance/regression/smoke/usability/UI/penetration/threat/performance work; integration/tap-compare/load/shadowing/config/soak; canarying/monitoring/traffic-shaping/feature flags/exception tracking; teeing/profiling/logs/chaos/monitoring/A-B/tracing/dynamic exploration/real-user monitoring/auditing/on-call.
 
@@ -294,7 +294,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 29. Statechart — 13:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=785s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/29-0785.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=785s) · [Full-resolution capture](../../artifacts/slides/29-0785.jpg)
 
 **Observed / reported:** /statechart links to pstack and shows a large user-flow diagram with highlighted problem paths.
 
@@ -304,7 +304,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 30. Results transition — 13:25
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=805s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/30-0805.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=805s) · [Full-resolution capture](../../artifacts/slides/30-0805.jpg)
 
 **Observed / reported:** 'Ok so what' transitions from methods to results.
 
@@ -314,7 +314,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 31. Team PR volume — 13:40
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=820s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/31-0820.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=820s) · [Full-resolution capture](../../artifacts/slides/31-0820.jpg)
 
 **Observed / reported:** Team merged PRs June–October: 809, 1,984, 4,203, 5,648, 10,926; total 23,570. The spoken '11,000' is rounded.
 
@@ -324,7 +324,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 32. Desktop releases — 13:50
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=830s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/32-0830.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=830s) · [Full-resolution capture](../../artifacts/slides/32-0830.jpg)
 
 **Observed / reported:** Desktop releases: August since launch 7, September 19, October 15; total 41. Median time between releases: 44, 25, 28 hours.
 
@@ -334,7 +334,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 33. Contributor distribution — 14:00
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=840s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/33-0840.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=840s) · [Full-resolution capture](../../artifacts/slides/33-0840.jpg)
 
 **Observed / reported:** Contributors June–October: 15, 48, 95, 163, 227. October bins: 49 with one PR, 78 with 2–9, 77 with 10–99, 22 with 100–999, one with 1,000+.
 
@@ -344,7 +344,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 34. Revert rate — 14:20
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=860s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/34-0860.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=860s) · [Full-resolution capture](../../artifacts/slides/34-0860.jpg)
 
 **Observed / reported:** Revert rate is labeled '% of commits reverted': June 0.98%, July 0.61%, August 0.47%, September 0.48%, October 0.47%.
 
@@ -354,7 +354,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 35. Performance measurements — 14:50
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=890s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/35-0890.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=890s) · [Full-resolution capture](../../artifacts/slides/35-0890.jpg)
 
 **Observed / reported:** May→now: cold launch 2,304→1,395ms; relaunch 1,348→829ms; first paint 2,268→1,379ms; short-chat median typing 3.8→2.8ms; long-chat median 8.4→2.9ms and p90 9.7→3.4ms; settings 112→92ms; long-chat cold open 153→165ms, warm 138→86ms; switch to short chat 88→49ms, back to long 105→63ms; resize 3.0→6.9ms; idle memory 488→545MiB; idle CPU 0.40→0.80%; startup JS+CSS 2.0→7.7MB.
 
@@ -364,7 +364,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 36. Foundations revisited — 15:20
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=920s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/36-0920.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=920s) · [Full-resolution capture](../../artifacts/slides/36-0920.jpg)
 
 **Observed / reported:** The full pyramid returns at the conclusion.
 
@@ -374,7 +374,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 37. Should I build a factory — 15:35
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=935s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/37-0935.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=935s) · [Full-resolution capture](../../artifacts/slides/37-0935.jpg)
 
 **Observed / reported:** 'Should I build a software factory?' clarifies that this means automating writing, shipping, and deploying code.
 
@@ -384,7 +384,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 38. Improve the inner loop — 15:55
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=955s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/38-0955.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=955s) · [Full-resolution capture](../../artifacts/slides/38-0955.jpg)
 
 **Observed / reported:** 'Don't automate a bad loop' compares low and high trust with the caption 'improve your loop before automating.'
 
@@ -394,7 +394,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 39. Automated triggers — 16:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=965s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/39-0965.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=965s) · [Full-resolution capture](../../artifacts/slides/39-0965.jpg)
 
 **Observed / reported:** The animation adds a third loop labeled factory with an automated trigger. It still contains writing, verification, and feedback.
 
@@ -404,7 +404,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 40. Grok Bot outer loop — 16:15
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=975s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/40-0975.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=975s) · [Full-resolution capture](../../artifacts/slides/40-0975.jpg)
 
 **Observed / reported:** Grok Bot outer-loop inputs include feedback on X, a Linear ticket, a new Slack message, cron/schedule, and Datadog/Sentry alerts. A shared team bot feeds an inner coding/verification loop. Link: x.ai/bot.
 
@@ -414,7 +414,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 41. Release fuzzing report — 16:35
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=995s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/41-0995.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=995s) · [Full-resolution capture](../../artifacts/slides/41-0995.jpg)
 
 **Observed / reported:** The displayed Linux x64 .deb fuzz report compares a stable build with 0.79.4 and checks published SHA-256 values. It uses a local backend from main and a saved copy of production gate values. After merging two duplicate pairs: 50 distinct bugs, three new (0 high/two medium/one low), 47 existing (one high/nine medium/37 low); the high issue also exists in 0.79.4. Findings are separate replies, new first then severity.
 
@@ -424,7 +424,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 
 ## 42. Closing — 17:05
 
-[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=1025s) · [Full-resolution capture](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/slides/42-1025.jpg)
+[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t=1025s) · [Full-resolution capture](../../artifacts/slides/42-1025.jpg)
 
 **Observed / reported:** The closing title changes to 'all code is slop (except yours).' She returns to high velocity with quality through foundations.
 

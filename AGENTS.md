@@ -31,11 +31,11 @@ Zero FAIL in all three. The first rule-test run downloads pinned tools and build
 
 ## Large files
 
-Build output, package checkouts and downloaded tools go to the cache folder set by `$BSTACK_CACHE_DIR` or `cache_dir` in `~/.config/b-stack/config.toml` (logic in `starters/ios/template/scripts/paths.py`). On the owner's machine that's on MicroBay. If the folder is unavailable, scripts stop; never work around that by building on the internal drive. Say the drive isn't mounted.
+Build output, package checkouts and downloaded tools go to the cache folder set by `$BSTACK_CACHE_DIR` or `cache_dir` in `~/.config/b-stack/config.toml` (logic in `starters/ios/template/scripts/paths.py`). On the owner's machine that's an external drive. If the folder is unavailable, scripts stop; never work around that by building on the internal drive. Say the drive isn't mounted.
 
 ## Research media
 
-Video and images live on MicroBay at `/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g` (`artifacts/` symlinks there). Never copy them into Git. `scripts/verify_artifacts.py` checks them. `research/lauren-tan-video/build_report.py` rewrites files on MicroBay; inspect before running.
+Video and images live in the folder set by `$BSTACK_MEDIA_DIR` or `media_dir` in `~/.config/b-stack/config.toml` (logic in `scripts/media.py`); `artifacts/` links there, or is the folder when nothing is set. Never copy them into Git. `scripts/verify_artifacts.py` checks them. `research/lauren-tan-video/build_report.py` rewrites files in that folder; inspect before running.
 
 ## Scope
 

@@ -1,12 +1,11 @@
 {
   "schema_version": 1,
   "source_video": "https://www.youtube.com/watch?v=O_zcc6Xl12g",
-  "media_root": "/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g",
   "project_alias": "artifacts",
   "notes": [
     "Original MP4 is a video-only download; speech was analyzed through the complete automatic transcript.",
     "42 selected slide/build captures; 105 overview frames; 71 detected visual transitions.",
-    "External media remains on MicroBay."
+    "Media lives in media_dir from ~/.config/b-stack/config.toml (or $BSTACK_MEDIA_DIR), else artifacts/; see scripts/media.py."
   ],
   "files": [
     {

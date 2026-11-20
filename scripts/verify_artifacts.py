@@ -3,16 +3,16 @@ from pathlib import Path
 import argparse
 import hashlib
 import json
-import os
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--hash', action='store_true', help='Verify SHA-256 for all artifacts')
 args = parser.parse_args()
-project = Path(__file__).resolve().parents[1]
-manifest = json.loads((project / 'ARTIFACTS.json').read_text())
-root = Path(os.environ.get('B_STACK_MEDIA_ROOT') or os.environ.get('POTATO_MEDIA_ROOT') or manifest['media_root'])
+from media import CONFIG, ROOT, media_root
+
+manifest = json.loads((ROOT / 'ARTIFACTS.json').read_text())
+root = media_root()
 if not root.is_dir():
-    raise SystemExit(f'Media directory unavailable: {root}. Mount MicroBay or set B_STACK_MEDIA_ROOT.')
+    raise SystemExit(f'No media at {root}. Put it there, or set media_dir in {CONFIG} (or $BSTACK_MEDIA_DIR).')
 errors = []
 for entry in manifest['files']:
     path = root / entry['path']

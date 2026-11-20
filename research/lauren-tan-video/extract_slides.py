@@ -1,8 +1,11 @@
 from pathlib import Path
+import sys
 from concurrent.futures import ThreadPoolExecutor
 import json, subprocess
 
-root=Path('/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g')
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts'))
+from media import media_root
+root=media_root()
 slides=[
  (25,'Title'),(36,'Our craft and their slop'),(45,'Personal PR volume'),
  (60,'Quality and quantity'),(85,'Trust enables scale'),(95,'Low trust loop'),

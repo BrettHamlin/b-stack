@@ -28,4 +28,4 @@ python3 scripts/test_rules.py   # every rule case through the starter's gates (~
 python3 scripts/check_repo.py   # rule/case/skill format, catalog, links
 ```
 
-Requires macOS with Xcode (tested with 27.2 / Swift 6.4.2), an iOS Simulator runtime, and Python 3.11+. Tuist and SwiftLint are downloaded, pinned and checksum-verified; nothing is installed globally. To keep build output and tools off your main drive, set `cache_dir = "/path"` in `~/.config/b-stack/config.toml`.
+Requires macOS with Xcode (tested with 27.2 / Swift 6.4.2), an iOS Simulator runtime, and Python 3.11+. Tuist and SwiftLint are downloaded, pinned and checksum-verified; nothing is installed globally. To keep build output and tools off your main drive, set `cache_dir = "/path"` in `~/.config/b-stack/config.toml`. The research video and images aren't in Git: `verify_artifacts.py` looks in `artifacts/`, or in `media_dir = "/path"` from the same file.
