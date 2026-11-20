@@ -23,6 +23,7 @@ import subprocess
 import sys
 import threading
 import time
+from xml.etree import ElementTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from handback import record_check  # noqa: E402
@@ -67,6 +68,22 @@ def chain(*steps) -> Step:
 def xcodebuild(scheme: str, destination: str, action: str) -> list[str]:
     return ['xcodebuild', '-workspace', 'Starter.xcworkspace', '-scheme', scheme, '-destination', destination,
             '-derivedDataPath', '.build/DerivedData', '-quiet', '-skipMacroValidation', action, 'CODE_SIGNING_ALLOWED=NO']
+
+
+def unrun_tests() -> Step:
+    """Every Targets/*Tests folder must be a test target that a scheme runs, or its tests would never run and the gate
+    would still pass. Unit-test targets are in the UnitTests scheme automatically (Project.swift); UI tests run in verify."""
+    run_by: set[str] = set()
+    for scheme in (ROOT / 'Starter.xcodeproj/xcshareddata/xcschemes').glob('*.xcscheme'):
+        action = ElementTree.parse(scheme).getroot().find('TestAction')
+        if action is not None:
+            run_by |= {ref.get('BlueprintName') for ref in action.iter('BuildableReference')}
+    unrun = sorted(d.name for d in (ROOT / 'Targets').iterdir() if d.is_dir() and d.name.endswith('Tests')
+                   and d.name not in run_by)
+    if unrun:
+        return Step(False, f'[tests] no scheme runs the tests in {", ".join("Targets/" + n for n in unrun)}. Declare each '
+                           'as a .unitTests target in Project.swift; the UnitTests scheme picks it up.')
+    return Step(True)
 
 
 def built_xctestrun(since: float) -> Path | None:
@@ -130,7 +147,8 @@ def check(selected: list[str]) -> list[str]:
             if 'tests' in selected and not STOP.is_set():
                 report('tests', chain(
                     generated.result(),
-                    lambda: run(xcodebuild('SettingsTests', f'platform=iOS Simulator,id={simulator()}', 'test'))),
+                    unrun_tests,
+                    lambda: run(xcodebuild('UnitTests', f'platform=iOS Simulator,id={simulator()}', 'test'))),
                     started)
                 started = time.monotonic()
             if 'verify' in selected and not STOP.is_set():

@@ -1,0 +1,5 @@
+# A feature's test folder that isn't a target in Project.swift: its tests would never run.
+expect = "fail"
+enforced_by = "tests"
+diagnostic = "[tests] no scheme runs the tests in Targets/ProbeTests"
+adds_targets = ["ProbeTests"]

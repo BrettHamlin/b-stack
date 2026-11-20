@@ -50,6 +50,7 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | compiler, Harmonize, verify | Typed journey bodies cannot import XCUITest; only generated adapters use XCTestCase |
 | [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | Feature logic does no I/O; effects call injected clients |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | TCA tests stay exhaustive (no exhaustivity off or skips) |
+| [tests-always-run](tests-always-run/rule.toml) | 2 | tests | Every test target runs in the tests gate |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | Only the test-mode app (AppVerify) can use fixtures |
 | [verified-features](verified-features/rule.toml) | 3 | verify | Every feature is in the feature map and its journeys pass in the running app |
 | [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | Enforcement files need a human code owner to change |
