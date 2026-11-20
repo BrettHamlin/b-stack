@@ -8,11 +8,11 @@ Source material for the guide: Lauren Tan (poteto)'s talk, [full 17:31 video](ht
 | [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) | The first translation of her setup into an engineering plan, written before our own guide |
 | [TRANSCRIPT.md](TRANSCRIPT.md), [transcript.json](transcript.json) | Raw automatic captions, 135 segments. Technical names are often wrong ("Graphbot" = Grok Bot, "TA plus" = TLA+, "PSAC" = pstack). |
 | [SLIDES.md](SLIDES.md), [slides.json](slides.json) | Slide capture list |
-| `extract_slides.py`, `contact_sheets.py`, `build_report.py` | Regeneration scripts. Inspect first: they overwrite derived files on MicroBay. |
+| `extract_slides.py`, `contact_sheets.py`, `build_report.py` | Regeneration scripts. Inspect first: they overwrite derived files in the media folder. |
 
-## Media on MicroBay
+## Media
 
-Root: `/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g` (the repo's `artifacts/` symlink). Includes the video-only 1080p MP4, 42 slide captures, 105 overview frames, 71 transition frames, contact sheets, and an [annotated interactive viewer](/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g/annotated-viewer.html). Inventory with sizes and SHA-256 hashes: [ARTIFACTS.json](../../ARTIFACTS.json), checked by `scripts/verify_artifacts.py`.
+Not in Git. It lives in the folder set by `media_dir` in `~/.config/b-stack/config.toml` (or `$BSTACK_MEDIA_DIR`), which the repo's `artifacts/` links to; with nothing set, `artifacts/` is the folder. Includes the video-only 1080p MP4, 42 slide captures, 105 overview frames, 71 transition frames, contact sheets, and an [annotated interactive viewer](../../artifacts/annotated-viewer.html). Inventory with sizes and SHA-256 hashes: [ARTIFACTS.json](../../ARTIFACTS.json), checked by `scripts/verify_artifacts.py`.
 
 ## Caveats
 

@@ -1,5 +1,6 @@
 """Check repo structure: rule and case format, catalog coverage, skill frontmatter, relative links."""
 from pathlib import Path
+import os
 import re
 import sys
 import tomllib
@@ -74,7 +75,10 @@ for doc in ROOT.rglob('*.md'):
     for target in LINK.findall(doc.read_text()):
         if re.match(r'^[a-z]+:', target) or target.startswith(('#', '/')):
             continue
-        if not (doc.parent / target.split('#', 1)[0]).exists():
+        path = doc.parent / target.split('#', 1)[0]
+        if Path(os.path.normpath(path)).is_relative_to(ROOT / 'artifacts'):
+            continue  # media outside Git; checked by verify_artifacts.py
+        if not path.exists():
             errors.append(f'{rel(doc)}: broken link "{target}"')
 
 if errors:

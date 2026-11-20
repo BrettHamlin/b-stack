@@ -1,8 +1,11 @@
 from pathlib import Path
+import sys
 from PIL import Image, ImageDraw
 import re
 
-root = Path('/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g')
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts'))
+from media import media_root
+root=media_root()
 files = sorted((root / 'frames').glob('sample-*.jpg'))
 for start in range(0, len(files), 20):
     batch = files[start:start+20]

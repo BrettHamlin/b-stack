@@ -1,8 +1,11 @@
 from pathlib import Path
+import sys
 import base64, html, json
 
 here=Path(__file__).resolve().parent
-root=Path('/Volumes/MicroBay/Downloads/video-research/O_zcc6Xl12g')
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts'))
+from media import media_root
+root=media_root()
 manifest=json.loads((root/'slides.json').read_text())
 notes=json.loads((here/'slide-notes.json').read_text())
 transcript=json.loads((here/'transcript.json').read_text())
@@ -28,7 +31,7 @@ Implementation details and platform adaptations: [IMPLEMENTATION-GUIDE.md](IMPLE
 '''
 parts=[intro]
 for s in manifest:
-    image_path=root/'slides'/s['image']
+    image_path=f"../../artifacts/slides/{s['image']}"
     parts.append(f"## {s['number']:02}. {s['title']} — {s['timestamp']}\n\n[Video at capture](https://www.youtube.com/watch?v=O_zcc6Xl12g&t={s['seconds']}s) · [Full-resolution capture]({image_path})\n\n**Observed / reported:** {s['observed']}\n\n**How it works:** {s['mechanism']}\n\n**Application and limits:** {s['apply']}\n\n")
 (here/'ANALYSIS.md').write_text(''.join(parts))
 
@@ -66,7 +69,7 @@ page=template.replace('__SLIDES__',data).replace('__TRANSCRIPT__',text)
 (root/'annotated-viewer.html').write_text(page)
 for s in manifest:
     s.pop('data')
-assets='<div hidden>'+''.join(f'<img id="asset-{s["number"]}" src="{root}/slides/{s["image"]}" alt="">' for s in manifest)+'</div>'
+assets='<div hidden>'+''.join(f'<img id="asset-{s["number"]}" src="slides/{s["image"]}" alt="">' for s in manifest)+'</div>'
 inline=template.replace('__SLIDES__',json.dumps(manifest).replace('<','\\u003c')).replace('__TRANSCRIPT__',text)
 inline=inline.replace('<script>',assets+'<script>').replace("$('slide-image').src=s.data", "$('slide-image').src=document.getElementById('asset-'+s.number).src")
 (root/'inline-viewer.html').write_text(inline)
