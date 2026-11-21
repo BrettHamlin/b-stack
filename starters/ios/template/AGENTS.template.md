@@ -2,7 +2,7 @@
 
 ## Before you change code
 
-- Module dependencies are declared in `Project.swift`. Allowed system imports per module are in `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`.
+- Modules and their dependencies come from the module shape (`Tuist/ProjectDescriptionHelpers/ModuleShape.swift`, the owner's) and the feature list in `Tuist/ProjectDescriptionHelpers/Features.swift` (yours). To add a feature, create its folders and add it to `Features.swift`; to use a link the shape allows (e.g. Platform implementing a feature's client, App using Platform), add that link there. Don't edit `Project.swift` or `Rules/`: the gates fail if the project differs from the declaration. A link `Features.swift` can't express is outside the shape: stop and report.
 - Use the existing approved APIs for <lifecycle, background work, persistence, navigation>. Don't introduce a second way to do the same thing.
 - Pass dependencies in through initializers. They're wired together in two places only: `App` (real services) and `AppVerify` (test mode, the only place that may use `Fixtures`). Both compose each feature through the same view initializer.
 - Features use TCA, shaped like `Targets/Settings*`: types and client protocols in `<Feature>Interface`, a `@Reducer` in `<Feature>Logic` (no I/O; effects call injected clients), a view in `<Feature>` that only sends actions, exhaustive `TestStore` tests in `<Feature>Tests` (examples, plus a property test that checks random action sequences against a model of the spec, like `NotificationSettingsPropertyTests`), plus a `feature-map/<id>.toml` entry and journey bodies in `Targets/AppVerifyJourneys` (generated XCTestCase adapters in `Targets/AppVerifyUITests`) that prove it works.
@@ -19,7 +19,7 @@ Run it before handing back. If it stops because the cache folder is unavailable 
 
 ## Never weaken enforcement
 
-Never suppress, disable, weaken or bypass a check. That includes suppression comments, editing `Project.swift` settings or dependencies, `.swiftlint.yml`, `Rules/`, `tools.toml`, `scripts/`, or CI.
+Never suppress, disable, weaken or bypass a check. That includes suppression comments, editing `Project.swift`, `ModuleShape.swift`, `.swiftlint.yml`, `Rules/`, `tools.toml`, `scripts/`, or CI.
 
 **If the right fix isn't possible within the rules, stop and report:** what you were trying to do, which rule blocks it, and what you'd change. A clear report is a successful outcome.
 

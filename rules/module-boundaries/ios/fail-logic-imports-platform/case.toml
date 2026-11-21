@@ -1,0 +1,5 @@
+# Feature logic reaching into Platform: outside the module shape, so Features.swift can't declare it and the agent
+# must stop and report.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "imports Platform, which is outside the module shape"

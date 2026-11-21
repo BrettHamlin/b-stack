@@ -1,4 +1,5 @@
 import ProjectDescription
+import ProjectDescriptionHelpers
 
 let strict: SettingsDictionary = [
     "SWIFT_VERSION": "6.0",
@@ -12,85 +13,60 @@ let mainActorByDefault: SettingsDictionary = ["SWIFT_DEFAULT_ACTOR_ISOLATION": "
 /// `@testable import` can't reach that initializer either (nothing tests these modules through @testable).
 let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers", "ENABLE_TESTABILITY": "NO"]
 
-func module(_ name: String, dependencies: [String] = [], external: [String] = [], ui: Bool = false, settings: SettingsDictionary = [:]) -> Target {
-    .target(
-        name: name,
+let journeyKitFlags = "$(inherited) -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature ExistentialAny -enable-library-evolution"
+
+/// Targets come from the module shape and Features.swift (Tuist/ProjectDescriptionHelpers). Add features and links
+/// there, not here: ModuleBoundaries.swift fails if this project's targets or dependencies differ from the shape's.
+func target(_ module: Module) -> Target {
+    let product: Product
+    var bundleId = "dev.bstack.starter.\(module.name.lowercased())"
+    var sources: SourceFilesList = ["Targets/\(module.name)/**"]
+    var settings = strict
+    switch module.role {
+    case .core, .interface:
+        product = .framework
+        settings = strict.merging(identifierPackage) { $1 }
+    case .logic, .platform, .fixtures:
+        product = .framework
+    case .view:
+        product = .framework
+        settings = strict.merging(mainActorByDefault) { $1 }
+    case .tests:
+        product = .unitTests
+    case .app, .appVerify:
+        product = .app
+        bundleId = module.role == .app ? "dev.bstack.starter" : "dev.bstack.starter.verify"
+        settings = strict.merging(mainActorByDefault) { $1 }
+    case .journeyKit:
+        // Resilience keeps the internal XCTest import out of journey clients. Only this module sees the UI SDK.
+        product = .framework
+        settings = strict.merging(["ENABLE_TESTING_SEARCH_PATHS": "YES", "OTHER_SWIFT_FLAGS": .string(journeyKitFlags)]) { $1 }
+    case .journeys:
+        // Bodies have no testing framework paths: importing XCTest or XCUIAutomation is a compiler error.
+        product = .framework
+        settings = strict.merging(["ENABLE_TESTING_SEARCH_PATHS": "NO"]) { $1 }
+    case .uiTests:
+        // Generated XCTestCase adapters; scripts/verify.py checks them against the body source.
+        product = .uiTests
+        bundleId = "dev.bstack.starter.verifyuitests"
+        sources = ["Targets/AppVerifyUITests/GeneratedJourneys.swift"]
+    }
+    return .target(
+        name: module.name,
         destinations: .iOS,
-        product: .framework,
-        bundleId: "dev.bstack.starter.\(name.lowercased())",
+        product: product,
+        bundleId: bundleId,
         deploymentTargets: .iOS("18.0"),
-        sources: ["Targets/\(name)/**"],
-        dependencies: dependencies.map { .target(name: $0) } + external.map { .external(name: $0) },
-        settings: .settings(base: (ui ? strict.merging(mainActorByDefault) { $1 } : strict)
-            .merging(name == "Core" || name.hasSuffix("Interface") ? identifierPackage : [:]) { $1 }
-            .merging(settings) { $1 })
+        infoPlist: .default,
+        sources: sources,
+        dependencies: module.dependencies.map { .target(name: $0) } + module.external.map { .external(name: $0) },
+        settings: .settings(base: settings)
     )
 }
 
-let targets: [Target] = [
-    // Not resilient: a resilient Core would make its enums non-frozen, so every switch over one would need
-    // `@unknown default` and adding a state would no longer break unhandled sites (exhaustive-states).
-    module("Core"),
-    module("SettingsInterface", dependencies: ["Core"]),
-    module("SettingsLogic", dependencies: ["SettingsInterface", "Core"], external: ["ComposableArchitecture"]),
-    module("Settings", dependencies: ["SettingsLogic", "SettingsInterface", "Core"], external: ["ComposableArchitecture"], ui: true),
-    module("Platform", dependencies: ["SettingsInterface", "Core"]),
-    // Test-mode setups. Only AppVerify links this (no-fixtures-in-release).
-    module("Fixtures", dependencies: ["Platform", "SettingsInterface", "Core"]),
-    .target(
-        name: "SettingsTests",
-        destinations: .iOS,
-        product: .unitTests,
-        bundleId: "dev.bstack.starter.settingstests",
-        deploymentTargets: .iOS("18.0"),
-        sources: ["Targets/SettingsTests/**"],
-        dependencies: [.target(name: "SettingsLogic"), .target(name: "SettingsInterface"), .external(name: "ComposableArchitecture")],
-        settings: .settings(base: strict)
-    ),
-    .target(
-        name: "App",
-        destinations: .iOS,
-        product: .app,
-        bundleId: "dev.bstack.starter",
-        deploymentTargets: .iOS("18.0"),
-        infoPlist: .default,
-        sources: ["Targets/App/**"],
-        dependencies: [.target(name: "Settings"), .target(name: "Platform")],
-        settings: .settings(base: strict.merging(mainActorByDefault) { $1 })
-    ),
-    // The app in test mode, driven by scripts/verify.py. Never shipped.
-    .target(
-        name: "AppVerify",
-        destinations: .iOS,
-        product: .app,
-        bundleId: "dev.bstack.starter.verify",
-        deploymentTargets: .iOS("18.0"),
-        infoPlist: .default,
-        sources: ["Targets/AppVerify/**"],
-        dependencies: [.target(name: "Settings"), .target(name: "Fixtures")],
-        settings: .settings(base: strict.merging(mainActorByDefault) { $1 })
-    ),
-    // Resilience keeps the internal XCTest import out of journey clients. Only this module sees the UI SDK.
-    module("JourneyKit", dependencies: ["Core"], settings: [
-        "ENABLE_TESTING_SEARCH_PATHS": "YES",
-        "OTHER_SWIFT_FLAGS": "$(inherited) -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature ExistentialAny -enable-library-evolution",
-    ]),
-    // Bodies have no testing framework paths: importing XCTest or XCUIAutomation is a compiler error.
-    module("AppVerifyJourneys", dependencies: ["JourneyKit", "SettingsInterface"], settings: [
-        "ENABLE_TESTING_SEARCH_PATHS": "NO",
-    ]),
-    // Generated XCTestCase adapters; scripts/verify.py checks them against the body source.
-    .target(
-        name: "AppVerifyUITests",
-        destinations: .iOS,
-        product: .uiTests,
-        bundleId: "dev.bstack.starter.verifyuitests",
-        deploymentTargets: .iOS("18.0"),
-        sources: ["Targets/AppVerifyUITests/GeneratedJourneys.swift"],
-        dependencies: [.target(name: "AppVerify"), .target(name: "AppVerifyJourneys")],
-        settings: .settings(base: strict)
-    ),
-]
+// Core is not resilient: a resilient Core would make its enums non-frozen, so every switch over one would need
+// `@unknown default` and adding a state would no longer break unhandled sites (exhaustive-states).
+let targets: [Target] = modules(features, shared: sharedLinks).map(target)
 
 /// Every unit-test target, so the tests gate (scheme UnitTests) runs a new feature's tests without anyone listing them.
 let unitTests: [TargetReference] = targets.filter { $0.product == .unitTests }.map { .target($0.name) }

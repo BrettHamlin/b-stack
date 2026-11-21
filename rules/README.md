@@ -10,6 +10,8 @@ rules/<rule-id>/
   ios/<case-name>/
     case.toml                 what must happen
     Targets/<Target>/*.swift  code overlaid onto the starter's Targets/
+    feature-map/*.toml        overlaid onto feature-map/
+    Tuist/ProjectDescriptionHelpers/Features.swift   replaces the feature declaration
 ```
 
 ### rule.toml
@@ -32,6 +34,7 @@ rules/<rule-id>/
 | `enforced_by` | The gate that must reject a fail case: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
 | `adds_targets` | Optional: targets the case adds that the project doesn't have (otherwise a missing target is a SKIP) |
+| `edits` | Optional: `[[edits]]` tables (`file = "Project.swift"`, `find`, `replace`) applied to the protected project file, for cases about hand edits. `find` must occur exactly once, or the case FAILs |
 
 Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 

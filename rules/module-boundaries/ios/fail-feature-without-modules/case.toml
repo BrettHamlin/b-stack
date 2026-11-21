@@ -1,0 +1,4 @@
+# Features.swift names a feature whose module folders were never created.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "[module-boundaries] Features.swift declares Profile, but these folders are missing: Targets/ProfileInterface, Targets/ProfileLogic, Targets/Profile, Targets/ProfileTests"

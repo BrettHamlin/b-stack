@@ -1,6 +1,7 @@
 """Prove every rule fires, by running each case through the project's own gate command (scripts/check.py).
 
-For each case, Targets/ and feature-map/ are reset to the project's, and the case's own copies are overlaid:
+For each case, Targets/, feature-map/, Tuist/ProjectDescriptionHelpers/ (Features.swift) and Project.swift are reset to
+the project's, the case's own copies are overlaid, and its `edits` (find/replace in Project.swift) are applied:
   fail case   `check.py --only <enforced_by>` must fail, and its output must contain the case's diagnostic
   pass case   `check.py` must pass every gate except verify, so correct code never trips any rule
 The untouched project must pass every gate, including verify (journeys in the running app); if it doesn't, no case
@@ -41,7 +42,8 @@ from paths import cache_root, machine_setting  # noqa: E402
 from simulator import simulator, state  # noqa: E402
 SKIP = {'.build', '.tools', 'Derived'}
 ALL_BUT_VERIFY = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests')
-OVERLAYS = ('Targets', 'feature-map')  # project folders a case may add files to or replace files in
+OVERLAYS = ('Targets', 'feature-map', 'Tuist/ProjectDescriptionHelpers')  # folders a case may add files to or replace files in
+EDITABLE = ('Project.swift',)  # files a case may change with `edits` (find/replace), reset before every case
 # Rough minutes per case by what it runs, so the longest start first and no worker is left with a long one at the end.
 COST = {'untouched': 6, 'verify': 2, 'pass': 2, 'compiler': 1, 'tests': 1, 'tuist': 0.2, 'harmonize': 0.2, 'swiftlint': 0.1}
 
@@ -111,21 +113,34 @@ class Worker:
                 shutil.rmtree(item) if item.is_dir() else item.unlink()
         for item in project.iterdir():
             if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
-                (shutil.copytree if item.is_dir() else shutil.copy2)(item, self.work / item.name)
+                # Symlinks stay links: Rules/Sources/ModuleShape links to the helpers a case may overlay.
+                if item.is_dir():
+                    shutil.copytree(item, self.work / item.name, symlinks=True)
+                else:
+                    shutil.copy2(item, self.work / item.name)
 
     def check(self, *gates: str) -> tuple[bool, str]:
         cmd = [sys.executable, 'scripts/check.py'] + [a for g in gates for a in ('--only', g)]
         proc = subprocess.run(cmd, cwd=self.work, env=self.env(), capture_output=True, text=True)
         return proc.returncode == 0, proc.stdout + proc.stderr
 
-    def reset_targets(self, case_dir: Path | None = None) -> None:
+    def reset_targets(self, case_dir: Path | None = None, edits: list[dict] = ()) -> None:
         for folder in OVERLAYS:
             if (self.work / folder).exists():
                 shutil.rmtree(self.work / folder)
             if (project / folder).exists():
-                shutil.copytree(project / folder, self.work / folder)
+                shutil.copytree(project / folder, self.work / folder, symlinks=True)
             if case_dir and (case_dir / folder).is_dir():
                 shutil.copytree(case_dir / folder, self.work / folder, dirs_exist_ok=True)
+        for name in EDITABLE:
+            if (project / name).is_file():
+                shutil.copy2(project / name, self.work / name)
+        for edit in edits:
+            path = self.work / edit['file']
+            text = path.read_text()
+            if edit['file'] not in EDITABLE or text.count(edit['find']) != 1:
+                raise ValueError(f'edit of {edit["file"]}: "{edit["find"]}" must occur exactly once in an editable file')
+            path.write_text(text.replace(edit['find'], edit['replace']))
 
 
 def tail(output: str) -> str:
@@ -145,7 +160,7 @@ class Task:
 
 
 def run_case(worker: Worker, task: Task) -> tuple[str, str]:
-    worker.reset_targets(task.case_dir)
+    worker.reset_targets(task.case_dir, (task.case or {}).get('edits', []))
     if task.case is None:
         ok, output = worker.check()
         return ('PASS', '') if ok else ('FAIL', tail(output))

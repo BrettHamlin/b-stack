@@ -1,0 +1,6 @@
+# A new feature added the way agents are told to: its four module folders plus one line in Features.swift, using a
+# link the module shape allows (Platform implements the feature's client, as Hexfleet's saved battle needed).
+# Project.swift and ModuleBoundaries.swift are untouched.
+expect = "pass"
+enforced_by = "harmonize"
+adds_targets = ["ProfileInterface", "ProfileLogic", "Profile", "ProfileTests"]
