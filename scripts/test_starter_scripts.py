@@ -161,6 +161,12 @@ class HandbackTests(unittest.TestCase):
         self.git('commit', '-qam', 'Change a')  # the checkout is clean again at the Stop
         self.assertEqual(self.stop(), 'unchecked')
 
+    def test_a_session_started_meanwhile_does_not_hide_a_hand_back(self) -> None:
+        self.edit('let a = 2\n')
+        self.git('commit', '-qam', 'Change a')
+        handback.start(self.root, {'session_id': 'other'})  # a parallel session starts on the edited files
+        self.assertEqual(self.stop(), 'unchecked')
+
     def test_files_changed_while_check_py_ran_are_not_recorded(self) -> None:
         before = handback.snapshot(self.root)
         self.edit('let a = 2\n')  # an edit while the gates run: earlier gates never saw it

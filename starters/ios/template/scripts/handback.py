@@ -7,8 +7,9 @@ squash merge or made before the check, is checked if a passing run had exactly i
   partial     a run had these files but skipped a gate or failed one
   unchecked   no run had these files (they changed after the last run, or check.py never ran)
 At each Claude Code hand-back (the Stop hook in .claude/settings.json) one line per checkout the session worked in goes
-to handbacks.jsonl; `unchanged` means that checkout's files are as they were at the session's start (SessionStart hook)
-or at its previous hand-back (left out of the summary). A run during which the files changed is not recorded. The commit-msg git hook (.githooks/commit-msg) adds the committed tree's verdict as a `Checked:` trailer.
+to handbacks.jsonl; `unchanged` means that checkout's files are as they were at this session's start (SessionStart hook)
+or its previous hand-back (left out of the summary). A run during which the files changed is not recorded.
+The commit-msg git hook (.githooks/commit-msg) adds the committed tree's verdict as a `Checked:` trailer.
 
 The records live in the clone's git folder (`git rev-parse --git-common-dir`/b-stack/), shared by all its worktrees and
 kept out of .build, which check.py replaces with a link into the cache folder. They are local to that clone: a fresh
@@ -143,10 +144,10 @@ def stop(root: Path, hook_input: dict) -> list[dict]:
     logged = []
     for path in worked_in(root, hook_input):
         tree = files_tree(Path(path))
-        previous = [e for e in history if e.get('checkout') == path]
+        previous = [e for e in history if e.get('checkout') == path and e.get('session') == hook_input.get('session_id')]
         status, run = verdict(root, tree)
         if previous and previous[-1].get('tree') == tree:
-            status = 'unchanged'  # as at this session's start or the previous hand-back; a new checkout has neither
+            status = 'unchanged'  # as at this session's start or last hand-back; a checkout made since has neither
         entry = {'time': now(), 'status': status, 'session': hook_input.get('session_id'), 'checkout': path,
                  'tree': tree, 'gates': run.get('gates'), 'failed': run.get('failed')}
         append(log, entry)
