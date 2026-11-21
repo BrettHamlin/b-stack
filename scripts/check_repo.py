@@ -12,6 +12,12 @@ from platforms import PLATFORMS  # noqa: E402
 RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', 'origin']
 LAYERS = {'1', '2', '1+2', '3', 'foundation'}
 LINK = re.compile(r'\]\(([^)\s]+)\)')
+CASE_FEATURES = ROOT / 'rules' / 'case-feature'  # rules/case-feature/<platform>: a feature cases can bring; not a rule
+FEATURE_NAME = re.compile(r'Feature\("([A-Z][A-Za-z0-9]*)"')  # same check as test_rules.py
+FEATURES_FILE = Path('Tuist/ProjectDescriptionHelpers/Features.swift')
+SHAPE = (ROOT / 'starters/ios/template/Tuist/ProjectDescriptionHelpers/ModuleShape.swift').read_text()
+SHARED_LINKS = set(re.findall(r'case (\w+)', SHAPE.split('enum SharedLink', 1)[1].split('}', 1)[0]))
+IOS_KEYS = ('case_feature', 'features', 'shared_links', 'generate_adapters', 'needs_fixtures')  # iOS-only case keys
 errors = []
 
 
@@ -42,6 +48,22 @@ def check_cases(rule_dir: Path, rule: dict, platform) -> None:
             errors.append(f'{rel(case_path)}: enforced_by must be one of {platform.gates}')
         if case.get('expect') == 'fail' and not case.get('diagnostic'):
             errors.append(f'{rel(case_path)}: fail cases need a diagnostic')
+        if platform.name != 'ios' and (ios_only := [k for k in IOS_KEYS if k in case]):
+            errors.append(f'{rel(case_path)}: iOS-only keys in a {platform.name} case: {", ".join(ios_only)}')
+        for key in ('case_feature', 'generate_adapters'):
+            if key in case and not isinstance(case[key], bool):
+                errors.append(f'{rel(case_path)}: {key} must be true or false')
+        features = case.get('features', [])
+        if not isinstance(features, list) or not all(isinstance(f, str) and FEATURE_NAME.match(f) for f in features):
+            errors.append(f'{rel(case_path)}: features must be a list of Swift declarations, each `Feature("<Name>", ...)` '
+                          'with an UpperCamelCase name')
+            features = []
+        links = case.get('shared_links', [])
+        if not isinstance(links, list) or not all(isinstance(l, str) and l in SHARED_LINKS for l in links):
+            errors.append(f'{rel(case_path)}: shared_links must be a list of SharedLink cases: {sorted(SHARED_LINKS)}')
+        needs = case.get('needs_fixtures', [])
+        if not isinstance(needs, list) or not all(isinstance(n, str) for n in needs):
+            errors.append(f'{rel(case_path)}: needs_fixtures must be a list of fixture names')
         uses = case.get('uses_example')
         if uses is not False and not (isinstance(uses, str) and uses.strip()):
             errors.append(f'{rel(case_path)}: uses_example must be false, or say how the case uses the '
@@ -50,7 +72,11 @@ def check_cases(rule_dir: Path, rule: dict, platform) -> None:
             # A case that claims to apply to any app may not touch the example.
             texts = [(f.relative_to(case_path.parent), f.read_text()) for f in case_path.parent.rglob('*')
                      if f.is_file() and f.name != 'case.toml']
-            texts += [(Path('case.toml'), ' '.join([case.get('diagnostic', '')] + [' '.join(e.values()) for e in case.get('edits', [])]))]
+            texts += [(Path('case.toml'), ' '.join([case.get('diagnostic', '')] + features
+                                                  + [' '.join(e.values()) for e in case.get('edits', [])]))]
+            if (case_path.parent / FEATURES_FILE).is_file():
+                errors.append(f'{rel(case_path)}: uses_example = false, but {FEATURES_FILE} replaces the app\'s feature '
+                              'declaration; add features with `features` (and `shared_links`) instead')
             for path, text in texts:
                 hit = platform.example.search(text) or next(
                     (m for part in path.parts[1:-1] if (m := platform.example.match(part))), None) or (
@@ -63,13 +89,26 @@ def check_cases(rule_dir: Path, rule: dict, platform) -> None:
             if set(edit) != {'file', 'find', 'replace'} or edit.get('file') not in platform.editable:
                 errors.append(f'{rel(case_path)}: each edit needs exactly file (one of {platform.editable}), find and replace')
         case_dir = case_path.parent
-        if not (any(list(case_dir.glob(pattern)) for pattern in platform.case_files) or edits):
-            errors.append(f'{rel(case_path)}: no {", ".join(platform.case_files)} files or edits')
+        if not (any(list(case_dir.glob(pattern)) for pattern in platform.case_files) or edits or features
+                or case.get('case_feature')):
+            errors.append(f'{rel(case_path)}: no {", ".join(platform.case_files)} files, edits, features or case_feature')
     if 'fail' not in expects and not section.get('tests_pending'):
         errors.append(f'{rel(rule_dir)}: needs a {platform.name} fail case, or {platform.name}.tests_pending explaining why not')
 
 
-rule_dirs = sorted(p for p in (ROOT / 'rules').iterdir() if p.is_dir())
+rule_dirs = sorted(p for p in (ROOT / 'rules').iterdir() if p.is_dir() and p != CASE_FEATURES)
+for kit_dir in sorted(p for p in CASE_FEATURES.iterdir() if p.is_dir()) if CASE_FEATURES.is_dir() else []:
+    platform = PLATFORMS.get(kit_dir.name)
+    kit = load(kit_dir / 'feature.toml') if (kit_dir / 'feature.toml').is_file() else {}
+    if platform is None or platform.name != 'ios' or not kit.get('features') \
+            or not all(isinstance(f, str) and FEATURE_NAME.match(f) for f in kit['features']) \
+            or not list((kit_dir / platform.targets).glob('*/*.swift')):
+        errors.append(f'{rel(kit_dir)}: the case feature (iOS only) needs feature.toml with `features` and Targets/<Target>/*.swift')
+        continue
+    for f in sorted(kit_dir.rglob('*')):
+        if f.is_file() and (hit := platform.example.search(f.read_text() + ' ' + str(f.relative_to(kit_dir)))):
+            errors.append(f'{rel(f)}: the case feature must apply to any app, but uses the example ({hit.group(0)})')
+            break
 for rule_dir in rule_dirs:
     path = rule_dir / 'rule.toml'
     if not path.is_file():
