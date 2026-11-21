@@ -9,7 +9,7 @@ Agents copy whatever patterns exist first, so enforcement must exist before the 
 
 ## 1. Confirm what's being built
 
-Ask the user for the platform and a one-line description of the app. Available starters: `starters/ios/`. For any other platform, **stop and report** that no starter exists yet.
+Ask the user for the platform and a one-line description of the app. Available starters: `starters/ios/` (an iOS app) and `starters/rust/` (a Rust workspace with a binary). For any other platform, **stop and report** that no starter exists yet. The steps below are for iOS; for Rust, see [Rust](#rust).
 
 ## 2. Agree the module plan with the user
 
@@ -34,6 +34,16 @@ Check `starters/ios/README.md` for what the template doesn't include yet. List e
 In the new repo: `python3 scripts/check.py` must PASS every gate, including `verify`. Open `.build/evidence/latest/evidence.md` and check its screenshots show what each journey claims.
 
 Then, from b-stack: `python3 scripts/test_rules.py --project <new-repo>`. It runs every case that applies to any app; cases written against the starter's Settings example are listed as OUT with their reason. Zero FAIL is required. A FAIL means the new repo doesn't enforce that rule: fix the setup, never the test case. A SKIP means the new repo lacks a target a general case uses; report it.
+
+## Rust
+
+Steps 1, 2 and 5 are the same. In step 2, each feature is a `no_std` crate in `crates/features/<name>/` (logic plus traits for what it needs), with real I/O in a `crates/platform/<name>/` crate and wiring in `crates/app`, following the tally example. Then:
+- copy `starters/rust/template/` into the new repo; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, and add `CLAUDE.md` containing `@AGENTS.md`
+- replace the tally example (`crates/features/tally`, `crates/platform/files`, the app's commands, `crates/app/tests/journeys.rs`, `feature-map/`) with the agreed features. Don't edit the root `Cargo.toml`, `arch/`, `clippy.toml` or `deny.toml`. A third-party crate needs the owner: list the ones the features need and ask before adding them to `arch/shape.toml`
+- replace `@OWNER` in `CODEOWNERS`; `git init`
+- check `starters/rust/README.md` for what the template doesn't include yet, and list it in your report
+
+Prove it: `python3 scripts/check.py` must PASS every gate in the new repo, and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` (the platform is found from the repo's files) must give zero FAIL.
 
 ## 5. Report
 

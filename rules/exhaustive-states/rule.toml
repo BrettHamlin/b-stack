@@ -9,3 +9,7 @@ origin = "Design discussion, Nov 2026."
 [ios]
 compiler = "Enums with associated values; switch must be exhaustive."
 harmonize = "ExhaustiveStates.swift: a switch whose cases are all enum-case patterns may not have a default (SwiftSyntax visitor; a heuristic without type information)."
+
+[rust]
+compiler = "match must be exhaustive: a missing variant is an error (Rust 1.99.0)."
+clippy = "wildcard_enum_match_arm (deny): a `_` arm on an enum fails, so new variants break every site that doesn't name them."

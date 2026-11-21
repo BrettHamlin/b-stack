@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = "names the example feature's journey"
+diagnostic = "[verified-features] feature-map/tally.toml: journey `tally_is_saved_across_runs` is already named in feature-map/probe.toml"

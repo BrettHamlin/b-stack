@@ -8,3 +8,7 @@ origin = "Design discussion, Nov 2026. Tested with SwiftLint 0.65.1."
 
 [ios]
 swiftlint = "force_unwrapping, force_try, force_cast and implicitly_unwrapped_optional rules, in --strict mode."
+
+[rust]
+clippy = "unwrap_used, expect_used, panic, todo, unimplemented, indexing_slicing and as_conversions (deny; allowed inside tests via clippy.toml)."
+message = "Don't force it. Handle the None or Err (?, if let, match, ok_or), use .get() instead of indexing, and From/TryFrom instead of `as`. If a value truly can't be missing, model that in the type instead."

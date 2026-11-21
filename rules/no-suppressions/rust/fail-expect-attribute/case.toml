@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "`#[expect(...)]` is a lint attribute that turns a check down"

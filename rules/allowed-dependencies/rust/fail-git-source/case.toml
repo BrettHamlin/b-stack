@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deny"
+uses_example = false
+diagnostic = "source not explicitly allowed"

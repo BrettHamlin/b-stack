@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "clippy"
+uses_example = false
+diagnostic = "wildcard match will also match any future added variants"

@@ -1,0 +1,11 @@
+id = "allowed-dependencies"
+layer = "2"
+summary = "Third-party crates come only from the owner's list for each role, only from crates.io, and only with allowed licenses."
+problem = "Adding a crate is the quickest way past a missing piece. It can bring in unsafe code, I/O inside logic, global state or a license the project can't ship, and none of it shows up in a diff of the code that uses it."
+message = "This crate isn't allowed. Write the code without it, or stop and report which crate you need and why: adding one needs the owner (arch/shape.toml lists the crates each role may use; deny.toml the sources and licenses)."
+escape_hatches = ["Copying a crate's code into the workspace: review, and the code then meets every other rule.", "A git dependency: cargo-deny's sources check allows crates.io only.", "A crate vendored into a crate's folder: Cargo makes it a workspace member, and the arch gate rejects a member outside the shape's folders (module-boundaries).", "Editing deny.toml or arch/shape.toml: protected-enforcement (code owners)."]
+origin = "Rust starter, Nov 2026. cargo-deny 0.20.2."
+
+[rust]
+arch = "arch/shape.toml (protected) gives each role its own `external` list, empty to start; a direct third-party dependency not on it fails, naming the role."
+deny = "deny.toml (protected), over the whole dependency tree including transitive crates: [sources] allows crates.io only; [licenses] allows permissive licenses only, which also covers workspace crates marked publish = true. cargo-deny's own allowlist ([bans] allow) isn't used: it would also have to list every workspace crate."

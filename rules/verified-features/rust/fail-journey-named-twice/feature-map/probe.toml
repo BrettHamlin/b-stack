@@ -1,0 +1,7 @@
+id = "probe"
+summary = "Claims another feature's journey."
+modules = ["probe"]
+
+[[journeys]]
+name = "tally_is_saved_across_runs"
+proves = "Borrowed."

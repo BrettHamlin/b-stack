@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+diagnostic = "[verified-features] feature-map/probe.toml: journey `probe_works` isn't in crates/app/tests/journeys.rs, so it never runs"

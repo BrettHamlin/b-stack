@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[no-suppressions] crates/features/probe/Cargo.toml: [lints] must be exactly `workspace = true`"

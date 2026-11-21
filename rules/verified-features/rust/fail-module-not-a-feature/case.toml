@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+diagnostic = "[verified-features] feature-map/probe.toml: module `app` isn't a feature crate"

@@ -1,0 +1,3 @@
+expect = "pass"
+enforced_by = "clippy"
+uses_example = false

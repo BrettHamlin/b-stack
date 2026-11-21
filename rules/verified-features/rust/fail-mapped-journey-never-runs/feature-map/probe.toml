@@ -1,0 +1,7 @@
+id = "probe"
+summary = "Names a journey with no code."
+modules = ["probe"]
+
+[[journeys]]
+name = "probe_works"
+proves = "Nothing; it does not exist."

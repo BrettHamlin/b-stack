@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "clippy"
+uses_example = false
+diagnostic = "`panic` should not be present in production code"

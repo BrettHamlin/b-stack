@@ -8,3 +8,9 @@ origin = "State-flow trial, Nov 2026: probe 6 (logic does I/O directly) was caug
 
 [ios]
 harmonize = "NoIOInLogic.swift: text match for FileManager, FileHandle, URLSession, UserDefaults, contentsOf:, NWConnection and Process( in Targets/*Logic/ (a heuristic, not type-aware)."
+
+[rust]
+layer = "1+2"
+compiler = "Core and feature crates are #![no_std]: std (files, network, clocks, threads, processes) doesn't exist there, so any use is an unresolved name (Rust 1.99.0)."
+arch = "arch/checker: a no_std role's src/lib.rs must start with #![no_std], and `extern crate std` is banned in it."
+message = "No I/O in core or feature crates: they're no_std. Define a trait for what you need in the feature crate, implement it in a platform crate, and pass it in from the app crate."

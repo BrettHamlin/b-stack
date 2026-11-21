@@ -1,0 +1,31 @@
+# The module shape. Protected (CODEOWNERS): agents add crates inside it, never change it.
+# Each role is a folder pattern under the workspace; a crate's role comes from where it lives.
+#   may_use   roles whose crates it may depend on (normal, dev and build dependencies alike)
+#   external  third-party crates it may use directly (deny.toml checks every crate's source and license)
+#   no_std    its src/lib.rs must start with #![no_std]: std (files, network, clocks, threads) can't be named
+#   binary    it is the composition root: the one crate with a binary, where real services are wired together
+
+[roles.core]
+path = "crates/core"
+may_use = []
+external = []
+no_std = true
+
+[roles.feature]
+path = "crates/features/*"
+may_use = ["core"]
+external = []
+no_std = true
+
+[roles.platform]
+path = "crates/platform/*"
+may_use = ["core", "feature"]
+external = []
+no_std = false
+
+[roles.app]
+path = "crates/app"
+may_use = ["core", "feature", "platform"]
+external = []
+no_std = false
+binary = true

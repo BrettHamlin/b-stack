@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "`macro_rules!` defines a macro; it hides code from the checks"

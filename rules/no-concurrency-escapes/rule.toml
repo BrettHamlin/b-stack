@@ -9,3 +9,8 @@ origin = "Lauren Tan talk (timer/scheduling workarounds). Design discussion, Nov
 [ios]
 compiler = "Swift 6 language mode; Settings and App isolated to MainActor by default (SWIFT_DEFAULT_ACTOR_ISOLATION)."
 harmonize = "NoConcurrencyEscapes.swift: no @unchecked Sendable, no nonisolated(unsafe)."
+
+[rust]
+layer = "1"
+compiler = "Send and Sync are checked by the compiler; the only way around them is unsafe code, and unsafe_code is forbid in the workspace lints, which no attribute in a crate can lower (Rust 1.99.0). The arch gate makes every crate inherit those lints."
+message = "Don't silence the compiler's thread-safety checks: unsafe code is forbidden. Share through Arc, Mutex, channels or ownership. If none fits, stop and report what you're trying to share."

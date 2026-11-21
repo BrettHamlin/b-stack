@@ -8,3 +8,8 @@ origin = "Lauren Tan talk (Dune bans useEffect in product code; setTimeout worka
 
 [ios]
 compiler = "@available(*, unavailable, message: \"Use <replacement>, which <why>\") on owned APIs."
+
+[rust]
+layer = "1+2"
+compiler = "#[deprecated(note = \"Use <replacement>, which <why>\")] on owned APIs, with the deprecated lint at deny: a call fails to compile and the error carries the note (Rust 1.99.0)."
+clippy = "clippy.toml disallowed-methods (deny) for std and third-party APIs, each with the reason and replacement; std::thread::sleep is banned to start."

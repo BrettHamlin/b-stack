@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "clippy"
+uses_example = false
+diagnostic = "use of a disallowed method `std::thread::sleep`"

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[allowed-dependencies] crates/features/probe: third-party crate `itoa` isn't allowed in a feature crate"

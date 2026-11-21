@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "unresolved import `files`"

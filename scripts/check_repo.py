@@ -6,11 +6,12 @@ import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', 'origin', 'ios']
+sys.path.insert(0, str(ROOT / 'scripts'))
+from platforms import PLATFORMS  # noqa: E402
+
+RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', 'origin']
 LAYERS = {'1', '2', '1+2', '3', 'foundation'}
-ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests', 'verify')
 LINK = re.compile(r'\]\(([^)\s]+)\)')
-EXAMPLE = re.compile(r'[\w.-]*(?:Settings|notification|save-fails)[\w.-]*')  # the starter's example feature
 errors = []
 
 
@@ -24,6 +25,48 @@ def load(path: Path) -> dict:
     except tomllib.TOMLDecodeError as error:
         errors.append(f'{rel(path)}: invalid TOML: {error}')
         return {}
+
+
+def check_cases(rule_dir: Path, rule: dict, platform) -> None:
+    """A rule's cases on one platform: rules/<id>/<platform>/<case>/case.toml."""
+    section = rule[platform.name]
+    if 'layer' in section and section['layer'] not in LAYERS:
+        errors.append(f'{rel(rule_dir)}/rule.toml: {platform.name}.layer must be one of {sorted(LAYERS)}')
+    expects = []
+    for case_path in sorted((rule_dir / platform.name).glob('*/case.toml')):
+        case = load(case_path)
+        expects.append(case.get('expect'))
+        if case.get('expect') not in ('fail', 'pass'):
+            errors.append(f'{rel(case_path)}: expect must be "fail" or "pass"')
+        if case.get('enforced_by') not in platform.gates:
+            errors.append(f'{rel(case_path)}: enforced_by must be one of {platform.gates}')
+        if case.get('expect') == 'fail' and not case.get('diagnostic'):
+            errors.append(f'{rel(case_path)}: fail cases need a diagnostic')
+        uses = case.get('uses_example')
+        if uses is not False and not (isinstance(uses, str) and uses.strip()):
+            errors.append(f'{rel(case_path)}: uses_example must be false, or say how the case uses the '
+                          f'{platform.example_name} example')
+        if uses is False:
+            # A case that claims to apply to any app may not touch the example.
+            texts = [(f.relative_to(case_path.parent), f.read_text()) for f in case_path.parent.rglob('*')
+                     if f.is_file() and f.name != 'case.toml']
+            texts += [(Path('case.toml'), ' '.join([case.get('diagnostic', '')] + [' '.join(e.values()) for e in case.get('edits', [])]))]
+            for path, text in texts:
+                hit = platform.example.search(text) or next(
+                    (m for part in path.parts[1:-1] if (m := platform.example.match(part))), None) or (
+                    path.parts[0] == platform.targets and len(path.parts) > 1 and platform.example.match(path.parts[1]))
+                if hit:
+                    errors.append(f'{rel(case_path)}: uses_example = false, but {path} uses the example ({hit.group(0)})')
+                    break
+        edits = case.get('edits', [])
+        for edit in edits:
+            if set(edit) != {'file', 'find', 'replace'} or edit.get('file') not in platform.editable:
+                errors.append(f'{rel(case_path)}: each edit needs exactly file (one of {platform.editable}), find and replace')
+        case_dir = case_path.parent
+        if not (any(list(case_dir.glob(pattern)) for pattern in platform.case_files) or edits):
+            errors.append(f'{rel(case_path)}: no {", ".join(platform.case_files)} files or edits')
+    if 'fail' not in expects and not section.get('tests_pending'):
+        errors.append(f'{rel(rule_dir)}: needs a {platform.name} fail case, or {platform.name}.tests_pending explaining why not')
 
 
 rule_dirs = sorted(p for p in (ROOT / 'rules').iterdir() if p.is_dir())
@@ -42,42 +85,16 @@ for rule_dir in rule_dirs:
         errors.append(f'{rel(path)}: layer must be one of {sorted(LAYERS)}')
     if not isinstance(rule.get('escape_hatches'), list):
         errors.append(f'{rel(path)}: escape_hatches must be a list')
-
-    cases = sorted((rule_dir / 'ios').glob('*/case.toml'))
-    expects = []
-    for case_path in cases:
-        case = load(case_path)
-        expects.append(case.get('expect'))
-        if case.get('expect') not in ('fail', 'pass'):
-            errors.append(f'{rel(case_path)}: expect must be "fail" or "pass"')
-        if case.get('enforced_by') not in ENFORCERS:
-            errors.append(f'{rel(case_path)}: enforced_by must be one of {ENFORCERS}')
-        if case.get('expect') == 'fail' and not case.get('diagnostic'):
-            errors.append(f'{rel(case_path)}: fail cases need a diagnostic')
-        uses = case.get('uses_example')
-        if uses is not False and not (isinstance(uses, str) and uses.strip()):
-            errors.append(f'{rel(case_path)}: uses_example must be false, or say how the case uses the Settings example')
-        if uses is False:
-            # A case that claims to apply to any app may not touch the example.
-            texts = [(f.relative_to(case_path.parent), f.read_text()) for f in case_path.parent.rglob('*')
-                     if f.is_file() and f.name != 'case.toml']
-            texts += [(Path('case.toml'), ' '.join([case.get('diagnostic', '')] + [' '.join(e.values()) for e in case.get('edits', [])]))]
-            for path, text in texts:
-                hit = EXAMPLE.search(text) or (path.parts[0] == 'Targets' and len(path.parts) > 1 and EXAMPLE.match(path.parts[1]))
-                if hit:
-                    errors.append(f'{rel(case_path)}: uses_example = false, but {path} uses the example ({hit.group(0)})')
-                    break
-        edits = case.get('edits', [])
-        for edit in edits:
-            if set(edit) != {'file', 'find', 'replace'} or edit.get('file') != 'Project.swift':
-                errors.append(f'{rel(case_path)}: each edit needs exactly file = "Project.swift", find and replace')
-        case_dir = case_path.parent
-        if not (list((case_dir / 'Targets').glob('*/*.swift')) or list((case_dir / 'feature-map').glob('*.toml'))
-                or list((case_dir / 'Tuist/ProjectDescriptionHelpers').glob('*.swift')) or edits):
-            errors.append(f'{rel(case_path)}: no Targets/<Target>/*.swift, feature-map/*.toml, '
-                          'Tuist/ProjectDescriptionHelpers/*.swift files or edits')
-    if 'fail' not in expects and not rule.get('ios', {}).get('tests_pending'):
-        errors.append(f'{rel(rule_dir)}: needs an ios fail case, or ios.tests_pending explaining why not')
+    if not any(isinstance(rule.get(name), dict) for name in PLATFORMS):
+        errors.append(f'{rel(path)}: needs a table for at least one platform ({", ".join(PLATFORMS)})')
+    for folder in rule_dir.iterdir():
+        if folder.is_dir() and folder.name not in PLATFORMS:
+            errors.append(f'{rel(folder)}: not a platform ({", ".join(PLATFORMS)})')
+    for platform in PLATFORMS.values():
+        if isinstance(rule.get(platform.name), dict):
+            check_cases(rule_dir, rule, platform)
+        elif (rule_dir / platform.name).is_dir():
+            errors.append(f'{rel(rule_dir)}: has {platform.name} cases but no [{platform.name}] table in rule.toml')
 
 catalog = (ROOT / 'rules' / 'README.md').read_text()
 for rule_dir in rule_dirs:
@@ -105,5 +122,6 @@ for doc in ROOT.rglob('*.md'):
 if errors:
     print('\n'.join(errors))
     sys.exit(1)
-case_count = len(list((ROOT / 'rules').glob('*/ios/*/case.toml')))
-print(f'Repo OK: {len(rule_dirs)} rules, {case_count} cases, all in the catalog; skills and links valid.')
+counts = {name: len(list((ROOT / 'rules').glob(f'*/{name}/*/case.toml'))) for name in PLATFORMS}
+print(f'Repo OK: {len(rule_dirs)} rules, ' + ', '.join(f'{n} {name} cases' for name, n in counts.items())
+      + ', all in the catalog; skills and links valid.')

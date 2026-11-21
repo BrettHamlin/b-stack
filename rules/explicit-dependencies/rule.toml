@@ -9,3 +9,8 @@ origin = "Design discussion, Nov 2026. Also needed by verification (launching in
 [ios]
 compiler = "Initializer injection; protocols in Interface modules; App is the only composition root."
 harmonize = "ExplicitDependencies.swift: no `static` variable named `shared`."
+
+[rust]
+layer = "1+2"
+compiler = "Parameters and traits; the app crate is the only composition root. `static mut` needs unsafe, which is forbidden."
+arch = "arch/checker: no `static` items at all (use const for constants) and no thread_local! or lazy_static!, anywhere in the workspace's crates."

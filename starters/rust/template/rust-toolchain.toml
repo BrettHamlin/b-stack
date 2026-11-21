@@ -1,0 +1,5 @@
+# Pinned toolchain. scripts/tools.py installs it into the tools folder (the cache folder if one is configured).
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["clippy"]
