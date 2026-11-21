@@ -80,6 +80,8 @@ if not args.platform and not args.project:
     failed = []
     # With --rule, only the platforms that have cases for one of those rules.
     names = [n for n in PLATFORMS if not args.rule or any((ROOT / 'rules' / r / n).is_dir() for r in args.rule)]
+    if not names:
+        sys.exit(f'No rule named {", ".join(args.rule)} has cases (rules/<rule-id>/<platform>/).')
     for name in names:
         print(f'== {name}', flush=True)
         if subprocess.run([sys.executable, __file__, '--platform', name, *sys.argv[1:]]).returncode != 0:
