@@ -82,7 +82,7 @@ def record_check(root: Path, gates: list[str], failed: list[str], before: str | 
     try:
         if checkout(root) != str(root.resolve()):
             return  # the project is a folder inside another repo (a starter inside b-stack): its commits aren't this
-    except subprocess.CalledProcessError:
+    except Exception:  # not a git repo, or no git: observe mode, so never fail the check
         return
     tree = snapshot(root)
     if tree is None or tree != before:
