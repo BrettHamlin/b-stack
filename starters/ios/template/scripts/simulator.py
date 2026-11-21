@@ -3,7 +3,8 @@
 A simulator is shared by every checkout on the Mac: two test runs on one simulator kill each other's test runner
 ("Test crashed with signal kill before establishing connection"). in_use() takes this machine's lock on it, so a second
 run waits until the first finishes and says who holds it. The lock is an flock, so it is released when its holder exits
-or is killed.
+or is killed. Its descriptor isn't inherited (a simulator helper could keep it forever), so killing only the holder,
+not its process group as Ctrl-C does, frees the simulator while a child may still be using it.
 """
 from contextlib import contextmanager
 from datetime import datetime
