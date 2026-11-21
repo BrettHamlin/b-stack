@@ -5,7 +5,8 @@ Commands:
              option: --workers N, the most simulators to split journeys across (see Parallel journeys)
   map        only check the feature map and XCTest adapters (no simulator)
   adapters   regenerate XCTestCase adapters from journey bodies (no simulator)
-  launch     build AppVerify, boot a simulator, install and start it, for exploring with agent-device
+  launch     build AppVerify, boot a simulator, install and start it, for exploring with agent-device (drive it
+             through `python3 scripts/simulator.py run -- ...`, which holds the simulator)
              options: --fixture NAME (default standard), --reset (restore the fixture's starting data)
   doctor     read-only: is the simulator booted, AppVerify installed and running? Run it whenever anything looks off.
   cleanup    stop AppVerify and shut down a simulator this script booted, and delete simulator clones a crashed run
@@ -26,7 +27,9 @@ The first simulator runs every journey not given to another (-skip-testing), so 
 still runs. Clones are deleted afterwards. A fresh clone boots like a new device and starts every first-boot service:
 on a 10-core, 16 GB Mac (Xcode 27.2, iOS 27.2) cloning for the starter's 2 journeys took them from under a minute to
 about 5 minutes each, so cloning only pays off for many journeys. A simulator that's already booted belongs to someone else: it's borrowed, alone, and never cloned.
-`run` holds this Mac's lock on the simulator (scripts/simulator.py), so a run from another checkout waits for it.
+`run`, `launch` and `cleanup` hold this Mac's lock on the simulator while they use it (scripts/simulator.py), so a run
+from another checkout waits for it. AppVerify's bundle ID is this checkout's own (Project.swift), so checkouts' installs
+sit side by side on a shared simulator.
 
 Evidence: .build/evidence/<time>-<commit>/ (in the cache folder if one is configured): evidence.md, screenshots,
 the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed generation, boots, builds
@@ -53,15 +56,21 @@ from simulator import in_use, simulator, state  # noqa: E402
 from tools import tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-BUNDLE_ID = 'dev.bstack.starter.verify'
 SCHEME = 'AppVerify'
 DERIVED = ROOT / '.build/DerivedData'
+APP = DERIVED / 'Build/Products/Debug-iphonesimulator/AppVerify.app'
 SESSION = ROOT / '.build/verify-session.json'
 JOURNEY_TIMEOUT = 1200
 
 
 def fail(message: str) -> None:
     print(f'[verify] {message}', flush=True)
+
+
+def bundle_id() -> str | None:
+    """AppVerify's bundle ID as last built in this checkout (Project.swift gives each checkout its own), else None."""
+    info = APP / 'Info.plist'
+    return plistlib.loads(info.read_bytes()).get('CFBundleIdentifier') if info.is_file() else None
 
 
 # ---------------------------------------------------------------- feature map
@@ -442,7 +451,7 @@ def write_evidence(directory: Path, entries: list[dict], results: dict[str, dict
         f'| Run | {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")} |',
         f'| Simulator | {device.get("name", "?")} ({device.get("runtime", "?")}), `{device.get("udid", "?")}`'
         + (f', with journeys split across it and {device["clones"]} clone(s) of it' if device.get('clones') else '') + ' |',
-        f'| App | AppVerify (`{BUNDLE_ID}`), test mode with fixtures |', '',
+        f'| App | AppVerify (`{bundle_id() or "?"}`), test mode with fixtures |', '',
     ]
     for entry in entries:
         lines += [f'## {entry["id"]}', '', entry['summary'], '']
@@ -746,28 +755,33 @@ def launch(fixture: str, reset: bool) -> bool:
     if proc.returncode != 0:
         print((proc.stdout + proc.stderr).strip()[-3000:])
         return False
-    booted_here = boot(udid) or (session.get('udid') == udid and session.get('booted_here', False))
-    # Recorded before anything else can fail, so `cleanup` can always find a simulator this script booted.
-    SESSION.write_text(json.dumps({'udid': udid, 'booted_here': booted_here}))
-    if not wait_booted(udid):
-        fail(f'simulator {udid} did not finish booting; run `python3 scripts/verify.py cleanup`')
+    app_id = bundle_id()
+    if app_id is None:
+        fail(f'the build left no AppVerify app at {APP}')
         return False
-    app = DERIVED / 'Build/Products/Debug-iphonesimulator/AppVerify.app'
-    if sh(['xcrun', 'simctl', 'install', udid, str(app)]).returncode != 0:
-        fail('install failed')
-        return False
-    env = {'SIMCTL_CHILD_BSTACK_FIXTURE': fixture, **({'SIMCTL_CHILD_BSTACK_RESET': '1'} if reset else {})}
-    started = subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', udid, BUNDLE_ID],
-                             cwd=ROOT, capture_output=True, text=True, env={**os.environ, **env})
-    if started.returncode != 0:
-        fail(f'launch failed: {started.stderr.strip()}')
-        return False
-    time.sleep(2)  # an app that crashes on launch (e.g. a bad fixture) is gone within this
-    if BUNDLE_ID not in sh(['xcrun', 'simctl', 'spawn', udid, 'launchctl', 'list']).stdout:
-        fail('AppVerify exited right after launch. Check the fixture, then `python3 scripts/verify.py doctor`.')
-        return False
-    print(json.dumps({'udid': udid, 'bundle_id': BUNDLE_ID, 'fixture': fixture, 'reset': reset,
-                      'drive': f'agent-device snapshot --platform ios --udid {udid}',
+    with in_use(udid, f'verify.py launch in {ROOT}'):
+        booted_here = boot(udid) or (session.get('udid') == udid and session.get('booted_here', False))
+        # Recorded before anything else can fail, so `cleanup` can always find a simulator this script booted.
+        SESSION.write_text(json.dumps({'udid': udid, 'booted_here': booted_here, 'bundle_id': app_id}))
+        if not wait_booted(udid):
+            fail(f'simulator {udid} did not finish booting; run `python3 scripts/verify.py cleanup`')
+            return False
+        if sh(['xcrun', 'simctl', 'install', udid, str(APP)]).returncode != 0:
+            fail('install failed')
+            return False
+        env = {'SIMCTL_CHILD_BSTACK_FIXTURE': fixture, **({'SIMCTL_CHILD_BSTACK_RESET': '1'} if reset else {})}
+        started = subprocess.run(['xcrun', 'simctl', 'launch', '--terminate-running-process', udid, app_id],
+                                 cwd=ROOT, capture_output=True, text=True, env={**os.environ, **env})
+        if started.returncode != 0:
+            fail(f'launch failed: {started.stderr.strip()}')
+            return False
+        time.sleep(2)  # an app that crashes on launch (e.g. a bad fixture) is gone within this
+        if app_id not in sh(['xcrun', 'simctl', 'spawn', udid, 'launchctl', 'list']).stdout:
+            fail('AppVerify exited right after launch. Check the fixture, then `python3 scripts/verify.py doctor`.')
+            return False
+    print(json.dumps({'udid': udid, 'bundle_id': app_id, 'fixture': fixture, 'reset': reset,
+                      'drive': f'BSTACK_SIMULATOR_ID={udid} python3 scripts/simulator.py run -- '
+                               f'agent-device snapshot --platform ios --udid {udid}',
                       'cleanup': 'python3 scripts/verify.py cleanup'}, indent=2))
     return True
 
@@ -775,12 +789,13 @@ def launch(fixture: str, reset: bool) -> bool:
 def doctor() -> bool:
     session = json.loads(SESSION.read_text()) if SESSION.is_file() else {}
     udid = session.get('udid') or simulator()
+    app_id = session.get('bundle_id') or bundle_id()
     device = state(udid)
     booted = device.get('state') == 'Booted'
-    installed = booted and sh(['xcrun', 'simctl', 'get_app_container', udid, BUNDLE_ID]).returncode == 0
-    running = booted and BUNDLE_ID in sh(['xcrun', 'simctl', 'spawn', udid, 'launchctl', 'list']).stdout
+    installed = bool(booted and app_id and sh(['xcrun', 'simctl', 'get_app_container', udid, app_id]).returncode == 0)
+    running = bool(installed and app_id in sh(['xcrun', 'simctl', 'spawn', udid, 'launchctl', 'list']).stdout)
     report = {'udid': udid, 'simulator': device.get('name'), 'runtime': device.get('runtime'), 'booted': booted,
-              'app_installed': installed, 'app_running': running}
+              'bundle_id': app_id, 'app_installed': installed, 'app_running': running}
     print(json.dumps(report, indent=2))
     return booted and installed and running
 
@@ -795,10 +810,12 @@ def cleanup() -> bool:
         return True
     session = json.loads(SESSION.read_text())
     udid = session['udid']
-    if state(udid).get('state') == 'Booted':
-        sh(['xcrun', 'simctl', 'terminate', udid, BUNDLE_ID])
-        if session.get('booted_here'):
-            shutdown(udid)
+    with in_use(udid, f'verify.py cleanup in {ROOT}'):
+        if state(udid).get('state') == 'Booted':
+            if app_id := session.get('bundle_id') or bundle_id():
+                sh(['xcrun', 'simctl', 'terminate', udid, app_id])
+            if session.get('booted_here'):
+                shutdown(udid)
     SESSION.unlink()
     print(f'[verify] cleaned up {udid}; evidence kept in {ROOT / ".build/evidence"}')
     return True

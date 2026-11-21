@@ -28,12 +28,12 @@ It checks the feature map, checks generated XCTestCase adapters and runs every j
 ```sh
 python3 scripts/verify.py launch --fixture standard --reset   # build, install, start; prints the simulator id
 python3 scripts/verify.py doctor                              # read-only: booted, installed, running?
-agent-device snapshot --platform ios --udid <udid> -i         # what's on screen
-agent-device click ... / agent-device screenshot ...          # drive it
+python3 scripts/simulator.py run -- agent-device snapshot --platform ios --udid <udid> -i   # what's on screen
+python3 scripts/simulator.py run -- agent-device click ...    # drive it (screenshot, recordings: the same way)
 python3 scripts/verify.py cleanup                             # stop what launch started; evidence is kept
 ```
 
-Run `doctor` before driving and again whenever something looks off. Exploring is for looking and judging; it's not proof. Once a behaviour works, write the journey that proves it.
+Other checkouts' gates share the simulator. `simulator.py run` holds it while the command runs, and waits while a gate elsewhere uses it; `launch` and `cleanup` hold it themselves. Between separate commands another checkout's gate may run and leave its app in front: run `doctor` (or `agent-device open <bundle id>`) before driving again, or put the whole sequence in one `simulator.py run -- sh -c '...'`. Never drive it outside these (see AGENTS.md, "Using the simulator by hand"). Run `doctor` before driving and again whenever something looks off. Exploring is for looking and judging; it's not proof. Once a behaviour works, write the journey that proves it.
 
 ## Add a feature
 
