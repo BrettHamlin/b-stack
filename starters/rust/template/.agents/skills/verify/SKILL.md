@@ -10,7 +10,7 @@ description: Run this app's built binary and prove a feature works the way a use
 ## Prove a change: the gate
 
 ```sh
-python3 scripts/verify.py          # same as check.py's verify gate
+python3 scripts/check.py --only verify     # the verify gate
 ```
 
 It checks the feature map, then runs every journey in `crates/app/tests/journeys.rs` on its own against the built app binary, and writes each journey's commands and output to `.build/evidence/latest/evidence.md`. Read it. A passing journey whose output shows the wrong thing is a bad journey: fix it.

@@ -64,6 +64,8 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
 
 def check(selected: list[str], env: dict) -> list[str]:
     unsafe_to_build = build_time_code(env) if COMPILES & set(selected) else []
+    if unsafe_to_build and 'verify' in selected:
+        (ROOT / '.build/evidence/latest/evidence.md').unlink(missing_ok=True)  # verify.py, which clears it, won't run
     results: dict[str, bool] = {}
     for name in selected:
         started = time.monotonic()

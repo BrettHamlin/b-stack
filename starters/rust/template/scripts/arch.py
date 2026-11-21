@@ -27,6 +27,7 @@ from tools import rust_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_SWITCHES = ('autotests', 'autobins', 'autoexamples', 'autobenches', 'autolib')
+LIB_KINDS = {'lib', 'rlib', 'dylib', 'cdylib', 'staticlib'}  # a [lib] target's kind is its crate-type
 
 
 def in_folder(rel: Path, pattern: str) -> bool:
@@ -92,7 +93,7 @@ def graph_findings(env: dict, roles: dict) -> tuple[list[str], dict[Path, str]]:
                            'tests gate. Remove it; every test runs.')
             if 'lib' in kinds and not target.get('doctest', True):
                 out.append(f'[tests-always-run] {rel}: `doctest = false` leaves the doc tests out of the tests gate.')
-            if 'lib' in kinds and shape.get('no_std') and Path(target['src_path']).resolve() != folder / 'src/lib.rs':
+            if kinds & LIB_KINDS and shape.get('no_std') and Path(target['src_path']).resolve() != folder / 'src/lib.rs':
                 out.append(f'[no-io-in-logic] {rel}/Cargo.toml: the library\'s root is {os.path.relpath(target["src_path"], folder)}, but a no_std '
                            'crate\'s root must be src/lib.rs, where `#![no_std]` is checked. Remove the [lib] `path`.')
         tables = [manifest.get('lib', {}), *[t for kind in ('bin', 'test', 'bench', 'example') for t in manifest.get(kind, [])]]

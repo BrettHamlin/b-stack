@@ -215,6 +215,14 @@ class HandbackTests(unittest.TestCase):
         self.assertRegex(self.audit('HEAD~1'), r'^[0-9a-f]{9} unchecked ')
         self.assertRegex(self.audit('feature'), r'^[0-9a-f]{9} checked ')
 
+    def test_a_project_inside_another_repo_records_nothing(self) -> None:
+        # A starter run in place inside b-stack: a passing run must not mark b-stack's own commits as checked.
+        inner = self.root / 'starter'
+        inner.mkdir()
+        (inner / 'Main.swift').write_text('let b = 1\n')
+        handback.record_check(inner, handback.GATES, [], handback.snapshot(inner))
+        self.assertFalse((handback.state_dir(self.root) / 'checks.jsonl').exists())
+
     def test_audit_of_an_unknown_commit_fails(self) -> None:
         proc = subprocess.run([sys.executable, str(self.root / 'scripts/handback.py'), 'audit', 'nope'],
                               cwd=self.root, capture_output=True, text=True)

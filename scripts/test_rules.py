@@ -131,7 +131,8 @@ class Worker:
             if item.name not in SKIP:
                 shutil.rmtree(item) if item.is_dir() else item.unlink()
         for item in project.iterdir():
-            if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
+            # .git isn't copied: a case's check.py must not record its runs in the project's repo (scripts/handback.py).
+            if item.name not in SKIP and item.name != '.git' and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
                 # Symlinks stay links: Rules/Sources/ModuleShape links to the helpers a case may overlay.
                 if item.is_dir():
                     shutil.copytree(item, self.work / item.name, symlinks=True)
