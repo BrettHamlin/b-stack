@@ -10,7 +10,12 @@ Gates:
   verify    the feature map is complete, and every journey passes against the built app (scripts/verify.py)
 
 The gates run one after another (compiler, clippy and tests share one build folder). Each gate's output is printed
-when it fails, followed by its result and time; a summary in gate order comes last.
+when it fails, followed by its result and time; a summary in gate order comes last. Before a gate that compiles
+(compiler, clippy, tests, verify), a workspace crate with a build script or proc macro fails that gate without being
+built, since building it would run that code before any gate had looked at it.
+
+Each run is recorded against the files it saw (scripts/handback.py, observe mode), so a hand-back or commit can say
+whether its files passed every gate.
 
 Usage: python3 scripts/check.py [--only GATE ...]
 """
@@ -21,11 +26,13 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from arch import findings as arch_findings  # noqa: E402
+from arch import build_time_code, findings as arch_findings  # noqa: E402
+from handback import record_check, snapshot  # noqa: E402
 from tools import rust_env, tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 GATES = ['compiler', 'clippy', 'deny', 'arch', 'tests', 'verify']
+COMPILES = {'compiler', 'clippy', 'tests', 'verify'}
 NOISE = ('Compiling ', 'Checking ', 'Finished ', 'Running ', 'Doc-tests ', 'Blocking ', 'Locking ', 'Adding ',
          'Downloaded ', 'Downloading ', 'Updating ')
 
@@ -55,12 +62,14 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
     return run([sys.executable, str(ROOT / 'scripts/verify.py'), 'run'], env)
 
 
-def check(selected: list[str]) -> list[str]:
-    env = rust_env()
+def check(selected: list[str], env: dict) -> list[str]:
+    unsafe_to_build = build_time_code(env) if COMPILES & set(selected) else []
+    if unsafe_to_build and 'verify' in selected:
+        (ROOT / '.build/evidence/latest/evidence.md').unlink(missing_ok=True)  # verify.py, which clears it, won't run
     results: dict[str, bool] = {}
     for name in selected:
         started = time.monotonic()
-        ok, output = gate(name, env)
+        ok, output = (False, '\n'.join(unsafe_to_build)) if name in COMPILES and unsafe_to_build else gate(name, env)
         results[name] = ok
         if not ok and output:
             print(output)
@@ -74,8 +83,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--only', action='append', choices=GATES)
     chosen = parser.parse_args().only or GATES
+    env = rust_env()  # links .build into the cache folder first, so the snapshot never sees build output
+    before = snapshot(ROOT)  # observe mode: a run counts only for files that didn't change while it ran
     try:
-        failed = check([g for g in GATES if g in chosen])
+        selected = [g for g in GATES if g in chosen]
+        failed = check(selected, env)
     except KeyboardInterrupt:
-        sys.exit('\nStopped.')
+        sys.exit('\nStopped.')  # an interrupted run isn't a check, so it isn't recorded
+    record_check(ROOT, selected, failed, before)  # observe mode: lets scripts/handback.py tell whether hand-backs were checked
     sys.exit(1 if failed else 0)

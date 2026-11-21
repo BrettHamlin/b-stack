@@ -79,6 +79,11 @@ def snapshot(root: Path) -> str | None:
 
 def record_check(root: Path, gates: list[str], failed: list[str], before: str | None) -> None:
     """Called by check.py after every run, with the files' tree from before the gates ran."""
+    try:
+        if checkout(root) != str(root.resolve()):
+            return  # the project is a folder inside another repo (a starter inside b-stack): its commits aren't this
+    except Exception:  # not a git repo, or no git: observe mode, so never fail the check
+        return
     tree = snapshot(root)
     if tree is None or tree != before:
         if tree is not None:

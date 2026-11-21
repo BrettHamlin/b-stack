@@ -12,5 +12,5 @@ harmonize = "NoIOInLogic.swift: text match for FileManager, FileHandle, URLSessi
 [rust]
 layer = "1+2"
 compiler = "Core and feature crates are #![no_std]: std (files, network, clocks, threads, processes) doesn't exist there, so any use is an unresolved name (Rust 1.99.0)."
-arch = "arch/checker: a no_std role's src/lib.rs must start with #![no_std], and `extern crate std` is banned in it."
+arch = "arch/checker: a no_std role's src/lib.rs must start with #![no_std], and `extern crate std` is banned in it; arch.py: that crate's library root must be src/lib.rs (no [lib] path)."
 message = "No I/O in core or feature crates: they're no_std. Define a trait for what you need in the feature crate, implement it in a platform crate, and pass it in from the app crate."

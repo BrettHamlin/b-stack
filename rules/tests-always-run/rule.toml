@@ -11,5 +11,5 @@ tests = "Project.swift builds the UnitTests scheme from every .unitTests target;
 
 [rust]
 tests = "check.py's tests gate runs cargo test --workspace --all-targets, then the doc tests, so a new crate's tests run without being listed anywhere."
-arch = "No #[ignore] (or cfg_attr(..., ignore)); no test = false or doctest = false on a target, harness = false, or autotests/autobins/autoexamples/autobenches/autolib = false."
+arch = "No #[ignore] (or cfg_attr(..., ignore)); no test = false or doctest = false on a target, harness = false or required-features on any target (examples included), or autotests/autobins/autoexamples/autobenches/autolib = false."
 message = "Every test runs: never skip one or turn a target's tests off. If a test can't pass, fix the code or the test, or stop and report."

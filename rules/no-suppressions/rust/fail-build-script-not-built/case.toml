@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "[no-suppressions] crates/features/probe: not compiled, because a build script would run at build time"

@@ -1,0 +1,18 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+core-types = { path = "../core" }
+tally = { path = "../features/tally" }
+files = { path = "../platform/files" }
+
+[lints]
+workspace = true
+
+[[test]]
+name = "journeys"
+path = "tests/quick.rs"

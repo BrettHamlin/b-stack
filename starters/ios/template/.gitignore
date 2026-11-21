@@ -4,3 +4,4 @@ Derived/
 *.xcodeproj
 *.xcworkspace
 .claude/worktrees/
+__pycache__/
