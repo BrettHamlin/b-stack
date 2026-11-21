@@ -7,14 +7,15 @@ squash merge or made before the check, is checked if a passing run had exactly i
   partial     a run had these files but skipped a gate or failed one
   unchecked   no run had these files (they changed after the last run, or check.py never ran)
 At each Claude Code hand-back (the Stop hook in .claude/settings.json) one line per checkout the session worked in goes
-to handbacks.jsonl; `unchanged` means that checkout's files are as they were at its previous hand-back (left out of the
-summary). The commit-msg git hook (.githooks/commit-msg) adds the committed tree's verdict as a `Checked:` trailer.
+to handbacks.jsonl; `unchanged` means that checkout's files are as they were at the session's start (SessionStart hook)
+or at its previous hand-back (left out of the summary). A run during which the files changed is not recorded. The commit-msg git hook (.githooks/commit-msg) adds the committed tree's verdict as a `Checked:` trailer.
 
 The records live in the clone's git folder (`git rev-parse --git-common-dir`/b-stack/), shared by all its worktrees and
 kept out of .build, which check.py replaces with a link into the cache folder. They are local to that clone: a fresh
 clone or another machine has none, so `audit` answers only for checks run here.
 
 Usage:
+  python3 scripts/handback.py start            the SessionStart hook (reads the hook's JSON on stdin)
   python3 scripts/handback.py stop             the Stop hook (reads the hook's JSON on stdin)
   python3 scripts/handback.py stamp <file>     the commit-msg hook
   python3 scripts/handback.py audit [<rev>…]   whether each commit's tree was checked (default HEAD; ranges like main~5..main)
@@ -62,22 +63,32 @@ def files_tree(root: Path) -> str | None:
         return git(root, 'write-tree', env=env)
 
 
-def head_tree(root: Path) -> str | None:
-    proc = subprocess.run(['git', 'rev-parse', '-q', '--verify', 'HEAD^{tree}'], cwd=root, capture_output=True, text=True)
-    return proc.stdout.strip() or None
-
-
 def checkout(root: Path) -> str:
     return str(Path(git(root, 'rev-parse', '--show-toplevel')).resolve())
 
 
-def record_check(root: Path, gates: list[str], failed: list[str]) -> None:
-    """Called by check.py after every run."""
-    tree = files_tree(root)
-    head = subprocess.run(['git', 'rev-parse', '--verify', '-q', 'HEAD'], cwd=root, capture_output=True, text=True)
-    run = {'tree': tree, 'head': head.stdout.strip() or None, 'gates': gates, 'failed': failed,
-           'checkout': checkout(root) if tree else str(root), 'time': now()}
-    append(state_dir(root) / 'checks.jsonl', run)
+def snapshot(root: Path) -> str | None:
+    """files_tree for check.py: observe mode, so a failure here must never fail the check."""
+    try:
+        return files_tree(root)
+    except Exception as error:
+        print(f'handback.py: not recording this run: {error}', file=sys.stderr)
+        return None
+
+
+def record_check(root: Path, gates: list[str], failed: list[str], before: str | None) -> None:
+    """Called by check.py after every run, with the files' tree from before the gates ran."""
+    tree = snapshot(root)
+    if tree is None or tree != before:
+        if tree is not None:
+            print('handback.py: files changed while check.py ran; this run counts for no commit', file=sys.stderr)
+        return
+    try:
+        head = subprocess.run(['git', 'rev-parse', '--verify', '-q', 'HEAD'], cwd=root, capture_output=True, text=True)
+        append(state_dir(root) / 'checks.jsonl', {'tree': tree, 'head': head.stdout.strip() or None, 'gates': gates,
+                                                  'failed': failed, 'checkout': checkout(root), 'time': now()})
+    except Exception as error:
+        print(f'handback.py: not recording this run: {error}', file=sys.stderr)
 
 
 def passed(run: dict) -> bool:
@@ -118,6 +129,14 @@ def worked_in(root: Path, hook_input: dict) -> list[str]:
     return [path for path in known if path in found]
 
 
+def start(root: Path, hook_input: dict) -> None:
+    """SessionStart hook: note every checkout's files, so the first Stop can tell what this session changed."""
+    log = state_dir(root) / 'handbacks.jsonl'
+    for path in worktrees(root):
+        append(log, {'time': now(), 'status': 'start', 'session': hook_input.get('session_id'), 'checkout': path,
+                     'tree': files_tree(Path(path))})
+
+
 def stop(root: Path, hook_input: dict) -> list[dict]:
     log = state_dir(root) / 'handbacks.jsonl'
     history = entries(log)
@@ -127,9 +146,7 @@ def stop(root: Path, hook_input: dict) -> list[dict]:
         previous = [e for e in history if e.get('checkout') == path]
         status, run = verdict(root, tree)
         if previous and previous[-1].get('tree') == tree:
-            status = 'unchanged'
-        elif not previous and tree == head_tree(Path(path)):
-            status = 'unchanged'  # first hand-back from a clean checkout: nothing was handed back
+            status = 'unchanged'  # as at this session's start or the previous hand-back; a new checkout has neither
         entry = {'time': now(), 'status': status, 'session': hook_input.get('session_id'), 'checkout': path,
                  'tree': tree, 'gates': run.get('gates'), 'failed': run.get('failed')}
         append(log, entry)
@@ -138,14 +155,12 @@ def stop(root: Path, hook_input: dict) -> list[dict]:
 
 
 def stamp(root: Path, message_file: Path) -> None:
-    message = message_file.read_text()
-    if '\nChecked: ' in message:
-        return
     status, run = verdict(root, git(root, 'write-tree'))  # the index being committed (git sets GIT_INDEX_FILE)
     trailer = f'Checked: {status}'
     if status == 'partial':
         trailer += f' (gates {",".join(run.get("gates", []))}; failed {",".join(run.get("failed", [])) or "none"})'
-    subprocess.run(['git', 'interpret-trailers', '--in-place', '--trailer', trailer, str(message_file)], cwd=root, check=True)
+    subprocess.run(['git', 'interpret-trailers', '--in-place', '--if-exists', 'replace', '--trailer', trailer,
+                    str(message_file)], cwd=root, check=True)  # replace: an amend re-judges the new index
 
 
 def audit(root: Path, revs: list[str]) -> list[str]:
@@ -165,9 +180,10 @@ def audit_commit(root: Path, commit: str) -> tuple[str, str]:
         return status, f'gates {",".join(run.get("gates", []))}; failed {",".join(run.get("failed", [])) or "none"}'
     nearest = None
     for run in [r for r in entries(state_dir(root) / 'checks.jsonl') if passed(r) and r.get('tree')][-50:]:
-        diff = subprocess.run(['git', 'diff', '--name-only', run['tree'], tree], cwd=root, capture_output=True, text=True)
-        if diff.returncode == 0 and (nearest is None or len(diff.stdout.split()) <= len(nearest[1])):
-            nearest = run, diff.stdout.split()
+        diff = subprocess.run(['git', 'diff', '-z', '--name-only', run['tree'], tree], cwd=root, capture_output=True, text=True)
+        files = [name for name in diff.stdout.split('\0') if name]
+        if diff.returncode == 0 and (nearest is None or len(files) <= len(nearest[1])):
+            nearest = run, files
     if nearest is None:
         return status, 'no check passed on these files'
     run, files = nearest
@@ -182,7 +198,7 @@ def audit_commit(root: Path, commit: str) -> tuple[str, str]:
 
 
 def summary(root: Path) -> str:
-    counted = [e for e in entries(state_dir(root) / 'handbacks.jsonl') if e.get('status') != 'unchanged']
+    counted = [e for e in entries(state_dir(root) / 'handbacks.jsonl') if e.get('status') in ('checked', 'partial', 'unchecked')]
     counts = {s: sum(e['status'] == s for e in counted) for s in ('checked', 'partial', 'unchecked')}
     rate = f'{100 * counts["unchecked"] / len(counted):.0f}%' if counted else 'n/a'
     return f'hand-backs: {len(counted)}  checked: {counts["checked"]}  partial: {counts["partial"]}  ' \
@@ -221,12 +237,12 @@ if __name__ == '__main__':
             sys.exit(f'handback.py audit: {error.stderr.strip() or error}')
         sys.exit(0)
     try:
-        if command == 'stop':
+        if command in ('start', 'stop'):
             try:
                 hook_input = json.loads(sys.stdin.read() or '{}')
             except ValueError:
                 hook_input = {}
-            stop(ROOT, hook_input)
+            (start if command == 'start' else stop)(ROOT, hook_input)
         elif command == 'stamp':
             stamp(ROOT, Path(sys.argv[2]))
         elif command == 'summary':

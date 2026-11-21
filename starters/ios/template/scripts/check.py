@@ -26,7 +26,7 @@ import time
 from xml.etree import ElementTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from handback import record_check  # noqa: E402
+from handback import record_check, snapshot  # noqa: E402
 from paths import link_build_dirs  # noqa: E402
 from simulator import simulator  # noqa: E402
 from tools import tool_path  # noqa: E402
@@ -195,10 +195,11 @@ if __name__ == '__main__':
     parser.add_argument('--only', action='append', choices=GATES)
     chosen = parser.parse_args().only or GATES
     link_build_dirs(ROOT)
+    before = snapshot(ROOT)  # observe mode: a run counts only for files that didn't change while it ran
     try:
         selected = [g for g in GATES if g in chosen]
         failed = check(selected)
     except KeyboardInterrupt:
         sys.exit('\nStopped.')  # an interrupted run isn't a check, so it isn't recorded
-    record_check(ROOT, selected, failed)  # observe mode: lets scripts/handback.py tell whether hand-backs were checked
+    record_check(ROOT, selected, failed, before)  # observe mode: lets scripts/handback.py tell whether hand-backs were checked
     sys.exit(1 if failed else 0)
