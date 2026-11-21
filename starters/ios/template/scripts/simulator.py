@@ -81,11 +81,13 @@ def in_use(udid: str, holder: str, stop: threading.Event | None = None) -> Itera
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('a+') as lock:
         if not try_lock(lock):
-            lock.seek(0)
-            print(f'[simulator] waiting for simulator {udid}: in use by {lock.read().strip() or "another process"}',
-                  flush=True)
-            waited = time.monotonic()
             stop = stop or threading.Event()
+            waited = time.monotonic()
+            for _ in range(2):  # a holder that took the lock a moment ago may not have written its name yet
+                lock.seek(0)
+                if (current := lock.read().strip()) or stop.wait(1):
+                    break
+            print(f'[simulator] waiting for simulator {udid}: in use by {current or "another process"}', flush=True)
             while not try_lock(lock):
                 if stop.wait(1):
                     raise KeyboardInterrupt
