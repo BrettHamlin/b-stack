@@ -17,6 +17,17 @@ Run it before handing back. If it stops because the cache folder is unavailable 
 
 `verify` runs every feature-map journey in the running app (test mode) and writes evidence to `.build/evidence/latest/evidence.md`. For behaviour changes, read its screenshots and include the evidence path in your report. How to run, explore and add journeys: the `verify` skill (`.agents/skills/verify/SKILL.md`).
 
+## Using the simulator by hand
+
+Other checkouts of this app on the Mac use the same simulators. Run every command that touches a simulator by hand (`agent-device`, `xcrun simctl`, screen recordings for PR evidence) through:
+
+```sh
+python3 scripts/simulator.py run -- <command>                  # waits while a gate elsewhere uses the simulator, then holds it
+python3 scripts/simulator.py run --for 20 -- xcrun simctl io booted recordVideo --force demo.mov   # 20 s recording
+```
+
+The command gets `$BSTACK_SIMULATOR_ID`. `check.py` and `verify.py` already take the same lock. Nothing stops a tool run outside it from breaking another checkout's journeys, so don't. Installs don't clash: AppVerify and its UI-test runner get a bundle ID of their own in each checkout (`python3 scripts/verify.py doctor` prints it).
+
 ## Never weaken enforcement
 
 Never suppress, disable, weaken or bypass a check. That includes suppression comments, editing `Project.swift`, `ModuleShape.swift`, `.swiftlint.yml`, `Rules/`, `tools.toml`, `scripts/`, or CI.

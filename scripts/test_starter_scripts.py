@@ -8,6 +8,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,7 @@ sys.path.insert(0, str(TEMPLATE / 'scripts'))
 import handback  # noqa: E402
 import paths  # noqa: E402
 import simulator  # noqa: E402
+import tools  # noqa: E402
 
 ENV = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@example.invalid',
        'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@example.invalid'}
@@ -281,8 +283,8 @@ print('released', flush=True)
 """
 
 
-class SimulatorLockTests(unittest.TestCase):
-    """Two checkouts' gates on one simulator kill each other's test runner, so in_use() makes the second wait."""
+class SimulatorProcesses(unittest.TestCase):
+    """Processes holding simulator locks in a scratch home folder, stopped after each test."""
 
     def setUp(self) -> None:
         home = Path(tempfile.mkdtemp())
@@ -309,6 +311,10 @@ class SimulatorLockTests(unittest.TestCase):
 
     def line(self, proc: subprocess.Popen) -> str:
         return proc.stdout.readline().strip()
+
+
+class SimulatorLockTests(SimulatorProcesses):
+    """Two checkouts' gates on one simulator kill each other's test runner, so in_use() makes the second wait."""
 
     def test_second_holder_waits_and_says_who_holds_it(self) -> None:
         first = self.hold('SIM-1', 'check.py in /checkouts/a')
@@ -447,6 +453,95 @@ class RustToolsTests(unittest.TestCase):
     def test_paths_helper_matches_the_ios_starter(self) -> None:
         # One cache-folder policy for every starter: a change to one copy must be made to both.
         self.assertEqual((RUST_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
+
+
+class HandUseTests(SimulatorProcesses):
+    """Driving the simulator by hand (recordings, agent-device) goes through `simulator.py run`, which takes the same
+    lock, so a gate from another checkout never runs journeys while someone else's app is in front."""
+
+    def hand(self, *args: str) -> subprocess.Popen:
+        proc = subprocess.Popen([sys.executable, str(TEMPLATE / 'scripts/simulator.py'), 'run', *args],
+                                env={**self.env, 'BSTACK_SIMULATOR_ID': 'SIM-1'}, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, text=True)
+        self.procs.append(proc)
+        return proc
+
+    def test_waits_for_a_held_simulator_then_runs_and_releases_it(self) -> None:
+        gate = self.hold('SIM-1', 'check.py in /checkouts/a')
+        self.assertEqual(self.line(gate), 'holding')
+        hand = self.hand('--', sys.executable, '-c',
+                         'import os; print("ran on", os.environ["BSTACK_SIMULATOR_ID"], os.environ["BSTACK_SIMULATOR_LOCKS"])')
+        self.assertIn(f'waiting for simulator SIM-1: in use by pid {gate.pid}, check.py in /checkouts/a', self.line(hand))
+        time.sleep(0.5)
+        self.assertIsNone(hand.poll())  # the command hasn't run
+        gate.stdin.close()
+        self.assertIn('got simulator SIM-1', self.line(hand))
+        self.assertIn('[simulator] holding simulator SIM-1 for: ', self.line(hand))
+        self.assertEqual(self.line(hand), 'ran on SIM-1 SIM-1')  # nested scripts (verify.py launch) won't wait for it
+        self.assertEqual(self.line(hand), '[simulator] released simulator SIM-1')
+        self.assertEqual(hand.wait(), 0)
+        self.assertEqual(self.line(self.hold('SIM-1', 'check.py in /checkouts/b')), 'holding')
+
+    def test_a_gate_waits_while_the_hand_command_runs(self) -> None:
+        hand = self.hand('--', sys.executable, '-c', 'import sys; print("recording", flush=True); sys.stdin.read()')
+        self.assertIn('holding simulator SIM-1', self.line(hand))
+        self.assertEqual(self.line(hand), 'recording')
+        gate = self.hold('SIM-1', 'check.py in /checkouts/b')
+        self.assertIn(f'in use by pid {hand.pid}, simulator.py run in {TEMPLATE}: ', self.line(gate))
+        hand.stdin.close()  # the command ends
+        self.assertIn('got simulator SIM-1', self.line(gate))
+        self.assertEqual(self.line(gate), 'holding')
+        self.assertEqual(hand.wait(), 0)
+
+    def test_for_interrupts_the_command_like_ctrl_c(self) -> None:
+        """A screen recording only writes its file when interrupted, so --for sends SIGINT, to a shell's children too."""
+        started = time.monotonic()
+        hand = self.hand('--for', '1', '--', 'sh', '-c', shlex.join([sys.executable, '-c', INTERRUPTIBLE]))
+        self.assertIn('holding simulator SIM-1', self.line(hand))
+        self.assertEqual(self.line(hand), 'interrupted')
+        self.assertEqual(hand.wait(), 0)
+        self.assertLess(time.monotonic() - started, 10)
+
+    def test_exit_status_is_the_commands(self) -> None:
+        self.assertEqual(self.hand('--', sys.executable, '-c', 'raise SystemExit(3)').wait(), 3)
+
+
+INTERRUPTIBLE = ('import signal, sys; signal.signal(signal.SIGINT, lambda *_: (print("interrupted", flush=True), '
+                 'sys.exit(0))); signal.pause()')
+
+
+class CheckoutBundleIdTests(unittest.TestCase):
+    """Parallel checkouts of one app share simulators: each installs AppVerify and its UI-test runner under its own
+    bundle ID (Project.swift), so one checkout's install never replaces another's. The shipped app keeps its ID."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tuist = str(tools.tool_path('tuist'))
+
+    def checkout(self) -> Path:
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        shutil.copy2(TEMPLATE / 'Project.swift', root)
+        shutil.copy2(TEMPLATE / 'Tuist.swift', root)
+        shutil.copytree(TEMPLATE / 'Tuist', root / 'Tuist', ignore=shutil.ignore_patterns('.build'))
+        return root
+
+    def bundle_ids(self, root: Path) -> dict[str, str]:
+        proc = subprocess.run([self.tuist, 'dump', 'project'], cwd=root, capture_output=True, text=True,
+                              env={**os.environ, 'TUIST_STATS_OPT_OUT': '1', 'TUIST_DISABLE_ANALYTICS': '1'})
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return {t['name']: t['bundleId'] for t in json.loads(proc.stdout)['targets']}
+
+    def test_each_checkout_installs_its_own_verify_apps_and_the_app_keeps_its_id(self) -> None:
+        first, second = self.checkout(), self.checkout()
+        a, b = self.bundle_ids(first), self.bundle_ids(second)
+        for target in ('AppVerify', 'AppVerifyUITests'):
+            self.assertNotEqual(a[target], b[target], target)
+        self.assertRegex(a['AppVerify'], r'^dev\.bstack\.starter\.verify\.c[0-9a-f]{8}$')
+        self.assertRegex(a['AppVerifyUITests'], r'^dev\.bstack\.starter\.verifyuitests\.c[0-9a-f]{8}$')
+        self.assertEqual(a['App'], 'dev.bstack.starter')
+        self.assertEqual(b['App'], 'dev.bstack.starter')
+        self.assertEqual(self.bundle_ids(first), a)  # the same checkout keeps its IDs
 
 
 if __name__ == '__main__':

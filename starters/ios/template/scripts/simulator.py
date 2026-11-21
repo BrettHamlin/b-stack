@@ -5,20 +5,31 @@ A simulator is shared by every checkout on the Mac: two test runs on one simulat
 run waits until the first finishes and says who holds it. The lock is an flock, so it is released when its holder exits
 or is killed. Its descriptor isn't inherited (a simulator helper could keep it forever), so killing only the holder,
 not its process group as Ctrl-C does, frees the simulator while a child may still be using it.
+
+Using the simulator by hand (agent-device, xcrun simctl, screen recordings) takes the same lock through `run`, the one
+supported route; the lock can't stop tools run outside it. The command gets $BSTACK_SIMULATOR_ID, so it can name the
+simulator, and the scripts it starts (verify.py launch) don't wait for the lock it holds.
+
+Usage: python3 scripts/simulator.py run [--for SECONDS] -- COMMAND ...
+  --for SECONDS  interrupt the command (Ctrl-C) after SECONDS, e.g. to end a screen recording
 """
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator
+import argparse
 import fcntl
 import json
 import os
 import re
+import shlex
+import signal
 import subprocess
 import sys
 import threading
 import time
 
+ROOT = Path(__file__).resolve().parents[1]
 HELD = 'BSTACK_SIMULATOR_LOCKS'  # simulators an ancestor process holds, comma-separated; its children don't wait for them
 
 
@@ -107,3 +118,47 @@ def try_lock(lock) -> bool:
         return True
     except BlockingIOError:
         return False
+
+
+def run(command: list[str], seconds: float | None = None) -> int:
+    """Run `command` holding this Mac's lock on the simulator, and return its exit status. Waits while another process
+    holds the lock. The command runs in its own process group, so Ctrl-C or `kill` of this process, and the end of
+    `seconds`, reach every process it started (a recording started by a shell, too)."""
+    udid = simulator()
+    described = shlex.join(command)
+    with in_use(udid, f'simulator.py run in {ROOT}: {described[:100]}') as held:
+        print(f'[simulator] holding simulator {udid} for: {described}', flush=True)
+        proc = subprocess.Popen(command, env={**os.environ, **held, 'BSTACK_SIMULATOR_ID': udid}, process_group=0)
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, lambda signum, _: interrupt(proc, signum))
+        try:
+            status = proc.wait(timeout=seconds)
+        except subprocess.TimeoutExpired:
+            interrupt(proc, signal.SIGINT)
+            status = proc.wait()
+    print(f'[simulator] released simulator {udid}', flush=True)
+    return status if status >= 0 else 128 - status
+
+
+def interrupt(proc: subprocess.Popen, signum: int) -> None:
+    try:
+        os.killpg(proc.pid, signum)
+    except ProcessLookupError:  # already gone
+        pass
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest='action', required=True)
+    use = commands.add_parser('run', help='run a command holding the simulator')
+    use.add_argument('--for', dest='seconds', type=float, metavar='SECONDS',
+                     help='interrupt the command (Ctrl-C) after SECONDS')
+    use.add_argument('command', nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    command = args.command[1:] if args.command[:1] == ['--'] else args.command
+    if not command:
+        parser.error('run needs a command, e.g. run -- agent-device snapshot --platform ios --udid <udid>')
+    try:
+        sys.exit(run(command, args.seconds))
+    except KeyboardInterrupt:
+        sys.exit('\nStopped.')

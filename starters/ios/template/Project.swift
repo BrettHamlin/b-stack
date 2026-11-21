@@ -1,3 +1,5 @@
+import CryptoKit
+import Foundation
 import ProjectDescription
 import ProjectDescriptionHelpers
 
@@ -12,6 +14,13 @@ let mainActorByDefault: SettingsDictionary = ["SWIFT_DEFAULT_ACTOR_ISOLATION": "
 /// visible to them and to nothing else: only an Interface module can create a UIID. Testability is off for them, so
 /// `@testable import` can't reach that initializer either (nothing tests these modules through @testable).
 let identifierPackage: SettingsDictionary = ["SWIFT_PACKAGE_NAME": "StarterIdentifiers", "ENABLE_TESTABILITY": "NO"]
+
+/// The apps verification installs on a simulator (AppVerify and its UI-test runner) get a bundle ID of their own per
+/// checkout, from this file's path, so parallel checkouts of one app never replace each other's install on a shared
+/// simulator. Tuist caches a manifest's output per manifest path, so each checkout keeps its own. The shipped App keeps
+/// its real ID. scripts/verify.py reads the ID from the built app.
+let checkout = "c" + SHA256.hash(data: Data(URL(fileURLWithPath: #filePath).deletingLastPathComponent().path.utf8))
+    .prefix(4).map { String(format: "%02x", $0) }.joined()
 
 let journeyKitFlags = "$(inherited) -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature ExistentialAny -enable-library-evolution"
 
@@ -35,7 +44,7 @@ func target(_ module: Module) -> Target {
         product = .unitTests
     case .app, .appVerify:
         product = .app
-        bundleId = module.role == .app ? "dev.bstack.starter" : "dev.bstack.starter.verify"
+        bundleId = module.role == .app ? "dev.bstack.starter" : "dev.bstack.starter.verify.\(checkout)"
         settings = strict.merging(mainActorByDefault) { $1 }
     case .journeyKit:
         // Resilience keeps the internal XCTest import out of journey clients. Only this module sees the UI SDK.
@@ -48,7 +57,7 @@ func target(_ module: Module) -> Target {
     case .uiTests:
         // Generated XCTestCase adapters; scripts/verify.py checks them against the body source.
         product = .uiTests
-        bundleId = "dev.bstack.starter.verifyuitests"
+        bundleId = "dev.bstack.starter.verifyuitests.\(checkout)"
         sources = ["Targets/AppVerifyUITests/GeneratedJourneys.swift"]
     }
     return .target(
