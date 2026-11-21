@@ -144,15 +144,15 @@ def run(command: list[str], seconds: float | None = None) -> int:
 
 def stop_leftovers(proc: subprocess.Popen, grace: float = 5) -> None:
     """Terminate what is left in the command's process group and wait until it is gone; kill it after `grace` s."""
-    interrupt(proc, signal.SIGTERM)
-    deadline = time.monotonic() + grace
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(proc.pid, 0)
-        except ProcessLookupError:
-            return
-        time.sleep(0.1)
-    interrupt(proc, signal.SIGKILL)
+    for signum in (signal.SIGTERM, signal.SIGKILL):
+        interrupt(proc, signum)
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(proc.pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.1)
 
 
 def interrupt(proc: subprocess.Popen, signum: int) -> None:

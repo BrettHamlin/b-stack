@@ -514,6 +514,17 @@ class HandUseTests(SimulatorProcesses):
         self.assertTrue(stopped.is_file(), 'released the simulator before the background job had stopped')
         hand.wait()
 
+    def test_a_job_that_ignores_termination_is_killed_before_release(self) -> None:
+        job = shlex.join([sys.executable, '-c', IGNORES_TERM])
+        hand = self.hand('--for', '1', '--', 'sh', '-c', f'{job} & wait')
+        self.assertIn('holding simulator SIM-1', self.line(hand))
+        while not (line := self.line(hand)).isdigit():  # the rest of the echoed (multi-line) command
+            self.assertNotIn('released', line)
+        self.assertEqual(self.line(hand), '[simulator] released simulator SIM-1')
+        with self.assertRaises(ProcessLookupError):
+            os.kill(int(line), 0)
+        hand.wait()
+
     def test_exit_status_is_the_commands(self) -> None:
         self.assertEqual(self.hand('--', sys.executable, '-c', 'raise SystemExit(3)').wait(), 3)
 
@@ -525,6 +536,10 @@ SLOW_TO_STOP = ('import pathlib, signal, sys, time\n'
                 '    sys.exit(0)\n'
                 'signal.signal(signal.SIGTERM, stop)\n'
                 'print("started", flush=True)\n'
+                'time.sleep(60)\n')
+IGNORES_TERM = ('import os, signal, time\n'
+                'signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+                'print(os.getpid(), flush=True)\n'
                 'time.sleep(60)\n')
 INTERRUPTIBLE = ('import signal, sys; signal.signal(signal.SIGINT, lambda *_: (print("interrupted", flush=True), '
                  'sys.exit(0))); signal.pause()')
