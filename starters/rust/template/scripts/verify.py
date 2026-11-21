@@ -4,13 +4,18 @@ Map check (feature-map/*.toml):
   - every crate in crates/features/ is in exactly one feature's `modules`, and every module named is such a crate
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
 Run: the journeys are the #[test] functions in crates/app/tests/journeys.rs, each running the built app binary.
+  - the app's `journeys` test target is that file (a [[test]] `path` can't point verify somewhere else)
   - every journey there is in the map, and every journey in the map is there (one that never runs fails)
   - each journey runs on its own; it fails if it doesn't pass
 Evidence (each journey's result and output) goes to .build/evidence/latest/evidence.md.
 
-Usage: python3 scripts/verify.py [map|run]     (default: run, which does the map check first)
+Launch builds the app and runs it once with the given arguments, for exploring by hand; it proves nothing.
+
+Usage: python3 scripts/verify.py [map|run]        (default: run, which does the map check first)
+       python3 scripts/verify.py launch -- ARGS   (build the app, run it with ARGS, print its output and exit code)
 """
 from pathlib import Path
+import json
 import re
 import subprocess
 import sys
@@ -46,6 +51,8 @@ def map_errors(features: list[dict]) -> list[str]:
         for key in ('id', 'summary', 'modules', 'journeys'):
             if key not in feature:
                 errors.append(f'[verified-features] {where}: missing `{key}`')
+        if 'summary' in feature and not str(feature['summary']).strip():
+            errors.append(f'[verified-features] {where}: `summary` is empty. Say what the feature does for a user.')
         for module in feature.get('modules', []):
             if module not in crates:
                 errors.append(f'[verified-features] {where}: module `{module}` isn\'t a feature crate '
@@ -76,7 +83,38 @@ def map_errors(features: list[dict]) -> list[str]:
     return errors
 
 
+def journeys_target(env: dict) -> list[str]:
+    """The `journeys` test target verify runs must be crates/app/tests/journeys.rs, the file CODEOWNERS protects."""
+    proc = subprocess.run(['cargo', 'metadata', '--format-version', '1', '--no-deps'], cwd=ROOT, env=env,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        return [f'[verified-features] cargo metadata failed:\n{proc.stderr.strip()}']
+    expected = (ROOT / 'crates/app/tests/journeys.rs').resolve()
+    found = [Path(t['src_path']).resolve() for p in json.loads(proc.stdout)['packages'] if p['name'] == 'app'
+             for t in p['targets'] if t['name'] == 'journeys' and 'test' in t['kind']]
+    if found != [expected]:
+        where = ', '.join(str(f.relative_to(ROOT.resolve()) if f.is_relative_to(ROOT.resolve()) else f) for f in found)
+        return [f'[verified-features] the app\'s `journeys` test target is {where or "missing"}, not '
+                'crates/app/tests/journeys.rs. Journeys live in that file; remove the [[test]] `path` that moves them.']
+    return []
+
+
+def launch(env: dict, args: list[str]) -> int:
+    build = subprocess.run(['cargo', 'build', '--package', 'app', '--bin', 'app'], cwd=ROOT, env=env,
+                           capture_output=True, text=True)
+    if build.returncode != 0:
+        print(build.stderr.strip(), file=sys.stderr)
+        return build.returncode
+    app = Path(env['CARGO_TARGET_DIR']) / 'debug/app'
+    proc = subprocess.run([str(app), *args], cwd=ROOT, capture_output=True, text=True)
+    print(f'$ app {" ".join(args)}\n{proc.stdout}{proc.stderr}exit code: {proc.returncode}')
+    return 0
+
+
 def run(env: dict, features: list[dict]) -> list[str]:
+    moved = journeys_target(env)
+    if moved:
+        return moved
     listed = subprocess.run(JOURNEYS + ['--list', '--format', 'terse'], cwd=ROOT, env=env, capture_output=True, text=True)
     if listed.returncode != 0:
         return [f'[verified-features] the journeys didn\'t build:\n{(listed.stdout + listed.stderr).strip()[-4000:]}']
@@ -111,6 +149,8 @@ def run(env: dict, features: list[dict]) -> list[str]:
 
 if __name__ == '__main__':
     mode = sys.argv[1] if len(sys.argv) > 1 else 'run'
+    if mode == 'launch':
+        sys.exit(launch(rust_env(), sys.argv[3:] if sys.argv[2:3] == ['--'] else sys.argv[2:]))
     if mode not in ('map', 'run'):
         sys.exit(__doc__)
     if mode == 'run':

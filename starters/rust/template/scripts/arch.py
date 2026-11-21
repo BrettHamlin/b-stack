@@ -6,7 +6,9 @@ Graph and manifests (from `cargo metadata` and each crate's Cargo.toml):
                          crate is one its role may use; only the composition root has a binary
   allowed-dependencies   a third-party crate is on the role's `external` list (deny.toml checks sources and licenses)
   no-suppressions        each crate inherits the workspace lints exactly; no build scripts or proc-macro crates
-  tests-always-run       no target turns its tests off (test = false, harness = false, autotests = false, ...)
+  tests-always-run       no target turns its tests off (test = false, harness = false, autotests = false,
+                         required-features, ...)
+  no-io-in-logic         a no_std crate's library root is src/lib.rs, where the checker requires #![no_std]
 Source (arch/checker): lint-level attributes, `static` and thread_local!, std in no_std crates, #[ignore], and
 macro_rules!/include!/#[path] that hide code from the parse.
 
@@ -90,10 +92,18 @@ def graph_findings(env: dict, roles: dict) -> tuple[list[str], dict[Path, str]]:
                            'tests gate. Remove it; every test runs.')
             if 'lib' in kinds and not target.get('doctest', True):
                 out.append(f'[tests-always-run] {rel}: `doctest = false` leaves the doc tests out of the tests gate.')
-        for table in [manifest.get('lib', {}), *manifest.get('test', []), *manifest.get('bench', []), *manifest.get('bin', [])]:
+            if 'lib' in kinds and shape.get('no_std') and Path(target['src_path']).resolve() != folder / 'src/lib.rs':
+                out.append(f'[no-io-in-logic] {rel}/Cargo.toml: the library\'s root is {os.path.relpath(target["src_path"], folder)}, but a no_std '
+                           'crate\'s root must be src/lib.rs, where `#![no_std]` is checked. Remove the [lib] `path`.')
+        tables = [manifest.get('lib', {}), *[t for kind in ('bin', 'test', 'bench', 'example') for t in manifest.get(kind, [])]]
+        for table in tables:
             if table.get('harness') is False:
                 out.append(f'[tests-always-run] {rel}/Cargo.toml: `harness = false` on {table.get("name", "a target")} '
                            'replaces the test runner, so its tests may never run. Use #[test] functions.')
+            if 'required-features' in table:
+                out.append(f'[tests-always-run] {rel}/Cargo.toml: `required-features` on {table.get("name", "a target")} '
+                           'skips it unless those features are on, and the gates build with default features, so its '
+                           'tests may never run. Remove it.')
         for switch in TEST_SWITCHES:
             if manifest.get('package', {}).get(switch) is False:
                 out.append(f'[tests-always-run] {rel}/Cargo.toml: `{switch} = false` stops Cargo finding targets, so '
@@ -116,6 +126,25 @@ def graph_findings(env: dict, roles: dict) -> tuple[list[str], dict[Path, str]]:
                            'crate. Adding one needs the owner (arch/shape.toml): write it without the '
                            'crate, or stop and report which crate you need and why.')
     return out, member_roles
+
+
+def build_time_code(env: dict) -> list[str]:
+    """Workspace crates with code Cargo runs while building (build scripts, proc macros). check.py runs this before
+    any gate that compiles, so that code never runs: it is reported here, by the arch gate, instead."""
+    proc = subprocess.run(['cargo', 'metadata', '--format-version', '1', '--no-deps'], cwd=ROOT, env=env,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        return [f'[arch] cargo metadata failed:\n{proc.stderr.strip()}']
+    found = []
+    for package in json.loads(proc.stdout)['packages']:
+        folder = Path(package['manifest_path']).parent.resolve()
+        rel = folder.relative_to(ROOT.resolve()) if folder.is_relative_to(ROOT.resolve()) else folder
+        for target in package['targets']:
+            if set(target['kind']) & {'custom-build', 'proc-macro'}:
+                what = 'a build script' if 'custom-build' in target['kind'] else 'a proc-macro crate'
+                found.append(f'[no-suppressions] {rel}: not compiled, because {what} would run at build time. '
+                             'The arch gate says how to fix it.')
+    return found
 
 
 def source_findings(env: dict, roles: dict, member_roles: dict[Path, str]) -> list[str]:

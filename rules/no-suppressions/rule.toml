@@ -10,5 +10,5 @@ origin = "Design discussion, Nov 2026."
 swiftlint = "Custom rule no_suppressions matches swiftlint:disable/enable in comments, including comments that try to disable the ban itself."
 
 [rust]
-arch = "arch/checker: no #[allow], #[expect] or #[warn] (or the same inside cfg_attr) anywhere; every crate's [lints] is exactly `workspace = true`; no build scripts or proc-macro crates; no macro_rules!, include! or #[path], which hide code from the parse. Clippy's allow_attributes is also on."
+arch = "arch/checker: no #[allow], #[expect] or #[warn] (or the same inside cfg_attr) anywhere; every crate's [lints] is exactly `workspace = true`; no build scripts or proc-macro crates, and check.py doesn't compile a workspace that has one, so that code never runs; no macro_rules!, include! or #[path], which hide code from the parse. Clippy's allow_attributes is also on."
 message = "Lint attributes aren't allowed, and lint levels live only in the protected Cargo.toml and clippy.toml. Fix the underlying issue. If the rule is wrong here, stop and report."

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = "replaces the app's manifest, which names the example's crates, and the example's journeys"
+diagnostic = "[verified-features] the app's `journeys` test target is crates/app/tests/quick.rs, not crates/app/tests/journeys.rs"

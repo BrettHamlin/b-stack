@@ -5,7 +5,7 @@
 - Crates and their dependencies come from the module shape (`arch/shape.toml`, the owner's). A crate's role is its folder: `crates/core`, `crates/features/<name>`, `crates/platform/<name>`, `crates/app`. To add a feature, create `crates/features/<name>/` with `[lints] workspace = true` in its `Cargo.toml`, and declare the dependencies its role allows. Don't edit the root `Cargo.toml`, `arch/`, `clippy.toml` or `deny.toml`: the gates fail if a crate is outside the shape. A link the shape doesn't allow is outside it: stop and report.
 - Use the existing approved APIs for <persistence, networking, time, background work>. Don't introduce a second way to do the same thing.
 - Pass dependencies in as parameters and traits. Real services are created in one place only: the app crate.
-- Features are shaped like `crates/features/tally`: `no_std` logic, a trait for each thing it needs from outside (implemented in a platform crate), example tests and a property test (random sequences checked against a model of the spec, like `tests/property.rs`) in its `tests/` folder, a `feature-map/<id>.toml` entry, and journeys in `crates/app/tests/journeys.rs` that run the built app and prove it works.
+- Start a feature with `python3 scripts/new_feature.py <name>`: it creates the crate, its map entry and a journey stub that fails until you write it. Features are shaped like `crates/features/tally`: `no_std` logic, a trait for each thing it needs from outside (implemented in a platform crate), example tests and a property test (random sequences checked against a model of the spec, like `tests/property.rs`) in its `tests/` folder, a `feature-map/<id>.toml` entry, and journeys in `crates/app/tests/journeys.rs` that run the built app and prove it works.
 
 ## Checks
 
@@ -15,7 +15,7 @@ python3 scripts/check.py        # compiler, clippy, deny, arch, tests, verify: a
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.
 
-`verify` runs every feature-map journey against the built app and writes each one's output to `.build/evidence/latest/evidence.md`. For behaviour changes, read it and include its path in your report.
+`verify` runs every feature-map journey against the built app and writes each one's output to `.build/evidence/latest/evidence.md`. For behaviour changes, read it and include its path in your report. How to run, explore and add journeys: the `verify` skill (`.agents/skills/verify/SKILL.md`).
 
 ## Never weaken enforcement
 

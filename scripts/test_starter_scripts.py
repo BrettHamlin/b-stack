@@ -1,6 +1,7 @@
 """Tests for the starter's Python helpers that rule cases can't reach (they run outside check.py's gates).
 
-Covers both starters: the iOS one's check record and simulator lock, and the Rust one's tool and toolchain setup.
+Covers both starters: the iOS one's check record and simulator lock, and the Rust one's tool and toolchain setup,
+check record and new-feature command.
 
 Usage: python3 scripts/test_starter_scripts.py
 """
@@ -577,6 +578,59 @@ class CheckoutBundleIdTests(unittest.TestCase):
         self.assertEqual(a['App'], 'dev.bstack.starter')
         self.assertEqual(b['App'], 'dev.bstack.starter')
         self.assertEqual(self.bundle_ids(first), a)  # the same checkout keeps its IDs
+
+
+class RustStarterTests(unittest.TestCase):
+    """The Rust starter's check record (a copy of the iOS one) and its new-feature command."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'crates', 'feature-map'):
+            shutil.copytree(RUST_TEMPLATE / folder, self.root / folder, ignore=shutil.ignore_patterns('__pycache__'))
+
+    def new_feature(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_feature.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_check_record_matches_the_ios_starter_except_for_its_gates(self) -> None:
+        # One check record for every starter: a fix to one copy must be made to both. Only the gate list differs.
+        ios, rust = ((t / 'scripts/handback.py').read_text().splitlines() for t in (TEMPLATE, RUST_TEMPLATE))
+        self.assertEqual([l for l in ios if not l.startswith('GATES = ')], [l for l in rust if not l.startswith('GATES = ')])
+        for template in (TEMPLATE, RUST_TEMPLATE):
+            gates = {t: next(l for l in (template / f'scripts/{t}.py').read_text().splitlines() if l.startswith('GATES = '))
+                     for t in ('handback', 'check')}
+            self.assertEqual(gates['handback'], gates['check'], template)
+        for hook in ('.claude/settings.json', '.githooks/commit-msg'):
+            self.assertEqual((RUST_TEMPLATE / hook).read_text(), (TEMPLATE / hook).read_text(), hook)
+        self.assertTrue(os.access(RUST_TEMPLATE / '.githooks/commit-msg', os.X_OK))
+
+    def test_new_feature_creates_a_no_std_crate_map_entry_and_failing_journey_stub(self) -> None:
+        result = self.new_feature('notes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        crate = self.root / 'crates/features/notes'
+        self.assertTrue((crate / 'src/lib.rs').read_text().startswith('#![no_std]\n'))
+        manifest = (crate / 'Cargo.toml').read_text()
+        self.assertIn('core-types = { path = "../../core" }', manifest)
+        self.assertIn('[lints]\nworkspace = true', manifest)
+        journeys = (self.root / 'crates/app/tests/journeys.rs').read_text()
+        self.assertIn('fn notes_works() {\n    panic!("journey stub', journeys)
+        self.assertTrue(journeys.startswith((RUST_TEMPLATE / 'crates/app/tests/journeys.rs').read_text().rstrip('\n')))
+        # The map check fails until the summary and what the journey proves are written.
+        mapped = subprocess.run([sys.executable, str(self.root / 'scripts/verify.py'), 'map'], capture_output=True, text=True)
+        self.assertEqual(mapped.returncode, 1)
+        self.assertEqual(mapped.stdout.splitlines(), [
+            '[verified-features] feature-map/notes.toml: `summary` is empty. Say what the feature does for a user.',
+            '[verified-features] feature-map/notes.toml: each journey needs a `name` and what it `proves`'])
+
+    def test_new_feature_refuses_a_bad_or_taken_name_and_creates_nothing(self) -> None:
+        before = sorted(str(p.relative_to(self.root)) for p in self.root.rglob('*'))
+        for name, why in [('Notes', "isn't a feature name"), ('tally', 'a crate named `tally` already exists'),
+                          ('app', 'a crate named `app` already exists'), ('core_types', 'a crate named `core_types`')]:
+            result = self.new_feature(name)
+            self.assertEqual(result.returncode, 1, name)
+            self.assertIn(why, result.stderr)
+        self.assertEqual(sorted(str(p.relative_to(self.root)) for p in self.root.rglob('*')), before)
 
 
 if __name__ == '__main__':
