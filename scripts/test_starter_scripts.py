@@ -502,6 +502,21 @@ class HandUseTests(SimulatorProcesses):
         self.assertEqual(hand.wait(), 0)
         self.assertLess(time.monotonic() - started, 10)
 
+    def test_nothing_the_command_started_outlives_the_hold(self) -> None:
+        """A shell's background job ignores Ctrl-C; left running it would keep driving the simulator after release."""
+        hand = self.hand('--for', '1', '--', 'sh', '-c', 'sleep 60 & echo "$!"; wait')
+        self.assertIn('holding simulator SIM-1', self.line(hand))
+        job = int(self.line(hand))
+        self.assertEqual(self.line(hand), '[simulator] released simulator SIM-1')
+        hand.wait()
+        for _ in range(20):  # until launchd reaps it
+            try:
+                os.kill(job, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.1)
+        self.fail(f'the background job {job} is still running after the simulator was released')
+
     def test_exit_status_is_the_commands(self) -> None:
         self.assertEqual(self.hand('--', sys.executable, '-c', 'raise SystemExit(3)').wait(), 3)
 
