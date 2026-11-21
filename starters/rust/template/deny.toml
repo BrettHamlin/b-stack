@@ -1,0 +1,24 @@
+# Protected (CODEOWNERS). Every crate in the dependency tree, third-party and transitive included: only from
+# crates.io, only with these licenses. Which third-party crates each role may use directly is arch/shape.toml's
+# `external` lists (the arch gate); adding one needs the owner. To ban a crate outright, add it to [bans].deny.
+
+[graph]
+all-features = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true  # path dependencies on workspace crates
+deny = []
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib"]
+confidence-threshold = 0.9
+unused-allowed-license = "allow"
+
+[licenses.private]
+ignore = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

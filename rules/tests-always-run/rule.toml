@@ -8,3 +8,8 @@ origin = "Nov 2026: found by reading check.py before a new app replaced the Sett
 
 [ios]
 tests = "Project.swift builds the UnitTests scheme from every .unitTests target; check.py's tests gate runs it, after failing if any Targets/*Tests folder isn't run by a scheme's test action."
+
+[rust]
+tests = "check.py's tests gate runs cargo test --workspace --all-targets, then the doc tests, so a new crate's tests run without being listed anywhere."
+arch = "No #[ignore] (or cfg_attr(..., ignore)); no test = false or doctest = false on a target, harness = false, or autotests/autobins/autoexamples/autobenches/autolib = false."
+message = "Every test runs: never skip one or turn a target's tests off. If a test can't pass, fix the code or the test, or stop and report."

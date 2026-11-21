@@ -1,8 +1,11 @@
 """Tests for the starter's Python helpers that rule cases can't reach (they run outside check.py's gates).
 
+Covers both starters: the iOS one's check record and simulator lock, and the Rust one's tool and toolchain setup.
+
 Usage: python3 scripts/test_starter_scripts.py
 """
 from pathlib import Path
+import hashlib
 import json
 import os
 import shutil
@@ -16,6 +19,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / 'starters/ios/template'
+RUST_TEMPLATE = ROOT / 'starters/rust/template'
 sys.path.insert(0, str(TEMPLATE / 'scripts'))
 import handback  # noqa: E402
 import paths  # noqa: E402
@@ -362,6 +366,87 @@ class SimulatorLockTests(unittest.TestCase):
                 with mock.patch.dict(os.environ, env):
                     with simulator.in_use('SIM-1', 'nested') as inner:  # would block forever if it took the lock again
                         self.assertEqual(inner, env)
+
+
+class RustToolsTests(unittest.TestCase):
+    """The Rust starter's scripts/tools.py, run in a copy of the starter's scripts with a temporary tools folder."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()  # tools.py resolves its own path (/var is /private/var)
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(RUST_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copy2(RUST_TEMPLATE / 'rust-toolchain.toml', self.root / 'rust-toolchain.toml')
+        self.tools = self.root / 'tools'
+        self.cache = self.root / 'cache'
+        self.cache.mkdir()
+        self.env = {**os.environ, 'BSTACK_TOOLS_DIR': str(self.tools), 'BSTACK_CACHE_DIR': str(self.cache)}
+
+    def run_tools(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/tools.py'), *args], env=self.env,
+                              capture_output=True, text=True)
+
+    def pin(self, archive: Path, sha256: str) -> None:
+        (self.root / 'tools.toml').write_text(
+            f'[fake]\nversion = "1.0"\nurl = "{archive.as_uri()}"\nsha256 = "{sha256}"\nbinary = "fake-1.0/fake"\n')
+
+    def fake_archive(self) -> Path:
+        source = self.root / 'src/fake-1.0'
+        source.mkdir(parents=True)
+        (source / 'fake').write_text('#!/bin/sh\necho fake\n')
+        archive = self.root / 'fake-1.0.tar.gz'
+        subprocess.run(['tar', 'czf', str(archive), '-C', str(source.parent), 'fake-1.0'], check=True)
+        return archive
+
+    def test_tar_gz_tool_is_verified_unpacked_and_runnable(self) -> None:
+        archive = self.fake_archive()
+        self.pin(archive, hashlib.sha256(archive.read_bytes()).hexdigest())
+        result = self.run_tools('fake')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        binary = Path(result.stdout.strip())
+        self.assertEqual(binary, self.tools / 'fake-1.0/fake-1.0/fake')
+        self.assertEqual(subprocess.run([str(binary)], capture_output=True, text=True).stdout, 'fake\n')
+
+    def test_checksum_mismatch_is_refused_and_leaves_nothing(self) -> None:
+        self.pin(self.fake_archive(), '0' * 64)
+        result = self.run_tools('fake')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('checksum mismatch', result.stderr)
+        self.assertFalse((self.tools / 'fake-1.0').exists())
+
+    def test_rust_env_keeps_toolchain_and_build_output_out_of_home(self) -> None:
+        # A toolchain already in the tools folder, so nothing is downloaded.
+        toolchain = self.tools / 'rust/rustup/toolchains/1.99.0-aarch64-apple-darwin'
+        (toolchain / 'bin').mkdir(parents=True)
+        (toolchain / 'bin/cargo-clippy').write_text('')
+        script = ('import json, sys; sys.path.insert(0, sys.argv[1]); from tools import rust_env; '
+                  'print(json.dumps(rust_env()))')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], env=self.env,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        env = json.loads(result.stdout)
+        self.assertEqual(env['RUSTUP_HOME'], str(self.tools / 'rust/rustup'))
+        self.assertEqual(env['CARGO_HOME'], str(self.tools / 'rust/cargo'))
+        self.assertEqual(env['RUSTUP_TOOLCHAIN'], '1.99.0')
+        self.assertEqual(env['PATH'].split(os.pathsep)[0], str(toolchain / 'bin'))
+        self.assertEqual(env['CARGO_TARGET_DIR'], str(self.root / '.build/target'))
+        self.assertEqual(env['RUSTFLAGS'], '-D warnings')
+        # .build is a link into the cache folder, so build output lands there.
+        self.assertTrue((self.root / '.build').is_symlink())
+        self.assertTrue((self.root / '.build').resolve().is_relative_to(self.cache.resolve()))
+        if Path('/usr/bin/cc').is_file():
+            self.assertEqual(env['CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER'], '/usr/bin/cc')
+
+    def test_missing_cache_drive_stops_instead_of_building_elsewhere(self) -> None:
+        self.env['BSTACK_CACHE_DIR'] = str(self.root / 'unmounted')
+        self.env.pop('BSTACK_TOOLS_DIR')
+        result = self.run_tools('rust')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Is its drive mounted?', result.stderr)
+        self.assertFalse((self.root / '.build').exists())
+
+    def test_paths_helper_matches_the_ios_starter(self) -> None:
+        # One cache-folder policy for every starter: a change to one copy must be made to both.
+        self.assertEqual((RUST_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
 
 
 if __name__ == '__main__':

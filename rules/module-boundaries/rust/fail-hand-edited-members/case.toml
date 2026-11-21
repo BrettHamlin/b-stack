@@ -1,0 +1,10 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[module-boundaries] crates/misc: not in any role's folder in arch/shape.toml"
+adds_targets = ["misc"]
+
+[[edits]]
+file = "Cargo.toml"
+find = '"crates/app"]'
+replace = '"crates/app", "crates/misc"]'

@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[module-boundaries] crates/misc: not a workspace member"
+adds_targets = ["misc"]

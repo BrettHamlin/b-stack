@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "use of deprecated function `legacy_timer`: Use run_scoped, which ends the work with its scope"

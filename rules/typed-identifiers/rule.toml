@@ -8,3 +8,6 @@ origin = "Design discussion, Nov 2026."
 
 [ios]
 compiler = "One struct per ID or unit (struct UserID: Hashable, Sendable). Validated types have a private init and a failable parse."
+
+[rust]
+compiler = "One newtype per ID or unit (struct PlayerId(u32)); validated types keep the field private and expose a parse returning Option or Result. Passing a raw number where the newtype is expected is a type error (Rust 1.99.0)."

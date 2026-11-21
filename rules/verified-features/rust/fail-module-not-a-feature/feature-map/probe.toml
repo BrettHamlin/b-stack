@@ -1,0 +1,7 @@
+id = "probe"
+summary = "Claims a platform crate."
+modules = ["app"]
+
+[[journeys]]
+name = "probe_journey"
+proves = "Nothing."

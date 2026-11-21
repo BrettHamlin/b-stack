@@ -1,0 +1,33 @@
+# Protected (CODEOWNERS). Crates come from the module shape in arch/shape.toml: every folder matching one of these
+# globs is a crate, and the arch gate checks each one's role, dependencies and lints.
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/features/*", "crates/platform/*", "crates/app"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+# Every crate inherits these with `[lints] workspace = true`; the arch gate fails a crate that doesn't.
+# check.py also builds with RUSTFLAGS="-D warnings", so every warning is an error.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+deprecated = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+as_conversions = "deny"
+wildcard_enum_match_arm = "deny"
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+disallowed_methods = "deny"
+disallowed_types = "deny"
+dbg_macro = "deny"
+exit = "deny"
+mem_forget = "deny"

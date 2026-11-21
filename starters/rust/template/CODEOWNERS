@@ -1,0 +1,26 @@
+# Enforcement surface: changes need a human code owner.
+# Pair with branch protection: "Require review from Code Owners".
+# Replace @OWNER with a real GitHub user or team.
+
+/CODEOWNERS            @OWNER
+/.github/              @OWNER
+/AGENTS.md             @OWNER
+/CLAUDE.md             @OWNER
+/.claude/              @OWNER
+
+# Workspace members, lint levels, toolchain, dependency policy
+/Cargo.toml            @OWNER
+/rust-toolchain.toml   @OWNER
+/clippy.toml           @OWNER
+/deny.toml             @OWNER
+
+# Module shape and the arch checker; gates and pinned tools
+/arch/                 @OWNER
+/scripts/              @OWNER
+/tools.toml            @OWNER
+
+# Verification: journeys and what they prove
+/feature-map/                      @OWNER
+/crates/app/tests/journeys.rs      @OWNER
+# The composition root: which real services the app wires in
+/crates/app/src/                   @OWNER

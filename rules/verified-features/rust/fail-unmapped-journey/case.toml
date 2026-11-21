@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = "adds a journey to the example app's journeys file"
+diagnostic = "[verified-features] journey `unmapped_check` in crates/app/tests/journeys.rs isn't in the feature map"

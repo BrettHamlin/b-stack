@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = "breaks the example app's output so its journey fails"
+diagnostic = "[verified-features] journey `tally_is_saved_across_runs` failed (feature-map/tally.toml)"

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[module-boundaries] crates/features/probe/vendor/hidden: not in any role's folder in arch/shape.toml"

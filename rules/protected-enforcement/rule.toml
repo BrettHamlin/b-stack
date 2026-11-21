@@ -9,3 +9,7 @@ origin = "Design discussion, Nov 2026."
 [ios]
 repo = "CODEOWNERS on Project.swift, Tuist.swift, Tuist/ (except the agent-edited Features.swift), tools.toml, .swiftlint.yml, Rules/, scripts/, .github/, AGENTS.md; branch protection."
 tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files, compiler-settings assertion) not built yet."
+
+[rust]
+repo = "CODEOWNERS on Cargo.toml, rust-toolchain.toml, clippy.toml, deny.toml, tools.toml, arch/, scripts/, crates/app/tests/journeys.rs, feature-map/, .github/, AGENTS.md; branch protection."
+tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files) not built yet."

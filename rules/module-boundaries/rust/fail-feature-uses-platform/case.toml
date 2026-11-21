@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[module-boundaries] crates/features/probe: a feature crate may not depend on `probe-io` (a platform crate)"

@@ -1,0 +1,13 @@
+# The source half of the arch gate (scripts/arch.py builds and runs it). Protected (CODEOWNERS). Its own workspace:
+# the app's lints and dependency allowlist are for app code, and this is enforcement code.
+[workspace]
+
+[package]
+name = "arch-checker"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+syn = { version = "2.0.119", default-features = false, features = ["full", "visit", "parsing", "printing"] }
+proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }

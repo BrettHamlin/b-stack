@@ -5,9 +5,9 @@ This repo is a toolkit agents use to create new apps with enforcement built in. 
 ## Layout
 
 - `skills/`: procedures (`SKILL.md`), plus principles for judgment calls in `skills/README.md`
-- `rules/<id>/`: `rule.toml` + `ios/<case>/` test cases. Format in `rules/README.md`.
-- `starters/ios/`: the template a new project is copied from. `README.md` lists what's built.
-- `scripts/`: `test_rules.py` (runs every case through the starter's `scripts/check.py`), `check_repo.py`, `test_starter_scripts.py` (the starter's helpers outside the gates), `verify_artifacts.py`
+- `rules/<id>/`: `rule.toml` + `<platform>/<case>/` test cases (`ios/`, `rust/`). Format in `rules/README.md`.
+- `starters/ios/`, `starters/rust/`: the templates a new project is copied from. Each `README.md` lists what's built.
+- `scripts/`: `test_rules.py` (runs every case through its platform's starter `scripts/check.py`), `check_repo.py`, `test_starter_scripts.py` (the starters' helpers outside the gates), `platforms.py` (what differs per platform), `verify_artifacts.py`
 - `DECISIONS.md`: the human owner's summary. Update it when a decision is made or a finding changes.
 - `research/lauren-tan-video/`: source material. Keep the raw transcript unchanged.
 
@@ -19,11 +19,11 @@ python3 scripts/check_repo.py
 python3 scripts/test_starter_scripts.py
 ```
 
-Zero FAIL in all three. The first rule-test run downloads pinned tools and builds TCA and the Harmonize rules (a few minutes more); later runs take 20 to 30 minutes on a laptop, mostly simulator runs for the verify cases. Needs an iOS Simulator runtime. Each checkout has its own work folder; a second run in the same checkout is refused until the first finishes. Anything on this Mac that needs a simulator another run is using (this suite, or `check.py`'s tests and verify gates in any checkout) waits for it and prints who holds it. Run it as shown: how many cases or simulators run at once (`rule_jobs`, `verify_workers` in `~/.config/b-stack/config.toml`) is the owner's per-machine setting, not something to change for a run.
+Zero FAIL in all three. `test_rules.py` runs the iOS cases, then the Rust ones; `--platform ios` or `--platform rust` runs one. iOS: the first run downloads pinned tools and builds TCA and the Harmonize rules (a few minutes more); later runs take 20 to 30 minutes on a laptop, mostly simulator runs for the verify cases. Needs an iOS Simulator runtime. Rust: about a minute; needs `rustup`, which installs the pinned toolchain into the cache folder. Each checkout has its own work folder; a second run in the same checkout is refused until the first finishes. Anything on this Mac that needs a simulator another run is using (this suite, or `check.py`'s tests and verify gates in any checkout) waits for it and prints who holds it. Run it as shown: how many cases or simulators run at once (`rule_jobs`, `verify_workers` in `~/.config/b-stack/config.toml`) is the owner's per-machine setting, not something to change for a run.
 
 ## Rules for changing this repo
 
-- **Every rule claim is tested.** A new rule needs a fail case naming the gate that rejects it and the exact `diagnostic`. The enforcement itself (compiler setting, Harmonize rule, SwiftLint rule) goes in `starters/ios/template/`. Never edit a case just to make it pass. If the toolchain disagrees with the rule, the rule or `DECISIONS.md` is what changes.
+- **Every rule claim is tested.** A new rule needs a fail case naming the gate that rejects it and the exact `diagnostic`, for each platform it claims. The enforcement itself goes in that platform's starter: `starters/ios/template/` (compiler setting, Harmonize rule, SwiftLint rule) or `starters/rust/template/` (workspace lints, `clippy.toml`, `deny.toml`, `arch/`). Never edit a case just to make it pass. If the toolchain disagrees with the rule, the rule or `DECISIONS.md` is what changes.
 - **Record the toolchain version** for any compiler finding.
 - **Starters only list what exists.** Don't describe planned pieces as built.
 - **No new prose docs** beyond skills, `rules/README.md`, starter READMEs and `DECISIONS.md`.

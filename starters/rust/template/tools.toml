@@ -1,0 +1,8 @@
+# Pinned tools, downloaded by scripts/tools.py into the tools folder and verified by SHA-256. Nothing is installed
+# globally. The Rust toolchain itself is pinned in rust-toolchain.toml.
+
+[cargo-deny]
+version = "0.20.2"
+url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-apple-darwin.tar.gz"
+sha256 = "fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3"
+binary = "cargo-deny-0.20.2-aarch64-apple-darwin/cargo-deny"

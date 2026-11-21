@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[tests-always-run] crates/features/probe/tests/doubling.rs:3:1: `#[ignore]` skips a test"

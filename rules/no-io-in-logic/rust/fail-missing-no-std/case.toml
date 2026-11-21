@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[no-io-in-logic] crates/features/probe/src/lib.rs:1:1: this crate's role is no_std"

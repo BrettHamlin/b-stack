@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[explicit-dependencies] crates/platform/probe/src/lib.rs:3:5: `static SHARED_COUNT` is global state"

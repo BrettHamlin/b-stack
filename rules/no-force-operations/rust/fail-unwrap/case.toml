@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "clippy"
+uses_example = false
+diagnostic = "used `unwrap()` on an `Option` value"
