@@ -10,14 +10,15 @@ Gates:
 
 Gates that don't depend on each other run at the same time: swiftlint, harmonize and tuist alongside the Xcode gates.
 compiler, tests and verify share one build folder and simulator, so they run one after another, and verify runs the
-AppVerify build the compiler gate just made instead of building it again. tests and verify hold this Mac's lock on the
-simulator (scripts/simulator.py): a run from another checkout waits for it, and says who holds it. Each gate's output is printed whole when it
-finishes, followed by its result and time; a summary in gate order comes last.
+AppVerify build the compiler gate just made instead of building it again. tests and verify each hold this Mac's lock on
+the simulator while they use it (scripts/simulator.py): a gate from another checkout waits, and says who holds it.
+Each gate's output is printed whole when it finishes, followed by its result and time; a summary in gate order comes last.
 
 Usage: python3 scripts/check.py [--only GATE ...]
 """
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from typing import Callable
 import argparse
 import os
 import subprocess
@@ -85,6 +86,20 @@ def unrun_tests() -> Step:
         return Step(False, f'[tests] no scheme runs the tests in {", ".join("Targets/" + n for n in unrun)}. Declare its feature '
                            'in Tuist/ProjectDescriptionHelpers/Features.swift; the UnitTests scheme runs every unit-test target.')
     return Step(True)
+
+
+def on_simulator(work: Callable[[str, dict], Step]) -> Step:
+    """Call work(udid, env) holding this Mac's lock on the simulator, so a gate from another checkout never uses it at
+    the same time (that kills both test runners); it waits instead, and says who holds it. Processes started with `env`
+    use the same simulator and don't wait for the lock this one holds."""
+    udid = simulator()
+    with in_use(udid, f'check.py in {ROOT}', STOP) as held:
+        return work(udid, {**ENV, **held, 'BSTACK_SIMULATOR_ID': udid})
+
+
+def journeys(cmd: list[str], env: dict) -> Step:
+    proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
+    return Step(proc.returncode == 0, (proc.stdout + proc.stderr).strip())
 
 
 def dump_project(tuist: str) -> Step:
@@ -160,32 +175,26 @@ def check(selected: list[str]) -> list[str]:
                     started)
                 xctestrun = built_xctestrun(build_started) if ok else None
                 started = time.monotonic()
-            if not any(g in selected for g in ('tests', 'verify')) or STOP.is_set():
-                return
-            if 'verify' in selected and not generated:
-                tuist_done.wait()  # verify.py installs and generates with Tuist itself
-            udid = simulator()
-            # Other checkouts on this Mac use the same simulator: wait until none is using it, and hold it for both gates.
-            with in_use(udid, f'check.py in {ROOT}') as held:
-                started = time.monotonic()  # waiting for the simulator isn't the gate's time
-                if 'tests' in selected and not STOP.is_set():
-                    report('tests', chain(
-                        generated.result(),
-                        unrun_tests,
-                        lambda: run(xcodebuild('UnitTests', f'platform=iOS Simulator,id={udid}', 'test'))),
-                        started)
-                    started = time.monotonic()
-                if 'verify' in selected and not STOP.is_set():
-                    with PRINT:
-                        print('verify: running the journeys (output when they finish; evidence in .build/evidence/latest)',
-                              flush=True)
-                    cmd = [sys.executable, str(ROOT / 'scripts/verify.py'), 'run']
-                    if generated and generated.result().ok:
-                        cmd.append('--generated')
-                    if xctestrun:
-                        cmd += ['--xctestrun', str(xctestrun)]  # the build the compiler gate just made, from these sources
-                    proc = subprocess.run(cmd, cwd=ROOT, env={**ENV, **held}, capture_output=True, text=True)
-                    report('verify', Step(proc.returncode == 0, (proc.stdout + proc.stderr).strip()), started)
+            if 'tests' in selected and not STOP.is_set():
+                report('tests', chain(
+                    generated.result(),
+                    unrun_tests,
+                    lambda: on_simulator(lambda udid, _: run(
+                        xcodebuild('UnitTests', f'platform=iOS Simulator,id={udid}', 'test')))),
+                    started)
+                started = time.monotonic()
+            if 'verify' in selected and not STOP.is_set():
+                if not generated:
+                    tuist_done.wait()  # verify.py installs and generates with Tuist itself
+                with PRINT:
+                    print('verify: running the journeys (output when they finish; evidence in .build/evidence/latest)',
+                          flush=True)
+                cmd = [sys.executable, str(ROOT / 'scripts/verify.py'), 'run']
+                if generated and generated.result().ok:
+                    cmd.append('--generated')
+                if xctestrun:
+                    cmd += ['--xctestrun', str(xctestrun)]  # the build the compiler gate just made, from these sources
+                report('verify', on_simulator(lambda _, env: journeys(cmd, env)), started)
 
         jobs = []
         start = time.monotonic()

@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 
 HELD = 'BSTACK_SIMULATOR_LOCKS'  # simulators an ancestor process holds, comma-separated; its children don't wait for them
@@ -62,9 +63,10 @@ def lock_file(udid: str) -> Path:
 
 
 @contextmanager
-def in_use(udid: str, holder: str) -> Iterator[dict]:
+def in_use(udid: str, holder: str, stop: threading.Event | None = None) -> Iterator[dict]:
     """Hold this machine's lock on simulator `udid`, waiting while another process holds it. `holder` says who is
-    using it (e.g. "check.py in /path/to/checkout"), for anyone who has to wait.
+    using it (e.g. "check.py in /path/to/checkout"), for anyone who has to wait. A thread waiting for it stops with
+    KeyboardInterrupt once `stop` is set (Ctrl-C reaches only the main thread).
 
     Yields the environment a child process needs so it doesn't wait for the lock its parent holds (check.py -> verify.py,
     test_rules.py -> check.py). A process whose ancestor holds the lock yields at once.
@@ -77,14 +79,15 @@ def in_use(udid: str, holder: str) -> Iterator[dict]:
     path = lock_file(udid)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('a+') as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
+        if not try_lock(lock):
             lock.seek(0)
             print(f'[simulator] waiting for simulator {udid}: in use by {lock.read().strip() or "another process"}',
                   flush=True)
             waited = time.monotonic()
-            fcntl.flock(lock, fcntl.LOCK_EX)
+            stop = stop or threading.Event()
+            while not try_lock(lock):
+                if stop.wait(1):
+                    raise KeyboardInterrupt
             print(f'[simulator] got simulator {udid} after {time.monotonic() - waited:.0f}s', flush=True)
         lock.truncate(0)
         lock.write(f'pid {os.getpid()}, {holder}, since {datetime.now().strftime("%H:%M:%S")}\n')
@@ -93,3 +96,11 @@ def in_use(udid: str, holder: str) -> Iterator[dict]:
             yield env
         finally:
             lock.truncate(0)
+
+
+def try_lock(lock) -> bool:
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False

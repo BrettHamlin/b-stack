@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -327,6 +328,15 @@ class SimulatorLockTests(unittest.TestCase):
         first.kill()
         self.assertIn('got simulator SIM-1', self.line(second))
         self.assertEqual(self.line(second), 'holding')
+
+    def test_a_waiting_gate_thread_stops_on_ctrl_c(self) -> None:
+        """check.py waits in a worker thread, which Ctrl-C doesn't reach; its STOP event must end the wait."""
+        self.assertEqual(self.line(self.hold('SIM-1', 'a')), 'holding')
+        stop = threading.Event()
+        threading.Timer(1.5, stop.set).start()
+        with mock.patch.dict(os.environ, {'HOME': self.env['HOME']}), self.assertRaises(KeyboardInterrupt):
+            with simulator.in_use('SIM-1', 'b', stop):
+                self.fail('took a lock another process holds')
 
     def test_other_simulators_do_not_wait(self) -> None:
         self.assertEqual(self.line(self.hold('SIM-1', 'a')), 'holding')
