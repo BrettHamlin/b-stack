@@ -780,7 +780,8 @@ def launch(fixture: str, reset: bool) -> bool:
             fail('AppVerify exited right after launch. Check the fixture, then `python3 scripts/verify.py doctor`.')
             return False
     print(json.dumps({'udid': udid, 'bundle_id': app_id, 'fixture': fixture, 'reset': reset,
-                      'drive': f'python3 scripts/simulator.py run -- agent-device snapshot --platform ios --udid {udid}',
+                      'drive': f'BSTACK_SIMULATOR_ID={udid} python3 scripts/simulator.py run -- '
+                               f'agent-device snapshot --platform ios --udid {udid}',
                       'cleanup': 'python3 scripts/verify.py cleanup'}, indent=2))
     return True
 

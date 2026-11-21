@@ -33,7 +33,7 @@ python3 scripts/simulator.py run -- agent-device click ...    # drive it (screen
 python3 scripts/verify.py cleanup                             # stop what launch started; evidence is kept
 ```
 
-Other checkouts' gates share the simulator. `simulator.py run` holds it while the command runs, and waits while a gate elsewhere uses it; `launch` and `cleanup` hold it themselves. Never drive it outside these (see AGENTS.md, "Using the simulator by hand"). Run `doctor` before driving and again whenever something looks off. Exploring is for looking and judging; it's not proof. Once a behaviour works, write the journey that proves it.
+Other checkouts' gates share the simulator. `simulator.py run` holds it while the command runs, and waits while a gate elsewhere uses it; `launch` and `cleanup` hold it themselves. Between separate commands another checkout's gate may run and leave its app in front: run `doctor` (or `agent-device open <bundle id>`) before driving again, or put the whole sequence in one `simulator.py run -- sh -c '...'`. Never drive it outside these (see AGENTS.md, "Using the simulator by hand"). Run `doctor` before driving and again whenever something looks off. Exploring is for looking and judging; it's not proof. Once a behaviour works, write the journey that proves it.
 
 ## Add a feature
 

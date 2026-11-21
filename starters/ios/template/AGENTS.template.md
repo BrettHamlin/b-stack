@@ -22,11 +22,11 @@ Run it before handing back. If it stops because the cache folder is unavailable 
 Other checkouts of this app on the Mac use the same simulators. Run every command that touches a simulator by hand (`agent-device`, `xcrun simctl`, screen recordings for PR evidence) through:
 
 ```sh
-python3 scripts/simulator.py run -- <command>                  # waits while a gate elsewhere uses the simulator, then holds it
-python3 scripts/simulator.py run --for 20 -- xcrun simctl io booted recordVideo --force demo.mov   # 20 s recording
+python3 scripts/simulator.py run -- <command>     # waits while a gate elsewhere uses the simulator, then holds it
+python3 scripts/simulator.py run --for 20 -- sh -c 'xcrun simctl io "$BSTACK_SIMULATOR_ID" recordVideo --force demo.mov'   # 20 s
 ```
 
-The command gets `$BSTACK_SIMULATOR_ID`. `check.py` and `verify.py` already take the same lock. Nothing stops a tool run outside it from breaking another checkout's journeys, so don't. Installs don't clash: AppVerify and its UI-test runner get a bundle ID of their own in each checkout (`python3 scripts/verify.py doctor` prints it).
+The command gets `$BSTACK_SIMULATOR_ID`, the simulator it holds: name that one, never `booted` (another checkout's may be booted too). Put a sequence that must not be interrupted (launch, taps, recording) in one `run`; between separate runs another checkout's gate may take the simulator and leave its own app in front. `check.py` and `verify.py` already take the same lock. Nothing stops a tool run outside it from breaking another checkout's journeys, so don't. Installs don't clash: AppVerify and its UI-test runner get a bundle ID of their own in each checkout (`python3 scripts/verify.py doctor` prints it).
 
 ## Never weaken enforcement
 
