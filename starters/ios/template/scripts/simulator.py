@@ -1,9 +1,25 @@
-"""Pick the iOS Simulator that gates and verification run on."""
+"""Pick the iOS Simulator that gates and verification run on, and hold it while using it.
+
+A simulator is shared by every checkout on the Mac: two test runs on one simulator kill each other's test runner
+("Test crashed with signal kill before establishing connection"). in_use() takes this machine's lock on it, so a second
+run waits until the first finishes and says who holds it. The lock is an flock, so it is released when its holder exits
+or is killed. Its descriptor isn't inherited (a simulator helper could keep it forever), so killing only the holder,
+not its process group as Ctrl-C does, frees the simulator while a child may still be using it.
+"""
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Iterator
+import fcntl
 import json
 import os
 import re
 import subprocess
 import sys
+import threading
+import time
+
+HELD = 'BSTACK_SIMULATOR_LOCKS'  # simulators an ancestor process holds, comma-separated; its children don't wait for them
 
 
 def simulator() -> str:
@@ -40,3 +56,54 @@ def state(udid: str) -> dict:
             if device['udid'] == udid:
                 return {**device, 'runtime': runtime.rsplit('.', 1)[-1]}
     return {}
+
+
+def lock_file(udid: str) -> Path:
+    """Machine-wide, whatever cache folder each checkout configures: simulators belong to the user, not a checkout."""
+    return Path.home() / 'Library/Caches/b-stack/simulators' / f'{udid}.lock'
+
+
+@contextmanager
+def in_use(udid: str, holder: str, stop: threading.Event | None = None) -> Iterator[dict]:
+    """Hold this machine's lock on simulator `udid`, waiting while another process holds it. `holder` says who is
+    using it (e.g. "check.py in /path/to/checkout"), for anyone who has to wait. A thread waiting for it stops with
+    KeyboardInterrupt once `stop` is set (Ctrl-C reaches only the main thread).
+
+    Yields the environment a child process needs so it doesn't wait for the lock its parent holds (check.py -> verify.py,
+    test_rules.py -> check.py). A process whose ancestor holds the lock yields at once.
+    """
+    held = [u for u in os.environ.get(HELD, '').split(',') if u]
+    env = {HELD: ','.join(dict.fromkeys(held + [udid]))}
+    if udid in held:
+        yield env
+        return
+    path = lock_file(udid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('a+') as lock:
+        if not try_lock(lock):
+            stop = stop or threading.Event()
+            waited = time.monotonic()
+            for _ in range(2):  # a holder that took the lock a moment ago may not have written its name yet
+                lock.seek(0)
+                if (current := lock.read().strip()) or stop.wait(1):
+                    break
+            print(f'[simulator] waiting for simulator {udid}: in use by {current or "another process"}', flush=True)
+            while not try_lock(lock):
+                if stop.wait(1):
+                    raise KeyboardInterrupt
+            print(f'[simulator] got simulator {udid} after {time.monotonic() - waited:.0f}s', flush=True)
+        lock.truncate(0)
+        lock.write(f'pid {os.getpid()}, {holder}, since {datetime.now().strftime("%H:%M:%S")}\n')
+        lock.flush()
+        try:
+            yield env
+        finally:
+            lock.truncate(0)
+
+
+def try_lock(lock) -> bool:
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except BlockingIOError:
+        return False

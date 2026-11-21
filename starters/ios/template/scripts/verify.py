@@ -26,11 +26,13 @@ The first simulator runs every journey not given to another (-skip-testing), so 
 still runs. Clones are deleted afterwards. A fresh clone boots like a new device and starts every first-boot service:
 on a 10-core, 16 GB Mac (Xcode 27.2, iOS 27.2) cloning for the starter's 2 journeys took them from under a minute to
 about 5 minutes each, so cloning only pays off for many journeys. A simulator that's already booted belongs to someone else: it's borrowed, alone, and never cloned.
+`run` holds this Mac's lock on the simulator (scripts/simulator.py), so a run from another checkout waits for it.
 
 Evidence: .build/evidence/<time>-<commit>/ (in the cache folder if one is configured): evidence.md, screenshots,
 the .xcresult bundle and the logs. It is written on every run that gets past the map check, including failed generation, boots, builds
 and timeouts. .build/evidence/latest points at the newest such run, and is removed when the map check fails.
 """
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
 import argparse
@@ -47,7 +49,7 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paths import link_build_dirs, machine_setting  # noqa: E402
-from simulator import simulator, state  # noqa: E402
+from simulator import in_use, simulator, state  # noqa: E402
 from tools import tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -576,6 +578,9 @@ def run(generated: bool = False, prebuilt: Path | None = None, workers: int | No
         write_failure(directory, sha, device, f'could not pick a simulator: {missing}')
         return False
 
+    # Other checkouts on this Mac use the same simulator: wait until none is using it (check.py already holds it).
+    held = ExitStack()
+    held.enter_context(in_use(udid, f'verify.py in {ROOT}'))
     result_bundle = directory / 'Journeys.xcresult'
     groups = shards(entries, default_workers() if workers is None else workers)
     clones: list[str] = []
@@ -664,6 +669,7 @@ def run(generated: bool = False, prebuilt: Path | None = None, workers: int | No
                 shutdown(udid)
             except subprocess.TimeoutExpired:  # never let a slow shutdown hide the run's own result or evidence
                 fail(f'simulator {udid} did not shut down within 120 s; shut it down with `xcrun simctl shutdown {udid}`')
+        held.close()
     if len(devices) > 1:
         device = {**device, 'clones': len(devices) - 1}
 

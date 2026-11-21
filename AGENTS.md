@@ -19,7 +19,7 @@ python3 scripts/check_repo.py
 python3 scripts/test_starter_scripts.py
 ```
 
-Zero FAIL in all three. The first rule-test run downloads pinned tools and builds TCA and the Harmonize rules (a few minutes more); later runs take 20 to 30 minutes on a laptop, mostly simulator runs for the verify cases. Needs an iOS Simulator runtime. Each checkout has its own work folder; a second run in the same checkout, or on the same simulator, is refused until the first finishes. Run it as shown: how many cases or simulators run at once (`rule_jobs`, `verify_workers` in `~/.config/b-stack/config.toml`) is the owner's per-machine setting, not something to change for a run.
+Zero FAIL in all three. The first rule-test run downloads pinned tools and builds TCA and the Harmonize rules (a few minutes more); later runs take 20 to 30 minutes on a laptop, mostly simulator runs for the verify cases. Needs an iOS Simulator runtime. Each checkout has its own work folder; a second run in the same checkout is refused until the first finishes. Anything on this Mac that needs a simulator another run is using (this suite, or `check.py`'s tests and verify gates in any checkout) waits for it and prints who holds it. Run it as shown: how many cases or simulators run at once (`rule_jobs`, `verify_workers` in `~/.config/b-stack/config.toml`) is the owner's per-machine setting, not something to change for a run.
 
 ## Rules for changing this repo
 

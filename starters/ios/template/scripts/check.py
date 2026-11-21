@@ -10,13 +10,15 @@ Gates:
 
 Gates that don't depend on each other run at the same time: swiftlint, harmonize and tuist alongside the Xcode gates.
 compiler, tests and verify share one build folder and simulator, so they run one after another, and verify runs the
-AppVerify build the compiler gate just made instead of building it again. Each gate's output is printed whole when it
-finishes, followed by its result and time; a summary in gate order comes last.
+AppVerify build the compiler gate just made instead of building it again. tests and verify each hold this Mac's lock on
+the simulator while they use it (scripts/simulator.py): a gate from another checkout waits, and says who holds it.
+Each gate's output is printed whole when it finishes, followed by its result and time; a summary in gate order comes last.
 
 Usage: python3 scripts/check.py [--only GATE ...]
 """
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from typing import Callable
 import argparse
 import os
 import subprocess
@@ -28,7 +30,7 @@ from xml.etree import ElementTree
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from handback import record_check, snapshot  # noqa: E402
 from paths import link_build_dirs  # noqa: E402
-from simulator import simulator  # noqa: E402
+from simulator import in_use, simulator  # noqa: E402
 from tools import tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +86,20 @@ def unrun_tests() -> Step:
         return Step(False, f'[tests] no scheme runs the tests in {", ".join("Targets/" + n for n in unrun)}. Declare its feature '
                            'in Tuist/ProjectDescriptionHelpers/Features.swift; the UnitTests scheme runs every unit-test target.')
     return Step(True)
+
+
+def on_simulator(work: Callable[[str, dict], Step]) -> Step:
+    """Call work(udid, env) holding this Mac's lock on the simulator, so a gate from another checkout never uses it at
+    the same time (that kills both test runners); it waits instead, and says who holds it. Processes started with `env`
+    use the same simulator and don't wait for the lock this one holds."""
+    udid = simulator()
+    with in_use(udid, f'check.py in {ROOT}', STOP) as held:
+        return work(udid, {**ENV, **held, 'BSTACK_SIMULATOR_ID': udid})
+
+
+def journeys(cmd: list[str], env: dict) -> Step:
+    proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
+    return Step(proc.returncode == 0, (proc.stdout + proc.stderr).strip())
 
 
 def dump_project(tuist: str) -> Step:
@@ -163,7 +179,8 @@ def check(selected: list[str]) -> list[str]:
                 report('tests', chain(
                     generated.result(),
                     unrun_tests,
-                    lambda: run(xcodebuild('UnitTests', f'platform=iOS Simulator,id={simulator()}', 'test'))),
+                    lambda: on_simulator(lambda udid, _: run(
+                        xcodebuild('UnitTests', f'platform=iOS Simulator,id={udid}', 'test')))),
                     started)
                 started = time.monotonic()
             if 'verify' in selected and not STOP.is_set():
@@ -177,8 +194,7 @@ def check(selected: list[str]) -> list[str]:
                     cmd.append('--generated')
                 if xctestrun:
                     cmd += ['--xctestrun', str(xctestrun)]  # the build the compiler gate just made, from these sources
-                proc = subprocess.run(cmd, cwd=ROOT, env=ENV, capture_output=True, text=True)
-                report('verify', Step(proc.returncode == 0, (proc.stdout + proc.stderr).strip()), started)
+                report('verify', on_simulator(lambda _, env: journeys(cmd, env)), started)
 
         jobs = []
         start = time.monotonic()
