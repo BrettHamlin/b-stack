@@ -1,0 +1,14 @@
+# A system library hand-edited into the protected Project.swift: not a project module or a package, so it must still
+# match the shape (which gives no target an SDK dependency). Tuist's import check doesn't look at SDKs.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "Project.swift declares SettingsLogic → sdk"
+
+[[edits]]
+file = "Project.swift"
+find = "let targets: [Target] = modules(features, shared: sharedLinks).map(target)"
+replace = """let targets: [Target] = modules(features, shared: sharedLinks).map(target).map { target in
+    var target = target
+    if target.name == "SettingsLogic" { target.dependencies.append(.sdk(name: "sqlite3", type: .library)) }
+    return target
+}"""

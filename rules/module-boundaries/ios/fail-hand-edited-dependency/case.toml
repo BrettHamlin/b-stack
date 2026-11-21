@@ -1,0 +1,15 @@
+# A dependency hand-edited into the protected Project.swift (unit tests reaching real storage in Platform), and used.
+# Tuist accepts it (declared and used) and the import allowlist doesn't check test targets; the project-graph check
+# compares Tuist's dump with what the shape gives Features.swift.
+expect = "fail"
+enforced_by = "harmonize"
+diagnostic = "Project.swift declares SettingsTests → Platform, which the module shape and Features.swift don't give it"
+
+[[edits]]
+file = "Project.swift"
+find = "let targets: [Target] = modules(features, shared: sharedLinks).map(target)"
+replace = """let targets: [Target] = modules(features, shared: sharedLinks).map(target).map { target in
+    var target = target
+    if target.name == "SettingsTests" { target.dependencies.append(.target(name: "Platform")) }
+    return target
+}"""

@@ -21,9 +21,9 @@ Propose, then confirm with the user. Don't decide alone:
 
 ## 3. Create the repo from the template
 
-Copy `starters/ios/template/` into the new repo, then:
+Copy `starters/ios/template/` into the new repo with a copy that keeps symlinks (`cp -R`, `rsync -a`): `Rules/Sources/ModuleShape/` links to `Tuist/ProjectDescriptionHelpers/`, so the rules check the same feature list Tuist builds from. Then:
 - rename `AGENTS.template.md` → `AGENTS.md` and fill in its placeholders; add `CLAUDE.md` containing `@AGENTS.md`
-- replace the example Settings feature with the agreed features in `Project.swift`, `Targets/`, `Rules/Tests/ArchitectureRules/ModuleBoundaries.swift`, `Targets/Fixtures`, `Targets/AppVerify*` and `feature-map/`, keeping the `strict` settings on every target
+- replace the example Settings feature with the agreed features: declare them, and the links they use, in `Tuist/ProjectDescriptionHelpers/Features.swift`, and replace the code in `Targets/`, `Targets/Fixtures`, `Targets/AppVerify*` and `feature-map/`. Don't edit `Project.swift`, `ModuleShape.swift` or `Rules/`: targets, dependencies and allowed imports come from the declaration. If a feature needs a link `Features.swift` can't express, it's outside the module shape: stop and report
 - replace `@OWNER` in `CODEOWNERS` with the user's GitHub handle
 - `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer
 

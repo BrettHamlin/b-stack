@@ -2,9 +2,9 @@
 
 Gates:
   compiler   generate the Xcode project with Tuist, then build every target with strict Swift settings
-  tuist      every import of a project module is declared in Project.swift, and every declared one is used
+  tuist      every import of a project module is a declared dependency, and every declared one is used
   swiftlint  no force unwraps, force try/cast, or suppression comments
-  harmonize  architecture rules in Rules/ (allowed imports, no singletons, concurrency escapes, ...)
+  harmonize  architecture rules in Rules/ (module shape and allowed imports, no singletons, concurrency escapes, ...)
   tests      unit tests on an iOS Simulator (TCA TestStore tests are exhaustive)
   verify     the feature map is complete, and every journey passes in the running app (scripts/verify.py)
 
@@ -81,8 +81,20 @@ def unrun_tests() -> Step:
     unrun = sorted(d.name for d in (ROOT / 'Targets').iterdir() if d.is_dir() and d.name.endswith('Tests')
                    and d.name not in run_by)
     if unrun:
-        return Step(False, f'[tests] no scheme runs the tests in {", ".join("Targets/" + n for n in unrun)}. Declare each '
-                           'as a .unitTests target in Project.swift; the UnitTests scheme picks it up.')
+        return Step(False, f'[tests] no scheme runs the tests in {", ".join("Targets/" + n for n in unrun)}. Declare its feature '
+                           'in Tuist/ProjectDescriptionHelpers/Features.swift; the UnitTests scheme runs every unit-test target.')
+    return Step(True)
+
+
+def dump_project(tuist: str) -> Step:
+    """Write the project Tuist builds from Project.swift to .build/tuist-project.json, for the harmonize gate's check
+    that its targets and dependencies are the ones the module shape gives Features.swift."""
+    out = ROOT / '.build/tuist-project.json'
+    out.unlink(missing_ok=True)
+    proc = subprocess.run([tuist, 'dump', 'project'], cwd=ROOT, env=ENV, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return Step(False, (proc.stdout + proc.stderr).strip()[-4000:])
+    out.write_text(proc.stdout)
     return Step(True)
 
 
@@ -106,6 +118,9 @@ def check(selected: list[str]) -> list[str]:
                 print(step.report)
             print(f'{"PASS" if step.ok else "FAIL"} {name}  ({times[name]:.0f}s)', flush=True)
         return step.ok
+
+    # Before any other Tuist command starts, so two never write its manifest cache at once (takes about a second).
+    dumped = dump_project(tuist) if 'harmonize' in selected else Step(True)
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         # Every Tuist command needs the packages installed; install once, so two installs never race.
@@ -171,8 +186,8 @@ def check(selected: list[str]) -> list[str]:
             jobs.append(pool.submit(lambda: report('swiftlint', run([swiftlint, 'lint', '--strict', '--quiet']), start)))
         if 'harmonize' in selected:
             # Serial: run in parallel, Harmonize 1.3.0 rules can deadlock on its shared source cache and hang forever.
-            jobs.append(pool.submit(lambda: report('harmonize', run(
-                ['swift', 'test', '--no-parallel', '--package-path', 'Rules', '--scratch-path', '.build/rules']), start)))
+            jobs.append(pool.submit(lambda: report('harmonize', chain(dumped, lambda: run(
+                ['swift', 'test', '--no-parallel', '--package-path', 'Rules', '--scratch-path', '.build/rules'])), start)))
         if 'tuist' in selected:
             jobs.append(pool.submit(tuist_gate, start))
         if any(g in XCODE for g in selected):

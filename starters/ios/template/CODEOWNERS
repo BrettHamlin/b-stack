@@ -12,6 +12,10 @@
 # Project structure, compiler settings, module dependencies
 /Project.swift         @OWNER
 /Tuist.swift           @OWNER
+# Module shape (ModuleShape.swift) and packages. Features.swift, the feature list, has no owner: agents add
+# features and links inside the shape there, and the harmonize gate checks the project against it.
+/Tuist/                @OWNER
+/Tuist/ProjectDescriptionHelpers/Features.swift
 
 # Gates, their configuration and pinned tools
 /scripts/              @OWNER
