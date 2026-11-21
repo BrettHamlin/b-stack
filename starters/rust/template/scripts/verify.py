@@ -113,9 +113,13 @@ if __name__ == '__main__':
     mode = sys.argv[1] if len(sys.argv) > 1 else 'run'
     if mode not in ('map', 'run'):
         sys.exit(__doc__)
+    if mode == 'run':
+        (EVIDENCE / 'evidence.md').unlink(missing_ok=True)  # never leave an earlier run's evidence as the latest
     features, errors = load_map()
     errors += map_errors(features)
     if mode == 'run' and not errors:
         errors += run(rust_env(), features)
-    print('\n'.join(errors) if errors else f'verify: every feature mapped; every journey passed. Evidence: {EVIDENCE / "evidence.md"}')
+    done = (f'verify: every feature mapped; every journey passed. Evidence: {EVIDENCE / "evidence.md"}' if mode == 'run'
+            else 'verify map: every feature mapped (journeys not run)')
+    print('\n'.join(errors) if errors else done)
     sys.exit(1 if errors else 0)

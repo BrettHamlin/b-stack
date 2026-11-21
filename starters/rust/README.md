@@ -31,7 +31,9 @@ Needs `rustup` on the machine; `scripts/tools.py` installs the pinned toolchain 
 
 This table is `template/arch/shape.toml` (protected). The root `Cargo.toml`'s members are the same folders, so a new
 crate in one of them is built and checked without editing a protected file. A crate's own `Cargo.toml` declares its
-dependencies; the arch gate checks each one against the shape. No third-party crates are allowed to start; each role's
+dependencies; the arch gate checks each one against the shape. Each of those folders needs at least one crate: Cargo
+1.99.0 fails to load the workspace when a member glob matches nothing, so an app with no platform crate needs the owner
+to remove `crates/platform/*` from the root `Cargo.toml`. No third-party crates are allowed to start; each role's
 `external` list is where the owner adds them. Journeys are the tests in `crates/app/tests/journeys.rs`.
 
 ## Strict settings

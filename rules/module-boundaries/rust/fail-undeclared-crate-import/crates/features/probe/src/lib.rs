@@ -1,2 +1,2 @@
 #![no_std]
-pub use files::Store;
+pub use probe_io::nothing;

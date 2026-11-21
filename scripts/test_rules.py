@@ -51,7 +51,7 @@ from paths import cache_root, machine_setting  # noqa: E402
 from simulator import HELD, in_use, simulator, state  # noqa: E402
 sys.path.insert(0, str(ROOT / 'scripts'))
 from platforms import PLATFORMS, platform_of  # noqa: E402
-SKIP = {'.build', '.tools', 'Derived', 'target'}
+SKIP = {'.build', '.tools', 'Derived'}
 
 
 def default_jobs() -> int:
@@ -78,12 +78,14 @@ args = parser.parse_args()
 if not args.platform and not args.project:
     # Every platform in turn, each in its own run (its own lock, workers and simulators).
     failed = []
-    for name in PLATFORMS:
+    # With --rule, only the platforms that have cases for one of those rules.
+    names = [n for n in PLATFORMS if not args.rule or any((ROOT / 'rules' / r / n).is_dir() for r in args.rule)]
+    for name in names:
         print(f'== {name}', flush=True)
         if subprocess.run([sys.executable, __file__, '--platform', name, *sys.argv[1:]]).returncode != 0:
             failed.append(name)
     if not args.list:
-        print(f'\nPlatforms: ' + ', '.join(f'{n} {"FAIL" if n in failed else "PASS"}' for n in PLATFORMS))
+        print(f'\nPlatforms: ' + ', '.join(f'{n} {"FAIL" if n in failed else "PASS"}' for n in names))
     sys.exit(1 if failed else 0)
 
 platform = PLATFORMS[args.platform] if args.platform else platform_of(args.project.resolve())
@@ -97,6 +99,8 @@ OVERLAYS = platform.overlays  # folders a case may add files to or replace files
 EDITABLE = platform.editable  # files a case may change with `edits` (find/replace), reset before every case
 # Rough minutes per case by what it runs, so the longest start first and no worker is left with a long one at the end.
 COST = platform.cost
+if platform.name == 'rust':
+    SKIP.add('target')  # Cargo's default build folder, if someone built without scripts/tools.py's settings
 
 cache = cache_root()
 # One folder per project checkout, so runs from two checkouts never share files; a lock stops two runs of one.
