@@ -124,7 +124,7 @@ def run(command: list[str], seconds: float | None = None) -> int:
     """Run `command` holding this Mac's lock on the simulator, and return its exit status. Waits while another process
     holds the lock. The command runs in its own process group, so Ctrl-C or `kill` of this process, and the end of
     `seconds`, reach every process it started (a recording started by a shell, too). Processes it leaves running in
-    that group (a shell's background job, which ignores Ctrl-C) are stopped before the simulator is released."""
+    that group (a shell's background job, which ignores Ctrl-C) are stopped, and gone, before the simulator is released."""
     udid = simulator()
     described = shlex.join(command)
     with in_use(udid, f'simulator.py run in {ROOT}: {described[:100]}') as held:
@@ -137,9 +137,22 @@ def run(command: list[str], seconds: float | None = None) -> int:
         except subprocess.TimeoutExpired:
             interrupt(proc, signal.SIGINT)
             status = proc.wait()
-        interrupt(proc, signal.SIGTERM)
+        stop_leftovers(proc)
     print(f'[simulator] released simulator {udid}', flush=True)
     return status if status >= 0 else 128 - status
+
+
+def stop_leftovers(proc: subprocess.Popen, grace: float = 5) -> None:
+    """Terminate what is left in the command's process group and wait until it is gone; kill it after `grace` s."""
+    interrupt(proc, signal.SIGTERM)
+    deadline = time.monotonic() + grace
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(proc.pid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.1)
+    interrupt(proc, signal.SIGKILL)
 
 
 def interrupt(proc: subprocess.Popen, signum: int) -> None:

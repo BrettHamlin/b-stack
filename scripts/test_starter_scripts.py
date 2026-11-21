@@ -504,23 +504,28 @@ class HandUseTests(SimulatorProcesses):
 
     def test_nothing_the_command_started_outlives_the_hold(self) -> None:
         """A shell's background job ignores Ctrl-C; left running it would keep driving the simulator after release."""
-        hand = self.hand('--for', '1', '--', 'sh', '-c', 'sleep 60 & echo "$!"; wait')
+        stopped = Path(self.env['HOME']) / 'stopped'
+        job = shlex.join([sys.executable, '-c', SLOW_TO_STOP, str(stopped)])
+        hand = self.hand('--for', '1', '--', 'sh', '-c', f'{job} & wait')
         self.assertIn('holding simulator SIM-1', self.line(hand))
-        job = int(self.line(hand))
+        while (line := self.line(hand)) != 'started':  # the rest of the echoed (multi-line) command
+            self.assertNotIn('released', line)
         self.assertEqual(self.line(hand), '[simulator] released simulator SIM-1')
+        self.assertTrue(stopped.is_file(), 'released the simulator before the background job had stopped')
         hand.wait()
-        for _ in range(20):  # until launchd reaps it
-            try:
-                os.kill(job, 0)
-            except ProcessLookupError:
-                return
-            time.sleep(0.1)
-        self.fail(f'the background job {job} is still running after the simulator was released')
 
     def test_exit_status_is_the_commands(self) -> None:
         self.assertEqual(self.hand('--', sys.executable, '-c', 'raise SystemExit(3)').wait(), 3)
 
 
+SLOW_TO_STOP = ('import pathlib, signal, sys, time\n'
+                'def stop(*_):\n'
+                '    time.sleep(1)\n'
+                '    pathlib.Path(sys.argv[1]).write_text("stopped")\n'
+                '    sys.exit(0)\n'
+                'signal.signal(signal.SIGTERM, stop)\n'
+                'print("started", flush=True)\n'
+                'time.sleep(60)\n')
 INTERRUPTIBLE = ('import signal, sys; signal.signal(signal.SIGINT, lambda *_: (print("interrupted", flush=True), '
                  'sys.exit(0))); signal.pause()')
 
