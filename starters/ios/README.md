@@ -11,7 +11,7 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | TCA 1.26.2, linked once as shared frameworks | `template/Tuist/Package.swift` | ✅ |
 | Example feature: notification toggle (save, failure revert, cancellation) with exhaustive TestStore tests | `Targets/Settings*` | ✅ Built by an agent in the state-flow trial |
 | Property test for the example feature: 200 seeded random sequences of toggles, waits and closes, checked step by step against a model of the spec; stops at the first divergence and prints its steps | `Targets/SettingsTests/NotificationSettingsPropertyTests.swift` | ✅ About 5 s. No library: a seeded generator in the file |
-| Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | ✅ Every gate passes; full rule suite 93/93 (2026-11-20, Xcode 27.2, iOS 27.2 Simulator) |
+| Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | ✅ Every gate passes; full rule suite 103/103 (2026-11-21, Xcode 27.2, iOS 27.2 Simulator) |
 | Verification: test-mode app (`AppVerify` + `Fixtures`), XCUITest journeys, feature map, evidence with screenshots | `template/scripts/verify.py`, `template/Targets/AppVerify*`, `template/Targets/Fixtures`, `template/feature-map/` | ✅ Two Settings journeys (saved across relaunch; failed save reverts), run on the simulator by the rule suite |
 | Verify skill for agents in the new app: run, explore with agent-device, add journeys | `template/.agents/skills/verify/` | ✅ |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py` | ✅ Tuist 4.216.7, SwiftLint 0.65.1 |
