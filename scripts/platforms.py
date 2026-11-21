@@ -47,7 +47,7 @@ PLATFORMS = {
         overlays=('crates', 'feature-map'), editable=('Cargo.toml', 'Cargo.lock'),
         targets='crates',
         case_files=('crates/**/*.rs', 'crates/**/Cargo.toml', 'feature-map/*.toml'),
-        example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear)[\w.-]*'), example_name='tally',
+        example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|Count)[\w.-]*'), example_name='tally',
         simulator_kinds=frozenset(),
         cost={'untouched': 1, 'pass': 0.5, 'compiler': 0.2, 'clippy': 0.2, 'tests': 0.3, 'verify': 0.3, 'deny': 0.1,
               'arch': 0.1},
