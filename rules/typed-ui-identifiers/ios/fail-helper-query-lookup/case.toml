@@ -2,5 +2,5 @@
 # testing search paths, so Swift 6.4.2 (Xcode 27.2) rejects the signature's types before reaching the lookups.
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "Targets/AppVerifyJourneys/HelperQueryJourneys.swift uses notificationSettings.toggle"
+uses_example = false
 diagnostic = "HelperQueryJourneys.swift:4:33: error: cannot find type 'XCUIApplication' in scope"

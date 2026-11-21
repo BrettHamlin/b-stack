@@ -1,5 +1,5 @@
 # The save reports success but never stores the value, so it's lost on relaunch. Unit tests can't see this.
 expect = "fail"
 enforced_by = "verify"
-uses_example = "Targets/Platform/Platform.swift uses SettingsInterface"
+uses_example = "a bug in the example's save that only its relaunch journey sees; fail-journey-check-fails proves the gate on any app"
 diagnostic = "[verify] journey failed: NotificationSettingsJourneys/testTurningOffSurvivesRelaunch"

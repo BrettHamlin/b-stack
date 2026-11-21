@@ -1,9 +1,9 @@
-import SettingsInterface
+import MeterInterface
 import JourneyKit
 
 final class BacktickJourneys: Journey {
-    func testTogglesNotifications() {
-        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
-        screen.find(NotificationSettingsUIID.toggle).`switches`["notificationSettings.toggle"].tap()
+    func testAddsOne() {
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: MeterUIID.increment)
+        screen.find(MeterUIID.increment).`switches`["meter.increment"].tap()
     }
 }

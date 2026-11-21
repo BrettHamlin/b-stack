@@ -2,5 +2,6 @@
 # Swift 6.4.2, Xcode 27.2.
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "Targets/AppVerifyJourneys/IndexedJourneys.swift uses SettingsInterface"
+uses_example = false
+case_feature = true
 diagnostic = "cannot convert value of type 'String' to expected argument type 'Int'"

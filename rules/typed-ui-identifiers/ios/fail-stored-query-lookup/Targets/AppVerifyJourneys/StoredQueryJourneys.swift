@@ -1,10 +1,10 @@
 import JourneyKit
 
 final class StoredQueryJourneys: Journey {
-    func testTogglesNotifications() {
+    func testAddsOne() {
         let app = XCUIApplication()
         app.launch()
         let controls = app.descendants(matching: .switch)
-        controls["notificationSettings.toggle"].switches.firstMatch.tap()
+        controls["meter.increment"].switches.firstMatch.tap()
     }
 }

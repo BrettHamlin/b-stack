@@ -3,14 +3,15 @@
 # compares Tuist's dump with what the shape gives Features.swift.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "adds code to the example module SettingsTests"
-diagnostic = "Project.swift declares SettingsTests → Platform, which the module shape and Features.swift don't give it"
+uses_example = false
+case_feature = true
+diagnostic = "Project.swift declares MeterTests → Platform, which the module shape and Features.swift don't give it"
 
 [[edits]]
 file = "Project.swift"
 find = "let targets: [Target] = modules(features, shared: sharedLinks).map(target)"
 replace = """let targets: [Target] = modules(features, shared: sharedLinks).map(target).map { target in
     var target = target
-    if target.name == "SettingsTests" { target.dependencies.append(.target(name: "Platform")) }
+    if target.name == "MeterTests" { target.dependencies.append(.target(name: "Platform")) }
     return target
 }"""

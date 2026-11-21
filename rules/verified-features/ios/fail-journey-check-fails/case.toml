@@ -1,0 +1,9 @@
+# A journey whose check doesn't hold fails the gate, naming the journey, on any app. fail-journey-fails shows the same
+# on the starter with a bug only a journey can see. Adapter generated as an agent would.
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+case_feature = true
+needs_fixtures = ["standard"]
+generate_adapters = true
+diagnostic = "[verify] journey failed: MeterJourneys/testAddsOne"

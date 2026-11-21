@@ -1,5 +1,6 @@
 # A UIKit view assigning a literal through self.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "adds code to the example module Settings"
+uses_example = false
+case_feature = true
 diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"

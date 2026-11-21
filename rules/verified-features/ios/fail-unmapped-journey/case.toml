@@ -1,4 +1,4 @@
 expect = "fail"
 enforced_by = "verify"
-uses_example = "Targets/AppVerifyUITests/ExtraJourneys.swift uses SettingsInterface"
-diagnostic = "[verify] journey ExtraJourneys/testOpensSettings is not in the feature map"
+uses_example = false
+diagnostic = "[verify] journey ExtraJourneys/testOpensTheApp is not in the feature map"

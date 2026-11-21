@@ -1,4 +1,5 @@
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "Targets/AppVerifyJourneys/BacktickJourneys.swift uses SettingsInterface"
+uses_example = false
+case_feature = true
 diagnostic = "value of type 'Element' has no member 'switches'"

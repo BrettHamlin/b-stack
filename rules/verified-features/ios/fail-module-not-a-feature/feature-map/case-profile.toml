@@ -1,0 +1,14 @@
+# Feature map entry: what a user can do, how they reach it, and which journeys prove it works.
+# scripts/verify.py checks the map (every feature has an entry, each journey is named once, fixtures exist), then runs
+# the journeys: each one named here must run, pass, attach screenshots and launch the fixture named here.
+# If a journey fails, record why under `gotchas` or fix the app. Never weaken a journey to make it pass.
+
+id = "case-profile"
+module = "CaseProfile"
+summary = "User sees their name."
+entry_points = ["The profile screen."]
+
+[[journeys]]
+test = "ProfileJourneys/testShowsTheName"
+fixture = "standard"
+proves = "The saved name is shown."

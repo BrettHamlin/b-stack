@@ -1,5 +1,6 @@
 # An Interface module forwarding an arbitrary String into a UIID.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "adds code to the example module SettingsInterface"
+uses_example = false
+case_feature = true
 diagnostic = "[typed-ui-identifiers] UIID creation opened up"

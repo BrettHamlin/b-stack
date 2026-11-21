@@ -1,15 +1,15 @@
 import Foundation
-import SettingsInterface
+import MeterInterface
 public import JourneyKit
 
 public final class TypedLookupJourneys: Journey {
     private let env: [String: String] = ["CI": "1"]
 
-    public func testTogglesNotifications() {
-        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
-        // Never app.switches["notificationSettings.toggle"]: find it by the constant.
-        tapWhenHittable(screen.toggle(NotificationSettingsUIID.toggle))
-        expectTrue(screen.find(NotificationSettingsUIID.toggle).exists)
+    public func testAddsOne() {
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: MeterUIID.increment)
+        // Never app.switches["meter.increment"]: find it by the constant.
+        tapWhenHittable(screen.toggle(MeterUIID.increment))
+        expectTrue(screen.find(MeterUIID.increment).exists)
 
         var built = [String: String]()
         built["a"] = "1"

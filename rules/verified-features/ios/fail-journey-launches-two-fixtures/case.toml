@@ -2,5 +2,5 @@
 # save-fails loads the stored value, so only the fixture check can catch it.
 expect = "fail"
 enforced_by = "verify"
-uses_example = "Targets/AppVerifyJourneys/NotificationSettingsJourneys.swift uses SettingsInterface"
+uses_example = "needs a journey that launches the app under two fixtures and passes on screen: only the example's screen and fixtures are known to a case"
 diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch launched with ['save-fails', 'standard'], but the map says only \"standard\""

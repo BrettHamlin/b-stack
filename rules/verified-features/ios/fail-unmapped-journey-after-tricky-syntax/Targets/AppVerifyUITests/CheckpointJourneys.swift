@@ -1,4 +1,3 @@
-import SettingsInterface
 import XCTest
 
 final class CheckpointJourneys: XCTestCase {
@@ -11,8 +10,9 @@ final class CheckpointJourneys: XCTestCase {
         case start
     }
 
-    func testReachesSettings() {
-        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
-        XCTAssertTrue(screen.find(NotificationSettingsUIID.toggle).exists, Checkpoint.start.rawValue)
+    func testReachesTheFirstScreen() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10), Checkpoint.start.rawValue)
     }
 }
