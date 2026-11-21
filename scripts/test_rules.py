@@ -26,6 +26,7 @@ Default project: starters/ios/template. Pass --project <new-app> to prove a new 
 Work and tool downloads go to the cache folder if one is configured (see starters/ios/template/scripts/paths.py),
 otherwise to .build/rule-tests/ and .tools/ (gitignored).
 """
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 import argparse
@@ -43,7 +44,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'starters/ios/template/scripts'))
 from paths import cache_root, machine_setting  # noqa: E402
-from simulator import simulator, state  # noqa: E402
+from simulator import HELD, in_use, simulator, state  # noqa: E402
 SKIP = {'.build', '.tools', 'Derived'}
 ALL_BUT_VERIFY = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests')
 OVERLAYS = ('Targets', 'feature-map', 'Tuist/ProjectDescriptionHelpers')  # folders a case may add files to or replace files in
@@ -86,16 +87,14 @@ except BlockingIOError:
     sys.exit(f'Another test_rules.py run is using {work_root}. Wait for it to finish.')
 base_env = dict(os.environ) if cache else {**os.environ, 'BSTACK_TOOLS_DIR': str(ROOT / '.tools')}
 simulators = list(dict.fromkeys(args.simulator or [simulator()]))
-# Runs from different checkouts may pick the same simulator; one at a time per simulator, or one run's shutdown (or
-# journeys) breaks the other's. Held for the whole run, like the work-folder lock.
-simulator_locks = []
-for udid in simulators:
-    simulator_lock = (work_root.parent / f'simulator-{udid}.lock').open('w')
-    try:
-        fcntl.flock(simulator_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        sys.exit(f'Another test_rules.py run is using simulator {udid}. Wait for it, or pass another with --simulator.')
-    simulator_locks.append(simulator_lock)
+# Every checkout on this Mac shares its simulators: one at a time per simulator, or one run's shutdown (or journeys)
+# breaks the other's. This waits for any other run (check.py anywhere, or another suite) and holds them for the whole
+# run; each case's check.py sees in the environment that its simulator is held, and doesn't wait for it.
+simulator_locks = ExitStack()
+held: list[str] = []
+for udid in sorted(simulators):  # one order everywhere, so two runs waiting for each other's simulators can't deadlock
+    held += simulator_locks.enter_context(in_use(udid, f'test_rules.py on {project}'))[HELD].split(',')
+held_env = {HELD: ','.join(dict.fromkeys(held))}
 
 
 @dataclass
@@ -108,6 +107,7 @@ class Worker:
         env = {**base_env, 'BSTACK_VERIFY_WORKERS': '1'}
         if self.simulator:
             env['BSTACK_SIMULATOR_ID'] = self.simulator
+            env.update(held_env)  # this run holds the simulator's lock: the case's check.py must not wait for it
         return env
 
     def prepare(self) -> None:

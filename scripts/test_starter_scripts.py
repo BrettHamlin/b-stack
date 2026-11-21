@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -17,6 +18,7 @@ TEMPLATE = ROOT / 'starters/ios/template'
 sys.path.insert(0, str(TEMPLATE / 'scripts'))
 import handback  # noqa: E402
 import paths  # noqa: E402
+import simulator  # noqa: E402
 
 ENV = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@example.invalid',
        'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@example.invalid'}
@@ -261,6 +263,95 @@ class HandbackTests(unittest.TestCase):
         proc = subprocess.run([sys.executable, str(self.root / 'scripts/handback.py'), 'stop'],
                               cwd=self.root, input='not json', capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0)
+
+
+HOLD = """
+import sys
+sys.path.insert(0, sys.argv[1])
+from simulator import in_use
+with in_use(sys.argv[2], sys.argv[3]):
+    print('holding', flush=True)
+    sys.stdin.read()  # until the test closes stdin (or kills this process)
+print('released', flush=True)
+"""
+
+
+class SimulatorLockTests(unittest.TestCase):
+    """Two checkouts' gates on one simulator kill each other's test runner, so in_use() makes the second wait."""
+
+    def setUp(self) -> None:
+        home = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, home)
+        self.env = {**os.environ, 'HOME': str(home)}
+        self.env.pop(simulator.HELD, None)
+        self.procs: list[subprocess.Popen] = []
+        self.addCleanup(self.stop_all)
+
+    def stop_all(self) -> None:
+        for proc in self.procs:
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait()
+            for stream in (proc.stdin, proc.stdout):
+                if stream:
+                    stream.close()
+
+    def hold(self, udid: str, holder: str, env: dict | None = None) -> subprocess.Popen:
+        proc = subprocess.Popen([sys.executable, '-c', HOLD, str(TEMPLATE / 'scripts'), udid, holder],
+                                env=env or self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.procs.append(proc)
+        return proc
+
+    def line(self, proc: subprocess.Popen) -> str:
+        return proc.stdout.readline().strip()
+
+    def test_second_holder_waits_and_says_who_holds_it(self) -> None:
+        first = self.hold('SIM-1', 'check.py in /checkouts/a')
+        self.assertEqual(self.line(first), 'holding')
+        second = self.hold('SIM-1', 'check.py in /checkouts/b')
+        waiting = self.line(second)
+        self.assertIn('[simulator] waiting for simulator SIM-1: in use by '
+                      f'pid {first.pid}, check.py in /checkouts/a, since ', waiting)
+        time.sleep(0.5)
+        self.assertIsNone(second.poll())  # still waiting
+        first.stdin.close()
+        self.assertEqual(self.line(first), 'released')
+        self.assertRegex(self.line(second), r'^\[simulator\] got simulator SIM-1 after \d+s$')
+        self.assertEqual(self.line(second), 'holding')
+
+    def test_killed_holder_releases_the_lock(self) -> None:
+        first = self.hold('SIM-1', 'check.py in /checkouts/a')
+        self.assertEqual(self.line(first), 'holding')
+        second = self.hold('SIM-1', 'check.py in /checkouts/b')
+        self.assertIn('waiting for simulator SIM-1', self.line(second))
+        first.kill()
+        self.assertIn('got simulator SIM-1', self.line(second))
+        self.assertEqual(self.line(second), 'holding')
+
+    def test_other_simulators_do_not_wait(self) -> None:
+        self.assertEqual(self.line(self.hold('SIM-1', 'a')), 'holding')
+        self.assertEqual(self.line(self.hold('SIM-2', 'b')), 'holding')
+
+    def test_a_child_of_the_holder_does_not_wait_for_it(self) -> None:
+        """check.py holds the lock and runs verify.py, and test_rules.py holds it and runs check.py: neither child
+        may wait for its parent's lock, or the gate deadlocks."""
+        first = self.hold('SIM-1', 'test_rules.py on /checkouts/a')
+        self.assertEqual(self.line(first), 'holding')
+        nested = {**self.env, simulator.HELD: 'SIM-2,SIM-1'}  # what in_use yields for the parent to pass on
+        child = self.hold('SIM-1', 'check.py in /work/w0', nested)
+        self.assertEqual(self.line(child), 'holding')
+        grandchild = self.hold('SIM-1', 'verify.py in /work/w0', nested)
+        self.assertEqual(self.line(grandchild), 'holding')
+        outsider = self.hold('SIM-1', 'check.py in /checkouts/b')
+        self.assertIn(f'in use by pid {first.pid}, test_rules.py on /checkouts/a', self.line(outsider))
+
+    def test_yields_the_environment_that_marks_the_lock_held(self) -> None:
+        with mock.patch.dict(os.environ, {'HOME': self.env['HOME'], simulator.HELD: 'SIM-0'}):
+            with simulator.in_use('SIM-1', 'test') as env:
+                self.assertEqual(env, {simulator.HELD: 'SIM-0,SIM-1'})
+                with mock.patch.dict(os.environ, env):
+                    with simulator.in_use('SIM-1', 'nested') as inner:  # would block forever if it took the lock again
+                        self.assertEqual(inner, env)
 
 
 if __name__ == '__main__':

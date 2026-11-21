@@ -1,9 +1,23 @@
-"""Pick the iOS Simulator that gates and verification run on."""
+"""Pick the iOS Simulator that gates and verification run on, and hold it while using it.
+
+A simulator is shared by every checkout on the Mac: two test runs on one simulator kill each other's test runner
+("Test crashed with signal kill before establishing connection"). in_use() takes this machine's lock on it, so a second
+run waits until the first finishes and says who holds it. The lock is an flock, so it is released when its holder exits
+or is killed.
+"""
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Iterator
+import fcntl
 import json
 import os
 import re
 import subprocess
 import sys
+import time
+
+HELD = 'BSTACK_SIMULATOR_LOCKS'  # simulators an ancestor process holds, comma-separated; its children don't wait for them
 
 
 def simulator() -> str:
@@ -40,3 +54,42 @@ def state(udid: str) -> dict:
             if device['udid'] == udid:
                 return {**device, 'runtime': runtime.rsplit('.', 1)[-1]}
     return {}
+
+
+def lock_file(udid: str) -> Path:
+    """Machine-wide, whatever cache folder each checkout configures: simulators belong to the user, not a checkout."""
+    return Path.home() / 'Library/Caches/b-stack/simulators' / f'{udid}.lock'
+
+
+@contextmanager
+def in_use(udid: str, holder: str) -> Iterator[dict]:
+    """Hold this machine's lock on simulator `udid`, waiting while another process holds it. `holder` says who is
+    using it (e.g. "check.py in /path/to/checkout"), for anyone who has to wait.
+
+    Yields the environment a child process needs so it doesn't wait for the lock its parent holds (check.py -> verify.py,
+    test_rules.py -> check.py). A process whose ancestor holds the lock yields at once.
+    """
+    held = [u for u in os.environ.get(HELD, '').split(',') if u]
+    env = {HELD: ','.join(dict.fromkeys(held + [udid]))}
+    if udid in held:
+        yield env
+        return
+    path = lock_file(udid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('a+') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            lock.seek(0)
+            print(f'[simulator] waiting for simulator {udid}: in use by {lock.read().strip() or "another process"}',
+                  flush=True)
+            waited = time.monotonic()
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            print(f'[simulator] got simulator {udid} after {time.monotonic() - waited:.0f}s', flush=True)
+        lock.truncate(0)
+        lock.write(f'pid {os.getpid()}, {holder}, since {datetime.now().strftime("%H:%M:%S")}\n')
+        lock.flush()
+        try:
+            yield env
+        finally:
+            lock.truncate(0)

@@ -10,7 +10,8 @@ Gates:
 
 Gates that don't depend on each other run at the same time: swiftlint, harmonize and tuist alongside the Xcode gates.
 compiler, tests and verify share one build folder and simulator, so they run one after another, and verify runs the
-AppVerify build the compiler gate just made instead of building it again. Each gate's output is printed whole when it
+AppVerify build the compiler gate just made instead of building it again. tests and verify hold this Mac's lock on the
+simulator (scripts/simulator.py): a run from another checkout waits for it, and says who holds it. Each gate's output is printed whole when it
 finishes, followed by its result and time; a summary in gate order comes last.
 
 Usage: python3 scripts/check.py [--only GATE ...]
@@ -28,7 +29,7 @@ from xml.etree import ElementTree
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from handback import record_check, snapshot  # noqa: E402
 from paths import link_build_dirs  # noqa: E402
-from simulator import simulator  # noqa: E402
+from simulator import in_use, simulator  # noqa: E402
 from tools import tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -159,26 +160,32 @@ def check(selected: list[str]) -> list[str]:
                     started)
                 xctestrun = built_xctestrun(build_started) if ok else None
                 started = time.monotonic()
-            if 'tests' in selected and not STOP.is_set():
-                report('tests', chain(
-                    generated.result(),
-                    unrun_tests,
-                    lambda: run(xcodebuild('UnitTests', f'platform=iOS Simulator,id={simulator()}', 'test'))),
-                    started)
-                started = time.monotonic()
-            if 'verify' in selected and not STOP.is_set():
-                if not generated:
-                    tuist_done.wait()  # verify.py installs and generates with Tuist itself
-                with PRINT:
-                    print('verify: running the journeys (output when they finish; evidence in .build/evidence/latest)',
-                          flush=True)
-                cmd = [sys.executable, str(ROOT / 'scripts/verify.py'), 'run']
-                if generated and generated.result().ok:
-                    cmd.append('--generated')
-                if xctestrun:
-                    cmd += ['--xctestrun', str(xctestrun)]  # the build the compiler gate just made, from these sources
-                proc = subprocess.run(cmd, cwd=ROOT, env=ENV, capture_output=True, text=True)
-                report('verify', Step(proc.returncode == 0, (proc.stdout + proc.stderr).strip()), started)
+            if not any(g in selected for g in ('tests', 'verify')) or STOP.is_set():
+                return
+            if 'verify' in selected and not generated:
+                tuist_done.wait()  # verify.py installs and generates with Tuist itself
+            udid = simulator()
+            # Other checkouts on this Mac use the same simulator: wait until none is using it, and hold it for both gates.
+            with in_use(udid, f'check.py in {ROOT}') as held:
+                started = time.monotonic()  # waiting for the simulator isn't the gate's time
+                if 'tests' in selected and not STOP.is_set():
+                    report('tests', chain(
+                        generated.result(),
+                        unrun_tests,
+                        lambda: run(xcodebuild('UnitTests', f'platform=iOS Simulator,id={udid}', 'test'))),
+                        started)
+                    started = time.monotonic()
+                if 'verify' in selected and not STOP.is_set():
+                    with PRINT:
+                        print('verify: running the journeys (output when they finish; evidence in .build/evidence/latest)',
+                              flush=True)
+                    cmd = [sys.executable, str(ROOT / 'scripts/verify.py'), 'run']
+                    if generated and generated.result().ok:
+                        cmd.append('--generated')
+                    if xctestrun:
+                        cmd += ['--xctestrun', str(xctestrun)]  # the build the compiler gate just made, from these sources
+                    proc = subprocess.run(cmd, cwd=ROOT, env={**ENV, **held}, capture_output=True, text=True)
+                    report('verify', Step(proc.returncode == 0, (proc.stdout + proc.stderr).strip()), started)
 
         jobs = []
         start = time.monotonic()
