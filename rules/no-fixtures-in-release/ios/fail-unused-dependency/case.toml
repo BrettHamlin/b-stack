@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "tuist"
+uses_example = "Targets/App/App.swift uses Settings"
 diagnostic = "App redundantly depends on: Platform"

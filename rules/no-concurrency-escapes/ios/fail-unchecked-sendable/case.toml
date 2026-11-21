@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = false
 diagnostic = "[no-concurrency-escapes] No @unchecked Sendable"

@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
+uses_example = false
 diagnostic = "value of type 'Element' has no member 'coordinate'"

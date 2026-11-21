@@ -33,6 +33,7 @@ rules/<rule-id>/
 | `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate except `verify`, which drives a simulator and runs on the untouched project) |
 | `enforced_by` | The gate that must reject a fail case: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
+| `uses_example` | `false` if the case applies to any app, or a short reason it uses the starter's Settings example (its modules, identifiers, journeys, fixtures or feature map). Required. Example cases run only on the starter; `test_rules.py --project <app>` lists them as OUT with the reason. `check_repo.py` fails a `false` case whose files mention the example |
 | `adds_targets` | Optional: targets the case adds that the project doesn't have (otherwise a missing target is a SKIP) |
 | `edits` | Optional: `[[edits]]` tables (`file = "Project.swift"`, `find`, `replace`) applied to the protected project file, for cases about hand edits. `find` must occur exactly once, or the case FAILs |
 

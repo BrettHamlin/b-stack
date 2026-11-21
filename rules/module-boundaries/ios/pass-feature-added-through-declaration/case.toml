@@ -3,4 +3,5 @@
 # Project.swift and ModuleBoundaries.swift are untouched.
 expect = "pass"
 enforced_by = "harmonize"
+uses_example = "Targets/App/App.swift uses Settings"
 adds_targets = ["ProfileInterface", "ProfileLogic", "Profile", "ProfileTests"]

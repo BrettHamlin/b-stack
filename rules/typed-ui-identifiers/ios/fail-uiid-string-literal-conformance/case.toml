@@ -3,4 +3,5 @@
 # on the conformance's `self.init(value)`, not an access error.
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "Targets/AppVerifyJourneys/LiteralIDJourneys.swift uses SettingsInterface"
 diagnostic = "LiteralIDJourneys.swift:7:14: error: no exact matches in call to initializer"

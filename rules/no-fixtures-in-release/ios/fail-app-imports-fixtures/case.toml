@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = "Targets/App/App.swift uses Settings"
 diagnostic = "[no-fixtures-in-release]"

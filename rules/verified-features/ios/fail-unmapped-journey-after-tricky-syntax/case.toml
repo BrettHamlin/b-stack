@@ -1,4 +1,5 @@
 # Comments, string literals and nested types that contain braces or quotes must not hide the journeys after them.
 expect = "fail"
 enforced_by = "verify"
+uses_example = "Targets/AppVerifyUITests/CheckpointJourneys.swift uses SettingsInterface"
 diagnostic = "[verify] journey CheckpointJourneys/testReachesSettings is not in the feature map"

@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "adds code to the example module Settings"
 diagnostic = "is unavailable: Use TaskScope.run"

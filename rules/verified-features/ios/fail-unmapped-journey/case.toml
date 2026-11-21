@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "verify"
+uses_example = "Targets/AppVerifyUITests/ExtraJourneys.swift uses SettingsInterface"
 diagnostic = "[verify] journey ExtraJourneys/testOpensSettings is not in the feature map"

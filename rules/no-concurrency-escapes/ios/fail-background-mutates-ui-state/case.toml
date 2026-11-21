@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "adds code to the example module Settings"
 diagnostic = "main actor-isolated property 'count' can not be mutated from a nonisolated context"

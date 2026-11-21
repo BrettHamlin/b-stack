@@ -2,4 +2,5 @@
 # allowlist is applied to Targets/Fixtures at all.
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = false
 diagnostic = "[module-boundaries] Fixtures may only import"
