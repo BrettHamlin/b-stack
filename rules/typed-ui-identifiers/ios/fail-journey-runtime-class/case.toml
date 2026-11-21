@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = false
 diagnostic = "[typed-ui-identifiers] Dynamic UI access in journey bodies"

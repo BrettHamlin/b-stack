@@ -1,4 +1,5 @@
 # The journeys pass, but attach no screenshots, so there is no evidence.
 expect = "fail"
 enforced_by = "verify"
+uses_example = "Targets/AppVerifyJourneys/NotificationSettingsJourneys.swift uses SettingsInterface"
 diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch attached no screenshots"

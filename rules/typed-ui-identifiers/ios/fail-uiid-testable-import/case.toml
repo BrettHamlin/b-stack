@@ -3,4 +3,5 @@
 # says "was not compiled for testing").
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "Targets/AppVerifyJourneys/TestableIDJourneys.swift uses SettingsInterface"
 diagnostic = "Unable to resolve Swift module dependency to a compatible module: 'Core'"

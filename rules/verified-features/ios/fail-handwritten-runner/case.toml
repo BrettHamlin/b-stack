@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "verify"
+uses_example = false
 diagnostic = "[verify] XCTest adapters differ from journey bodies"

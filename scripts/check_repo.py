@@ -10,6 +10,7 @@ RULE_KEYS = ['id', 'layer', 'summary', 'problem', 'message', 'escape_hatches', '
 LAYERS = {'1', '2', '1+2', '3', 'foundation'}
 ENFORCERS = ('compiler', 'tuist', 'swiftlint', 'harmonize', 'tests', 'verify')
 LINK = re.compile(r'\]\(([^)\s]+)\)')
+EXAMPLE = re.compile(r'[\w.-]*(?:Settings|notification|save-fails)[\w.-]*')  # the starter's example feature
 errors = []
 
 
@@ -53,6 +54,19 @@ for rule_dir in rule_dirs:
             errors.append(f'{rel(case_path)}: enforced_by must be one of {ENFORCERS}')
         if case.get('expect') == 'fail' and not case.get('diagnostic'):
             errors.append(f'{rel(case_path)}: fail cases need a diagnostic')
+        uses = case.get('uses_example')
+        if uses is not False and not (isinstance(uses, str) and uses.strip()):
+            errors.append(f'{rel(case_path)}: uses_example must be false, or say how the case uses the Settings example')
+        if uses is False:
+            # A case that claims to apply to any app may not touch the example.
+            texts = [(f.relative_to(case_path.parent), f.read_text()) for f in case_path.parent.rglob('*')
+                     if f.is_file() and f.name != 'case.toml']
+            texts += [(Path('case.toml'), ' '.join([case.get('diagnostic', '')] + [' '.join(e.values()) for e in case.get('edits', [])]))]
+            for path, text in texts:
+                hit = EXAMPLE.search(text) or (path.parts[0] == 'Targets' and len(path.parts) > 1 and EXAMPLE.match(path.parts[1]))
+                if hit:
+                    errors.append(f'{rel(case_path)}: uses_example = false, but {path} uses the example ({hit.group(0)})')
+                    break
         edits = case.get('edits', [])
         for edit in edits:
             if set(edit) != {'file', 'find', 'replace'} or edit.get('file') != 'Project.swift':

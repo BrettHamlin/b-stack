@@ -1,2 +1,3 @@
 expect = "pass"
 enforced_by = "harmonize"
+uses_example = false

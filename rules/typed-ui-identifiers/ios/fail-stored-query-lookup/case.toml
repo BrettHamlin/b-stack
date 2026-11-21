@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "Targets/AppVerifyJourneys/StoredQueryJourneys.swift uses notificationSettings.toggle"
 diagnostic = "cannot find 'XCUIApplication' in scope"

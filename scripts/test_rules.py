@@ -9,6 +9,10 @@ counts and the run fails. Pass cases skip verify because it drives a simulator f
 cases still run it. A case may add a target the project doesn't have by listing it in `adds_targets`; otherwise a
 missing target is a SKIP.
 
+Every case says whether it uses the starter's example feature (`uses_example`: false, or why it does). Those cases run
+only on the starter itself; with --project <another app> they are left out (OUT) and listed with that reason, since a
+real app has replaced the example.
+
 Cases run on --jobs workers (default: rule_jobs in ~/.config/b-stack/config.toml, else 1), each in its own copy of the project with its own build folder, so no case
 sees another's files and the order doesn't matter. More workers only pay off on a machine with spare CPU and fast disk
 for every worker's builds and simulator: on a 10-core, 16 GB laptop with the cache and simulators on one external
@@ -176,6 +180,8 @@ def run_case(worker: Worker, task: Task) -> tuple[str, str]:
     return 'PASS', ''
 
 
+# Cases written against the starter's Settings example only apply to the starter itself.
+runs_example_cases = project == (ROOT / 'starters/ios/template').resolve()
 tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=True)]
 for case_file in sorted(ROOT.glob('rules/*/ios/*/case.toml')):
     rule, name = case_file.parents[2].name, case_file.parent.name
@@ -187,7 +193,9 @@ for case_file in sorted(ROOT.glob('rules/*/ios/*/case.toml')):
     case_targets = case_file.parent / 'Targets'
     missing = [m.name for m in (case_targets.iterdir() if case_targets.is_dir() else [])
                if not (project / 'Targets' / m.name).is_dir() and m.name not in adds]
-    if missing:
+    if case['uses_example'] and not runs_example_cases:
+        task.result = ('OUT', f'uses the starter\'s example: {case["uses_example"]}')
+    elif missing:
         task.result = ('SKIP', f'project has no target {", ".join(missing)}')
     else:
         kind = 'pass' if case['expect'] == 'pass' else case['enforced_by']
@@ -289,14 +297,15 @@ if tasks[0].result is None or tasks[0].result[0] != 'PASS':
         if tasks[0].result is None:
             print('FAIL     (untouched project passes every gate)\n      the run stopped before it finished')
     sys.exit(1)
-counts = {'PASS': 0, 'SKIP': 0, 'FAIL': 0}
+counts = {'PASS': 0, 'SKIP': 0, 'FAIL': 0, 'OUT': 0}
 for task in tasks[1:]:
     if task.result is None:
         task.result = ('FAIL', 'never ran (no worker could take it)')
         with lock:
             flush()
     counts[task.result[0]] += 1
-print('\n' + ', '.join(f'{n} {s.lower()}' for s, n in counts.items()) + f'  (project: {project})')
+names = {'PASS': 'pass', 'SKIP': 'skip', 'FAIL': 'fail', 'OUT': 'left out (use the example)'}
+print('\n' + ', '.join(f'{n} {names[s]}' for s, n in counts.items() if s != 'OUT' or n) + f'  (project: {project})')
 print(f'{len(workers)} workers, {len(used)} simulators, {time.monotonic() - started:.0f}s', flush=True)
 busy = {w.work.name: sum(t for _, name, _, t in timings if name == w.work.name) for w in workers}
 print('Busy time per worker: ' + ', '.join(f'{name} {seconds:.0f}s' for name, seconds in busy.items()), flush=True)

@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "swiftlint"
+uses_example = false
 diagnostic = "(force_cast)"

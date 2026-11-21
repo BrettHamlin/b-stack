@@ -33,7 +33,7 @@ Check `starters/ios/README.md` for what the template doesn't include yet. List e
 
 In the new repo: `python3 scripts/check.py` must PASS every gate, including `verify`. Open `.build/evidence/latest/evidence.md` and check its screenshots show what each journey claims.
 
-Then, from b-stack: `python3 scripts/test_rules.py --project <new-repo>`. Every case must PASS. A FAIL means the new repo doesn't enforce that rule: fix the setup, never the test case. A SKIP means the new repo lacks a target the case uses (e.g. you renamed Settings); report it.
+Then, from b-stack: `python3 scripts/test_rules.py --project <new-repo>`. It runs every case that applies to any app; cases written against the starter's Settings example are listed as OUT with their reason. Zero FAIL is required. A FAIL means the new repo doesn't enforce that rule: fix the setup, never the test case. A SKIP means the new repo lacks a target a general case uses; report it.
 
 ## 5. Report
 

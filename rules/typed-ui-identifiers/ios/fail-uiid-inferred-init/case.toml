@@ -1,4 +1,5 @@
 # The same, with the type inferred: .init("...") where a UIID is expected.
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "Targets/AppVerifyJourneys/InferredIDJourneys.swift uses SettingsInterface"
 diagnostic = "is inaccessible due to 'package' protection level"

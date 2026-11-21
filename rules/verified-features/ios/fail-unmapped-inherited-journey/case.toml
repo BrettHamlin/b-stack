@@ -1,4 +1,5 @@
 # A journey inherited from a base class, declared nowhere on the subclass.
 expect = "fail"
 enforced_by = "verify"
+uses_example = "Targets/AppVerifyUITests/ProfileJourneys.swift uses SettingsInterface"
 diagnostic = "[verify] journey ProfileJourneys/testEditsName is not in the feature map"

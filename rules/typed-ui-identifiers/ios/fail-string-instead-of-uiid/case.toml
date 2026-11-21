@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "Targets/AppVerifyJourneys/StringIDJourneys.swift uses SettingsInterface"
 diagnostic = "cannot convert value of type 'String' to expected argument type 'UIID'"

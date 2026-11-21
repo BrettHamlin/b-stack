@@ -2,3 +2,4 @@
 # environment, Locale/TimeZone identifiers, a "//" inside a string, and system UI through JourneyKit's helpers.
 expect = "pass"
 enforced_by = "harmonize"
+uses_example = "Targets/AppVerifyJourneys/TypedLookupJourneys.swift uses SettingsInterface"

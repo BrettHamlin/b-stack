@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
+uses_example = "Targets/AppVerifyJourneys/ExtensionLookupJourneys.swift uses SettingsInterface"
 diagnostic = "cannot find type 'XCTest' in scope"

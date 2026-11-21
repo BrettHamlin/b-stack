@@ -1,3 +1,4 @@
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = "adds code to the example module Settings"
 diagnostic = "[typed-ui-identifiers]"

@@ -2,6 +2,7 @@
 # match the shape (which gives no target an SDK dependency). Tuist's import check doesn't look at SDKs.
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = "its edit or diagnostic names SettingsLogic"
 diagnostic = "Project.swift declares SettingsLogic → sdk"
 
 [[edits]]

@@ -1,4 +1,5 @@
 # A link inside the shape (App → SettingsInterface) used without declaring it: the message names the declaration.
 expect = "fail"
 enforced_by = "harmonize"
+uses_example = "Targets/App/Interface.swift uses SettingsInterface"
 diagnostic = "The module shape allows App → SettingsInterface, but Features.swift doesn't declare it: add `.appUsesInterface` to Feature(\"Settings\")'s links"
