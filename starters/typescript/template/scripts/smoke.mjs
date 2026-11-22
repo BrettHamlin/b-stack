@@ -1,5 +1,5 @@
-// Prove a packaged app runs on the system it was built for, where the journeys can't run (Windows, Linux; CI runs it
-// there): open it on an empty data folder, check what it shows, take the steps, check again, then open it again and
+// Prove a packaged app runs on a system where the journeys can't run (Windows and Linux, where CI runs it, and the Intel
+// macOS build under Rosetta): open it on an empty data folder, check what it shows, take the steps, check again, then open it again and
 // check the result was kept. The checks and steps are the app's own, in apps/desktop/journeys/smoke.json.
 // Usage: node scripts/smoke.mjs <executable> <folder with node_modules/playwright-core> <evidence folder>
 import * as NodeFs from "node:fs/promises";
@@ -19,18 +19,24 @@ await NodeFs.mkdir(evidence, { recursive: true });
 const args = ["--data", data, ...(process.platform === "linux" ? ["--no-sandbox"] : [])];
 
 const open = async () => {
-  const app = await _electron.launch({ executablePath: NodePath.resolve(executable), args });
+  // A first launch can be slow: Rosetta translates an Intel build on a Mac the first time it runs.
+  const app = await _electron.launch({ executablePath: NodePath.resolve(executable), args, timeout: 180_000 });
   const page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");
   return { app, page };
 };
+// The element's children read exactly `lines` (an empty list too), within 30 seconds.
 const shows = async (page, { id, lines }) => {
   const element = page.getByTestId(id);
-  await element.getByText(lines.at(-1), { exact: true }).first().waitFor({ timeout: 30_000 });
-  const actual = await element.locator(":scope > *").allInnerTexts();
-  if (JSON.stringify(actual) !== JSON.stringify(lines)) {
-    throw new Error(`${id}: expected ${JSON.stringify(lines)}, saw ${JSON.stringify(actual)}`);
+  await element.waitFor({ timeout: 30_000 });
+  const deadline = Date.now() + 30_000;
+  let actual = [];
+  while (Date.now() < deadline) {
+    actual = await element.locator(":scope > *").allInnerTexts();
+    if (JSON.stringify(actual) === JSON.stringify(lines)) return;
+    await page.waitForTimeout(200);
   }
+  throw new Error(`${id}: expected ${JSON.stringify(lines)}, saw ${JSON.stringify(actual)}`);
 };
 
 const first = await open();
@@ -47,4 +53,4 @@ const again = await open();
 await shows(again.page, plan.after);
 await again.page.screenshot({ path: NodePath.join(evidence, "02-after-relaunch.png") });
 await again.app.close();
-process.stdout.write(`smoke passed on ${process.platform}-${process.arch}: ${executable}\n`);
+process.stdout.write(`smoke passed: ${executable}\n`);

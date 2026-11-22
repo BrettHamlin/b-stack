@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] packages/contracts/tsconfig.json: tsconfig.base.json extends a list of configs"
+
+[[edits]]
+file = "tsconfig.base.json"
+find = "\"extends\": \"./tsconfig.effect.json\","
+replace = "\"extends\": [\"./tsconfig.effect.json\"],"

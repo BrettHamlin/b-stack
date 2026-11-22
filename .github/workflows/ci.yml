@@ -66,7 +66,7 @@ jobs:
         env:
           CI: "false"
         run: python3 scripts/test_rules.py --platform typescript
-      - name: Package for every platform; journeys against both macOS packages (Intel under Rosetta)
+      - name: Package for every platform; journeys against the Apple silicon package, smoke test on the Intel one (Rosetta)
         working-directory: starters/typescript/template
         run: python3 scripts/package.py --all
       - uses: actions/upload-artifact@v7.0.2

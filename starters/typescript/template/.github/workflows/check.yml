@@ -44,7 +44,7 @@ jobs:
       # CI=true (set by GitHub): pnpm refuses to change pnpm-lock.yaml, so a package.json edited without its lockfile fails.
       - name: compiler, lint, deps, arch, settings, tests, verify
         run: python3 scripts/check.py
-      - name: Package for every platform; journeys against both macOS packages (Intel under Rosetta)
+      - name: Package for every platform; journeys against the Apple silicon package, smoke test on the Intel one (Rosetta)
         run: python3 scripts/package.py --all
       - uses: actions/upload-artifact@v7.0.2
         with:

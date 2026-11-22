@@ -34,14 +34,18 @@ def jsonc(path: Path) -> dict:
     return json.loads(re.sub(r'^\s*//.*$', '', path.read_text(), flags=re.M))
 
 
-def extends_chain(config: Path) -> list[Path]:
-    """A tsconfig and every config it extends, nearest first."""
-    chain = []
-    while config.is_file() and config not in chain:
+def extends_chain(config: Path) -> list[Path] | str:
+    """A tsconfig and every config it extends, nearest first; or why it can't be followed."""
+    chain: list[Path] = []
+    while config not in chain:
+        if not config.is_file():
+            return f'extends {config.relative_to(ROOT) if config.is_relative_to(ROOT) else config}, which doesn\'t exist'
         chain.append(config)
         parent = jsonc(config).get('extends')
+        if parent is None:
+            return chain
         if not isinstance(parent, str):
-            break
+            return f'{config.relative_to(ROOT)} extends a list of configs; extend one, so the chain can be checked'
         config = (config.parent / parent).resolve()
     return chain
 
@@ -68,7 +72,14 @@ def compiler_findings(env: dict, expected: dict) -> list[str]:
                            f'not {wanted.get(key)!r}. {FIX}')
         # The Effect language service comes only from tsconfig.effect.json; a `plugins` anywhere else in the chain
         # replaces it (only the journeys' role config may, with none).
-        for link in extends_chain(config):
+        chain = extends_chain(config)
+        if isinstance(chain, str):
+            out.append(f'[protected-enforcement] {where}: {chain}. {FIX}')
+            continue
+        if ROOT / 'tsconfig.effect.json' not in chain:
+            out.append(f'[protected-enforcement] {where}: doesn\'t extend tsconfig.effect.json, so the Effect language '
+                       f'service doesn\'t check it. {FIX}')
+        for link in chain:
             plugins = jsonc(link).get('compilerOptions', {}).get('plugins')
             allowed = link.parent == ROOT / 'arch/tsconfig' and plugins == expected['plugins'].get(link.stem)
             if plugins is not None and link != ROOT / 'tsconfig.effect.json' and not allowed:
@@ -128,9 +139,14 @@ def workspace_findings(expected: dict) -> list[str]:
     text = (ROOT / 'pnpm-workspace.yaml').read_text()
     out = []
     # Only the recorded settings: another key (nodeLinker, shamefullyHoist, hoistPattern...) could undo them.
-    keys = set(re.findall(r'^([A-Za-z][\w-]*):', text, re.M))
-    out += [f'[protected-enforcement] pnpm-workspace.yaml: `{key}` isn\'t allowed (only {", ".join(sorted(WORKSPACE_KEYS))}). '
-            f'{FIX}' for key in sorted(keys - WORKSPACE_KEYS)]
+    # Fails closed: every top-level line is one of these keys, written plainly, or it's a finding (a quoted key, a flow
+    # mapping, an anchor...).
+    for line in text.splitlines():
+        if line and not line[0].isspace() and not line.startswith('#'):
+            key = re.match(r'([A-Za-z]+):(\s|$)', line)
+            if not key or key.group(1) not in WORKSPACE_KEYS:
+                out.append(f'[protected-enforcement] pnpm-workspace.yaml: `{line.strip()}` isn\'t allowed (only '
+                           f'{", ".join(sorted(WORKSPACE_KEYS))}, written plainly). {FIX}')
     checks = {
         'hoist': re.search(r'^hoist:\s*false\s*$', text, re.M),
         'publicHoistPattern': re.search(r'^publicHoistPattern:\s*\[\]\s*$', text, re.M),
@@ -153,8 +169,9 @@ def codeowners_findings(expected: list[str]) -> list[str]:
     out = [f'[protected-enforcement] {other}: GitHub reads this CODEOWNERS before the root one. Keep code owners only in '
            f'/CODEOWNERS. {FIX}' for other in ('.github/CODEOWNERS', 'docs/CODEOWNERS') if (ROOT / other).exists()]
     path = ROOT / 'CODEOWNERS'
-    rules = [line.split() for line in path.read_text().splitlines()
-             if line.strip() and not line.lstrip().startswith('#')] if path.is_file() else []
+    # An inline `#` starts a comment, which isn't an owner.
+    lines = [re.sub(r'(^|\s)#.*$', '', line).strip() for line in path.read_text().splitlines()] if path.is_file() else []
+    rules = [line.split() for line in lines if line]
     # A pattern with no owner removes ownership from what it matches, so every rule must name one.
     out += [f'[protected-enforcement] CODEOWNERS: `{rule[0]}` has no owner, which removes code-owner review from what '
             f'it matches. {FIX}' for rule in rules if len(rule) < 2]

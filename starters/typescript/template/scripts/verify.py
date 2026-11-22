@@ -21,7 +21,7 @@ import json
 import shutil
 import subprocess
 import sys
-import time
+import tempfile
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -155,7 +155,8 @@ def look(args: list[str]) -> int:
         if option == '--data' and args:
             data, args = Path(args[0]).resolve(), args[1:]
         elif option == '--fresh':
-            data = ROOT / '.build/look' / f'data-{time.strftime("%Y%m%d-%H%M%S")}'  # a new, empty folder; nothing is deleted
+            (ROOT / '.build/look').mkdir(parents=True, exist_ok=True)
+            data = Path(tempfile.mkdtemp(dir=ROOT / '.build/look', prefix='data-'))  # new and empty; nothing is deleted
         else:
             print(__doc__)
             return 2

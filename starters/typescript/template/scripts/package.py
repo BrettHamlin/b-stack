@@ -4,9 +4,10 @@
   2. electron-builder `dir` for each target, from the locked Electron (another platform's binary is downloaded and
      checked against the locked package's checksums.json, scripts/tools.py)
   3. archive each: a zip made by ditto for macOS (keeps the bundle's symlinks), a zip for Windows, a tar.gz for Linux
-  4. on this Mac, the verify gate's journeys and checks against each macOS package ($BSTACK_PACKAGED_APP; the Intel
-     build runs under Rosetta); evidence in .build/evidence/<target>/. Windows and Linux packages are proved on those
-     systems by scripts/smoke.mjs (CI runs it).
+  4. the verify gate's journeys and checks against the Apple silicon package ($BSTACK_PACKAGED_APP); evidence in
+     .build/evidence/mac-arm64/. The Intel macOS package gets scripts/smoke.mjs here, under Rosetta (whose first
+     launch translates Electron and is too slow for a journey's time limit); the Windows and Linux packages get it on
+     those systems (CI runs it).
 
 Targets: mac-arm64 (default), mac-x64, win-x64, linux-x64; --all for every one.
 
@@ -156,6 +157,13 @@ if __name__ == '__main__':
     executables = package(env, chosen)
     if '--no-journeys' not in sys.argv[1:]:
         for target, executable in executables.items():
+            if target == 'mac-x64':
+                proc = subprocess.run(['node', 'scripts/smoke.mjs', str(executable), str(ROOT / 'apps/desktop'),
+                                       str(ROOT / '.build/evidence/mac-x64')], cwd=ROOT, env=env, capture_output=True, text=True)
+                if proc.returncode != 0:
+                    sys.exit(f'The mac-x64 package failed its smoke test:\n{(proc.stdout + proc.stderr).strip()[-3000:]}')
+                print(f'mac-x64 (Rosetta): {proc.stdout.strip()}')
+                continue
             if not target.startswith('mac'):
                 print(f'{target}: prove it on that system with scripts/smoke.mjs (CI does)')
                 continue
