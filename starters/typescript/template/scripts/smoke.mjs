@@ -37,15 +37,17 @@ const within = (promise, ms, what) =>
 const installing = (version) =>
   process.platform === "win32" &&
   NodeChild.execFileSync("tasklist", ["/FO", "CSV", "/NH"], { encoding: "utf8" }).includes(`-${version}-win-`);
-// Windows: every process of the app and its installer, with its parent and command line, for a failure report.
+// Windows: the app's and its installer's processes and all their children, with parent and command line, for a failure report.
 const processes = () =>
   process.platform !== "win32"
     ? ""
     : NodeChild.execFileSync(
         "powershell",
         ["-NoProfile", "-Command",
-          "Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'starter*' -or $_.CommandLine -like '*starter*' } | " +
-          "Format-List ProcessId,ParentProcessId,Name,CommandLine | Out-String -Width 400"],
+          "$all = Get-CimInstance Win32_Process; " +
+          "$ids = @($all | Where-Object { $_.Name -like 'starter*' } | ForEach-Object { $_.ProcessId }); " +
+          "do { $n = $ids.Count; $ids = @($ids + ($all | Where-Object { $ids -contains $_.ParentProcessId } | ForEach-Object { $_.ProcessId }) | Select-Object -Unique) } while ($ids.Count -gt $n); " +
+          "$all | Where-Object { $ids -contains $_.ProcessId } | Format-List ProcessId,ParentProcessId,Name,CreationDate,CommandLine | Out-String -Width 400"],
         { encoding: "utf8" },
       );
 const until = async (output, pattern, ms) => {
