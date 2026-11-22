@@ -1,13 +1,14 @@
 // Prove a packaged app runs on a system where the journeys can't run (Windows and Linux, where CI runs it, and the Intel
 // macOS build under Rosetta): open it on an empty data folder, check what it shows, take the steps, check again, then open it again and
 // check the result was kept. The checks and steps are the app's own, in apps/desktop/journeys/smoke.json.
-// Usage: node scripts/smoke.mjs <executable> <folder with node_modules/playwright-core> <evidence folder>
+// With an expected version, it also waits for the app to download that update (the app reports it on stdout).
+// Usage: node scripts/smoke.mjs <executable> <folder with node_modules/playwright-core> <evidence folder> [<version>]
 import * as NodeFs from "node:fs/promises";
 import * as NodeModule from "node:module";
 import * as NodeOs from "node:os";
 import * as NodePath from "node:path";
 
-const [executable, tools, evidence] = process.argv.slice(2);
+const [executable, tools, evidence, update] = process.argv.slice(2);
 if (!executable || !tools || !evidence) {
   throw new Error("usage: node scripts/smoke.mjs <executable> <folder with node_modules/playwright-core> <evidence folder>");
 }
@@ -40,6 +41,19 @@ const shows = async (page, { id, lines }) => {
 };
 
 const first = await open();
+const updated = update
+  ? new Promise((resolve, reject) => {
+      let said = "";
+      const timer = setTimeout(() => reject(new Error(`no update to ${update} within 3 minutes; the app said:\n${said}`)), 180_000);
+      first.app.process().stdout.on("data", (chunk) => {
+        said += String(chunk);
+        if (said.includes(`update downloaded: ${update}`)) {
+          clearTimeout(timer);
+          resolve(said);
+        }
+      });
+    })
+  : Promise.resolve("");
 await shows(first.page, plan.start);
 for (const step of plan.steps) {
   if ("fill" in step) await first.page.getByTestId(step.fill).fill(step.text);
@@ -47,6 +61,7 @@ for (const step of plan.steps) {
 }
 await shows(first.page, plan.after);
 await first.page.screenshot({ path: NodePath.join(evidence, "01-after-steps.png") });
+if (update) process.stdout.write(`${(await updated).trim()}\n`);
 await first.app.close();
 
 const again = await open();

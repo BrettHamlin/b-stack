@@ -81,6 +81,9 @@ def node_env() -> dict:
         'pnpm_config_update_notifier': 'false',
         # Electron's install.js downloads its binary here and checks it against the package's checksums.json.
         'electron_config_cache': str(tools_dir() / 'electron-cache'),
+        # electron-builder's own downloads (installer tools such as NSIS and appimagetool, each pinned by its version
+        # with a checksum) go to the tools folder too.
+        'ELECTRON_BUILDER_CACHE': str(tools_dir() / 'electron-builder-cache'),
         'NO_UPDATE_NOTIFIER': '1',
         'DO_NOT_TRACK': '1',
     })

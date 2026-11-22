@@ -66,15 +66,30 @@ jobs:
         env:
           CI: "false"
         run: python3 scripts/test_rules.py --platform typescript
-      - name: Package for every platform; journeys against the Apple silicon package, smoke test on the Intel one (Rosetta)
+      - name: Throwaway Windows signing certificate (the Windows jobs trust it, to check the signatures)
+        run: |
+          cd "$RUNNER_TEMP"
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout win-key.pem -out win-cert.pem -days 1 -subj "/CN=b-stack CI" -addext "extendedKeyUsage=codeSigning"
+          openssl pkcs12 -export -legacy -inkey win-key.pem -in win-cert.pem -out win.pfx -passout pass:ci 2>/dev/null \
+            || openssl pkcs12 -export -inkey win-key.pem -in win-cert.pem -out win.pfx -passout pass:ci
+          mkdir -p "$RUNNER_TEMP/release" && cp win-cert.pem "$RUNNER_TEMP/release/"
+          echo "WIN_CSC_LINK=$RUNNER_TEMP/win.pfx" >> "$GITHUB_ENV"
+          echo "WIN_CSC_KEY_PASSWORD=ci" >> "$GITHUB_ENV"
+          echo "BSTACK_UPDATE_URL=http://127.0.0.1:8765/" >> "$GITHUB_ENV"
+      - name: Version 0.1.1 for Windows and Linux (x64), the update the 0.1.0 apps must find
         working-directory: starters/typescript/template
-        run: python3 scripts/package.py --all
+        run: |
+          python3 scripts/package.py win-x64 linux-x64 --version 0.1.1 --no-journeys
+          for t in win-x64 linux-x64; do mkdir -p "$RUNNER_TEMP/release/update-$t" && cp .build/package/out/update/$t/* "$RUNNER_TEMP/release/update-$t/"; done
+      - name: Version 0.1.0 installers for every target; journeys on the Apple silicon app, smoke on its .dmg and on the Intel app (Rosetta)
+        working-directory: starters/typescript/template
+        run: |
+          python3 scripts/package.py --all
+          cp .build/package/out/*.exe .build/package/out/*.AppImage "$RUNNER_TEMP/release/"
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: typescript-packages
-          path: |
-            starters/typescript/template/.build/package/starter-win-x64.zip
-            starters/typescript/template/.build/package/starter-linux-x64.tar.gz
+          name: typescript-installers
+          path: ${{ runner.temp }}/release/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         if: always()
@@ -110,51 +125,72 @@ jobs:
           echo "CSC_KEY_PASSWORD=ci" >> "$GITHUB_ENV"
           # electron-builder skips signing in pull-request builds unless told; this certificate is a throwaway.
           echo "CSC_FOR_PULL_REQUEST=true" >> "$GITHUB_ENV"
-      - name: Package signed; codesign --verify; journeys against the signed app
+      - name: Signed 0.1.1, the update the signed 0.1.0 app must take
         working-directory: starters/typescript/template
+        env:
+          BSTACK_UPDATE_URL: http://127.0.0.1:8765/
+        run: |
+          python3 scripts/package.py mac-arm64 --version 0.1.1 --no-journeys
+          mkdir -p "$RUNNER_TEMP/update" && cp .build/package/out/update/mac-arm64/* "$RUNNER_TEMP/update/"
+      - name: Signed 0.1.0; codesign --verify; journeys against the signed app; smoke on its .dmg
+        working-directory: starters/typescript/template
+        env:
+          BSTACK_UPDATE_URL: http://127.0.0.1:8765/
         run: |
           python3 scripts/package.py mac-arm64
           codesign -dv --verbose=2 .build/package/out/mac-arm64/starter.app 2>&1 | grep -E 'Authority|Runtime|flags'
+      - name: Install the signed 0.1.0 .dmg; it finds, downloads and verifies the 0.1.1 update
+        working-directory: starters/typescript/template
+        run: |
+          npm install --prefix "$RUNNER_TEMP/smoke" --no-save --ignore-scripts playwright-core@1.64.1
+          python3 scripts/install_and_smoke.py .build/package/out/starter-0.1.0-mac-arm64.dmg "$RUNNER_TEMP/smoke" "$RUNNER_TEMP/update-evidence" --update "$RUNNER_TEMP/update" 0.1.1 8765
 
-  typescript-smoke:
+  typescript-installers:
+    # Each installer installed the way a user would, on its own system; Windows signatures checked by Windows; the x64
+    # apps also find, download and verify the 0.1.1 update.
     needs: typescript
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            package: starter-win-x64.zip
-            executable: starter/starter.exe
-          - os: ubuntu-latest
-            package: starter-linux-x64.tar.gz
-            executable: starter/starter
+          - { os: windows-latest, installer: starter-0.1.0-win-x64.exe, update: win-x64 }
+          - { os: windows-11-arm, installer: starter-0.1.0-win-arm64.exe, update: "" }
+          - { os: ubuntu-latest, installer: starter-0.1.0-linux-x64.AppImage, update: linux-x64 }
+          - { os: ubuntu-24.04-arm, installer: starter-0.1.0-linux-arm64.AppImage, update: "" }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
       - uses: actions/download-artifact@v8.0.2
         with:
-          name: typescript-packages
-          path: packages
-      - name: Unpack
-        run: |
-          mkdir app && cd app
-          case "${{ matrix.package }}" in *.zip) unzip -q "../packages/${{ matrix.package }}" ;; *) tar -xzf "../packages/${{ matrix.package }}" ;; esac
+          name: typescript-installers
+          path: release
       - name: playwright-core at the starter's pinned version
         run: npm install --prefix "$RUNNER_TEMP/smoke" --no-save --ignore-scripts playwright-core@1.64.1
-      - name: Smoke test the package on ${{ matrix.os }}
+      - name: Trust the throwaway Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
+          Import-Certificate -FilePath release/win-cert.pem -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Import-Certificate -FilePath release/win-cert.pem -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+      - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
+        run: |
+          signed=""; [ "$RUNNER_OS" = "Windows" ] && signed="--signed"
+          update=""; [ -n "${{ matrix.update }}" ] && update="--update release/update-${{ matrix.update }} 0.1.1 8765"
           if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run --auto-servernum"; else run=""; fi
-          $run node starters/typescript/template/scripts/smoke.mjs "app/${{ matrix.executable }}" "$RUNNER_TEMP/smoke" smoke-evidence
+          $run python3 starters/typescript/template/scripts/install_and_smoke.py "release/${{ matrix.installer }}" "$RUNNER_TEMP/smoke" smoke-evidence $signed $update
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
-          name: smoke-${{ matrix.os }}
+          name: installer-${{ matrix.os }}
           path: smoke-evidence/
           if-no-files-found: ignore

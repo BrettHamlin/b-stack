@@ -6,8 +6,8 @@ pnpm reads it, whatever its text looks like.
   sources    every package was resolved from https://registry.npmjs.org/: no git, URL or folder dependencies
              (workspace packages are linked, not resolved). pnpm checks each download against the lockfile's hash.
   licenses   each installed copy's own license: shipped dependencies (each package's `dependencies`, all the way
-             down) are permissive; build and test tools (devDependencies) may also be MPL-2.0, Python-2.0 or WTFPL,
-             which never ship. An SPDX `OR` needs one allowed choice; `AND` needs all.
+             down) are permissive; build and test tools (devDependencies) may also be MPL-2.0 or WTFPL, which never
+             ship. An SPDX `OR` needs one allowed choice; `AND` needs all.
 
 Usage: python3 scripts/deps.py
 """
@@ -22,8 +22,8 @@ from tools import install, node_env  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = 'https://registry.npmjs.org/'
 PERMISSIVE = {'MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'BlueOak-1.0.0', 'CC0-1.0',
-              'Unlicense', 'Zlib'}
-TOOLS_ALSO = {'MPL-2.0', 'Python-2.0', 'WTFPL'}
+              'Unlicense', 'Zlib', 'Python-2.0'}
+TOOLS_ALSO = {'MPL-2.0', 'WTFPL'}
 
 
 def installed(env: dict, prod: bool) -> list[dict]:
