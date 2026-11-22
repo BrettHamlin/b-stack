@@ -1,0 +1,3 @@
+expect = "pass"
+enforced_by = "arch"
+uses_example = false

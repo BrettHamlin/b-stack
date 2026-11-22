@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = false
+diagnostic = "typescript(no-unsafe-return)"

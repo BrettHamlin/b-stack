@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = "names one of the example feature's journeys again"
+diagnostic = "journey `bad_name_is_refused` is already named in"

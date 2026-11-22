@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deps"
+uses_example = false
+diagnostic = "[allowed-dependencies] vendored@file:packages/features/probe/vendor/vendored comes from file:packages/features/probe/vendor/vendored. Packages come only from the npm registry"

@@ -13,3 +13,9 @@ tests = "Project.swift builds the UnitTests scheme from every .unitTests target;
 tests = "check.py's tests gate runs cargo test --workspace --all-targets, then the doc tests, so a new crate's tests run without being listed anywhere."
 arch = "No #[ignore] (or cfg_attr(..., ignore)); no test = false or doctest = false on a target, harness = false, or autotests/autobins/autoexamples/autobenches/autolib = false."
 message = "Every test runs: never skip one or turn a target's tests off. If a test can't pass, fix the code or the test, or stop and report."
+
+[typescript]
+tests = "check.py's tests gate runs vp test's unit project, whose include is every package's tests/**/*.test.ts(x): a new package's tests run without being listed anywhere. Vitest runs with allowOnly = false and retry = 0 (T3 Code's setting)."
+lint = "bstack/no-skipped-tests: no .skip, .only, .todo, .skipIf, .runIf or .fails (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+arch = "scripts/arch.py: files in tests/ are *.test.ts(x) or helpers in tests/support/; packages have no scripts."
+message = "Every test runs: never skip one or turn a package's tests off. If a test can't pass, fix the code or the test, or stop and report."

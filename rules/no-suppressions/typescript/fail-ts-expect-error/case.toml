@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[no-suppressions] packages/features/probe/src/index.ts:1: suppression comments aren't allowed"

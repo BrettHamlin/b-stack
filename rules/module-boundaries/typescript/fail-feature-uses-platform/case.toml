@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[module-boundaries] packages/features/probe/package.json: a feature package can't depend on @app/probe-io (platform)"

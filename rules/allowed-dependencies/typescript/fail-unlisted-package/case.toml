@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[allowed-dependencies] packages/features/probe/package.json: \"lodash\" isn't allowed in a feature package's dependencies"

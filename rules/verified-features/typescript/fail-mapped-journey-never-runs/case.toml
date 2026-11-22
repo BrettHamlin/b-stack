@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+diagnostic = "[verified-features] feature-map/probe.toml: journey `probe_journey` isn't in apps/desktop/journeys/, so it never runs."

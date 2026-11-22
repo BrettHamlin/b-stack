@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[no-io-in-logic] packages/features/probe/src/load.mts: only TypeScript (.ts, .tsx)"

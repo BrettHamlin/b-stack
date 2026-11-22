@@ -1,6 +1,7 @@
 """Tests for the starter's Python helpers that rule cases can't reach (they run outside check.py's gates).
 
-Covers both starters: the iOS one's check record and simulator lock, and the Rust one's tool and toolchain setup.
+Covers every starter: the iOS one's check record and simulator lock, the Rust one's tool and toolchain setup, and the
+TypeScript one's tool setup (Node.js, pnpm and where installed packages go).
 
 Usage: python3 scripts/test_starter_scripts.py
 """
@@ -21,6 +22,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / 'starters/ios/template'
 RUST_TEMPLATE = ROOT / 'starters/rust/template'
+TS_TEMPLATE = ROOT / 'starters/typescript/template'
 sys.path.insert(0, str(TEMPLATE / 'scripts'))
 import handback  # noqa: E402
 import paths  # noqa: E402
@@ -453,6 +455,79 @@ class RustToolsTests(unittest.TestCase):
     def test_paths_helper_matches_the_ios_starter(self) -> None:
         # One cache-folder policy for every starter: a change to one copy must be made to both.
         self.assertEqual((RUST_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
+
+
+class TypeScriptToolsTests(unittest.TestCase):
+    """The TypeScript starter's scripts/tools.py, in a copy of its scripts with fake Node.js and pnpm archives."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(TS_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        self.tools = self.root / 'tools'
+        self.cache = self.root / 'cache'
+        self.cache.mkdir()
+        self.env = {**os.environ, 'BSTACK_TOOLS_DIR': str(self.tools), 'BSTACK_CACHE_DIR': str(self.cache)}
+
+    def archive(self, name: str) -> tuple[Path, str]:
+        source = self.root / f'src/{name}/bin'
+        source.mkdir(parents=True)
+        (source / name).write_text(f'#!/bin/sh\necho {name}\n')
+        archive = self.root / f'{name}.tar.gz'
+        subprocess.run(['tar', 'czf', str(archive), '-C', str(self.root / 'src'), name], check=True)
+        return archive, hashlib.sha256(archive.read_bytes()).hexdigest()
+
+    def pin(self, node_sha: str | None = None) -> None:
+        node, node_digest = self.archive('node')
+        pnpm, pnpm_digest = self.archive('pnpm')
+        (self.root / 'tools.toml').write_text(
+            f'[node]\nversion = "1.0"\nurl = "{node.as_uri()}"\nsha256 = "{node_sha or node_digest}"\nbinary = "node/bin/node"\n'
+            f'[pnpm]\nversion = "1.0"\nurl = "{pnpm.as_uri()}"\nsha256 = "{pnpm_digest}"\nbinary = "pnpm/bin/pnpm"\n')
+
+    def node_env(self) -> subprocess.CompletedProcess:
+        script = ('import json, sys; sys.path.insert(0, sys.argv[1]); from tools import node_env; '
+                  'print(json.dumps(node_env()))')
+        return subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], env=self.env,
+                              capture_output=True, text=True)
+
+    def test_node_env_puts_pinned_tools_first_and_installs_in_the_cache(self) -> None:
+        self.pin()
+        result = self.node_env()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        env = json.loads(result.stdout)
+        path = env['PATH'].split(os.pathsep)
+        self.assertEqual(path[:3], [str(self.root / 'node_modules/.bin'), str(self.tools / 'node-1.0/node/bin'),
+                                    str(self.tools / 'pnpm-1.0/pnpm/bin')])
+        self.assertEqual(env['pnpm_config_store_dir'], str(self.tools / 'pnpm-store'))
+        self.assertTrue(Path(env['pnpm_config_virtual_store_dir']).is_relative_to(self.cache))
+        self.assertEqual(env['electron_config_cache'], str(self.tools / 'electron-cache'))
+        self.assertTrue((self.root / '.build').resolve().is_relative_to(self.cache.resolve()))
+
+    def test_node_env_drops_inherited_package_manager_settings(self) -> None:
+        self.pin()
+        self.env['npm_config_registry'] = 'https://example.invalid/'
+        self.env['pnpm_config_registry'] = 'https://example.invalid/'
+        env = json.loads(self.node_env().stdout)
+        self.assertNotIn('npm_config_registry', env)
+        self.assertNotIn('pnpm_config_registry', env)
+
+    def test_checksum_mismatch_is_refused_and_leaves_nothing(self) -> None:
+        self.pin(node_sha='0' * 64)
+        result = self.node_env()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('checksum mismatch', result.stderr)
+        self.assertFalse((self.tools / 'node-1.0').exists())
+
+    def test_missing_cache_drive_stops_instead_of_installing_elsewhere(self) -> None:
+        self.pin()
+        self.env['BSTACK_CACHE_DIR'] = str(self.root / 'unmounted')
+        result = self.node_env()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Is its drive mounted?', result.stderr)
+        self.assertFalse((self.root / '.build').exists())
+
+    def test_paths_helper_matches_the_ios_starter(self) -> None:
+        self.assertEqual((TS_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
 
 
 class HandUseTests(SimulatorProcesses):

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[no-suppressions] packages/features/probe/.npmrc: lint, test, compiler and package-manager settings live only"

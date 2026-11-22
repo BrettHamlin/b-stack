@@ -114,6 +114,9 @@ SHARED_LIST = re.compile(r'public\s+let\s+sharedLinks\s*:\s*Set\s*<\s*SharedLink
 FEATURE_NAME = re.compile(r'Feature\("([A-Z][A-Za-z0-9]*)"')  # a declaration's feature name (same check in check_repo.py)
 if platform.name == 'rust':
     SKIP.add('target')  # Cargo's default build folder, if someone built without scripts/tools.py's settings
+SKIP.update(platform.installed)  # each worker installs its own (into its own cache folder)
+# Copies leave out what the package manager installed, at any depth (TypeScript: each package's node_modules).
+NOT_COPIED = shutil.ignore_patterns(*platform.installed) if platform.installed else None
 
 cache = cache_root()
 # One folder per project checkout, so runs from two checkouts never share files; a lock stops two runs of one.
@@ -145,7 +148,7 @@ class Worker:
             if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
                 # Symlinks stay links: Rules/Sources/ModuleShape links to the helpers a case may overlay.
                 if item.is_dir():
-                    shutil.copytree(item, self.work / item.name, symlinks=True)
+                    shutil.copytree(item, self.work / item.name, symlinks=True, ignore=NOT_COPIED)
                 else:
                     shutil.copy2(item, self.work / item.name)
 
@@ -161,10 +164,10 @@ class Worker:
             if (self.work / folder).exists():
                 shutil.rmtree(self.work / folder)
             if (project / folder).exists():
-                shutil.copytree(project / folder, self.work / folder, symlinks=True)
+                shutil.copytree(project / folder, self.work / folder, symlinks=True, ignore=NOT_COPIED)
             for source in sources:
                 if (source / folder).is_dir():
-                    shutil.copytree(source / folder, self.work / folder, dirs_exist_ok=True)
+                    shutil.copytree(source / folder, self.work / folder, dirs_exist_ok=True, ignore=NOT_COPIED)
         for name in EDITABLE:
             if (project / name).is_file():
                 shutil.copy2(project / name, self.work / name)

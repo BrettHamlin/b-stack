@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+diagnostic = "[verified-features] packages/features/probe isn't in the feature map."

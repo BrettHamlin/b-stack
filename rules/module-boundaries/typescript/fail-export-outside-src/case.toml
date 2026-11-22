@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[module-boundaries] packages/features/probe/package.json: every export must be a file in ./src/"

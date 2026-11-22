@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+diagnostic = "[verified-features] journey `unmapped_journey` in apps/desktop/journeys/ isn't in the feature map."

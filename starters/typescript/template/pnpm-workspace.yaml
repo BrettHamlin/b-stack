@@ -1,0 +1,17 @@
+# The module shape's folders (arch/shape.json): a new package in one of them is installed and checked without
+# editing this file.
+packages:
+  - packages/contracts
+  - packages/features/*
+  - packages/platform/*
+  - apps/desktop
+  - apps/web
+
+# Each package sees only the packages it declares: nothing is hoisted where an undeclared import could find it.
+hoist: false
+publicHoistPattern: []
+# No package runs install scripts (pnpm's default without allowBuilds). Electron's binary is downloaded by
+# scripts/tools.py, which runs its install.js.
+# One Vite (vite-plus's), as in T3 Code, so @effect/vitest and vp test share one Vitest.
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0

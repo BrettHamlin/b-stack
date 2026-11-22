@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = false
+diagnostic = "packages/features/probe doesn't declare \"vite-plus\" in dependencies"

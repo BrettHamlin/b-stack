@@ -3,7 +3,7 @@ layer = "2"
 summary = "Feature logic modules (*Logic) do no I/O; side effects go through injected clients."
 problem = "Neither TCA nor Mobius stops a reducer or update function from reading files or calling the network, so logic becomes untestable and effects escape cancellation."
 message = "No I/O in a Logic module. Define a client protocol in the feature's Interface module, inject it, and call it from an effect."
-escape_hatches = ["Wrapping the API in a local helper inside the Logic module: the text match still sees the API name.", "Unlisted I/O APIs: add them to NoIOInLogic.swift when found."]
+escape_hatches = ["Wrapping the API in a local helper inside the Logic module: the text match still sees the API name.", "Unlisted I/O APIs: add them to NoIOInLogic.swift when found.", "TypeScript: reaching a global by reflection (`Reflect.get(globalThis, \"fetch\")`) gives `any`, which no-unsafe-call rejects; by index (`globalThis[\"fetch\"]`), the compiler rejects it.", "TypeScript: `declare` and `/// <reference types>` tell the compiler a global exists: lint bans both; `.d.ts` and `.js` files: the arch gate bans them."]
 origin = "State-flow trial, Nov 2026: probe 6 (logic does I/O directly) was caught by neither TCA nor Mobius."
 
 [ios]
@@ -14,3 +14,9 @@ layer = "1+2"
 compiler = "Core and feature crates are #![no_std]: std (files, network, clocks, threads, processes) doesn't exist there, so any use is an unresolved name (Rust 1.99.0)."
 arch = "arch/checker: a no_std role's src/lib.rs must start with #![no_std], and `extern crate std` is banned in it."
 message = "No I/O in core or feature crates: they're no_std. Define a trait for what you need in the feature crate, implement it in a platform crate, and pass it in from the app crate."
+
+[typescript]
+layer = "1+2"
+compiler = "Contracts and feature packages compile with lib ES2024 only and no types: Node.js modules, fetch, timers, process, console and the DOM don't exist there, so any use is a type error (TypeScript 7.0.2 (effect-tsgo 0.67.1))."
+lint = "bstack/module-boundaries allows logic only the effect modules listed in arch/shape.json (no FileSystem, Path, HTTP or processes, and no `effect` barrel); bstack/no-ambient-declarations bans `declare`, and typescript/triple-slash-reference bans `/// <reference types>`, the two ways to tell the compiler a global exists (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+arch = "scripts/arch.py: no .js or .d.ts files in packages, so every file is TypeScript checked against its role."

@@ -3,7 +3,7 @@ layer = "2"
 summary = "No lint or compiler suppression comments outside a protected allowlist."
 problem = "The quickest way past any lint rule is a suppression comment, and agents use them freely under pressure to finish."
 message = "Suppression comments aren't allowed. Fix the underlying issue. If the rule is wrong here, stop and report; a human adds allowlist exceptions."
-escape_hatches = ["Disabling the rule in config: config is protected.", "Moving code into an allowlisted file: allowlist changes need a code owner."]
+escape_hatches = ["Disabling the rule in config: config is protected.", "Moving code into an allowlisted file: allowlist changes need a code owner.", "TypeScript: `/* oxlint-disable */` switches off every lint rule in its file, so the ban is a text match in the arch gate; a package tsconfig that changes settings, or a nested lint or package-manager config: the arch gate."]
 origin = "Design discussion, Nov 2026."
 
 [ios]
@@ -12,3 +12,7 @@ swiftlint = "Custom rule no_suppressions matches swiftlint:disable/enable in com
 [rust]
 arch = "arch/checker: no #[allow], #[expect] or #[warn] (or the same inside cfg_attr) anywhere; every crate's [lints] is exactly `workspace = true`; no build scripts or proc-macro crates; no macro_rules!, include! or #[path], which hide code from the parse. Clippy's allow_attributes is also on."
 message = "Lint attributes aren't allowed, and lint levels live only in the protected Cargo.toml and clippy.toml. Fix the underlying issue. If the rule is wrong here, stop and report."
+
+[typescript]
+arch = "scripts/arch.py: no eslint-/oxlint-disable, @ts-ignore, @ts-expect-error, @ts-nocheck or @effect-diagnostics comment in any source file (a text match, so the words in a string fail too); every package's tsconfig.json is exactly the extends of its role's config; no lint, test, compiler or package-manager config files outside the root and arch/. Oxlint's own rule can't do it: a disable-all comment switches off every rule, the ban included (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+message = "Suppression comments aren't allowed, and compiler and lint settings live only in the protected root files and arch/. Fix the underlying issue. If the rule is wrong here, stop and report."

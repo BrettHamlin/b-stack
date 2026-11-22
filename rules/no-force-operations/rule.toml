@@ -3,7 +3,7 @@ layer = "2"
 summary = "No force unwraps, force try or force casts."
 problem = "Force operations turn an unexpected value into a crash, and agents use them to make code compile quickly."
 message = "Don't force it. Unwrap safely (if let, guard let, ??), handle the error, or use as?. If a value truly can't be missing, model that in the type instead."
-escape_hatches = ["Suppression comments: banned by no-suppressions.", "Implicitly unwrapped optionals (Type!): also banned."]
+escape_hatches = ["Suppression comments: banned by no-suppressions.", "Implicitly unwrapped optionals (Type!): also banned.", "TypeScript: a type predicate that lies (`(x): x is T => true`), or a cast inside a third-party helper: review."]
 origin = "Design discussion, Nov 2026. Tested with SwiftLint 0.65.1."
 
 [ios]
@@ -12,3 +12,7 @@ swiftlint = "force_unwrapping, force_try, force_cast and implicitly_unwrapped_op
 [rust]
 clippy = "unwrap_used, expect_used, panic, todo, unimplemented, indexing_slicing and as_conversions (deny; allowed inside tests via clippy.toml)."
 message = "Don't force it. Handle the None or Err (?, if let, match, ok_or), use .get() instead of indexing, and From/TryFrom instead of `as`. If a value truly can't be missing, model that in the type instead."
+
+[typescript]
+lint = "typescript/no-non-null-assertion, consistent-type-assertions (assertionStyle never: no `as` or `<T>` casts; `as const` stays), no-explicit-any, and the type-aware no-unsafe-* rules, so an `any` from JSON.parse or elsewhere can't flow out (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+message = "Don't force it. Handle the missing value (Option, ??, a type guard), decode unknown data with Effect Schema, and use `unknown` instead of `any`. If a value truly can't be missing, model that in the type instead."

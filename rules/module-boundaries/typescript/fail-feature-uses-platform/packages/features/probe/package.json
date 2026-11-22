@@ -1,0 +1,13 @@
+{
+  "name": "@app/probe",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@app/contracts": "workspace:*",
+    "@app/probe-io": "workspace:*",
+    "effect": "4.1.5"
+  }
+}

@@ -13,3 +13,7 @@ compiler = "@available(*, unavailable, message: \"Use <replacement>, which <why>
 layer = "1+2"
 compiler = "#[deprecated(note = \"Use <replacement>, which <why>\")] on owned APIs, with the deprecated lint at deny: a call fails to compile and the error carries the note (Rust 1.99.0)."
 clippy = "clippy.toml disallowed-methods (deny) for std and third-party APIs, each with the reason and replacement; std::thread::sleep is banned to start."
+
+[typescript]
+layer = "2"
+lint = "typescript/no-deprecated (type-aware): calling an owned API marked `/** @deprecated Use <replacement>, which <why>. */` fails, and the message carries the note (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). Third-party APIs: eslint/no-restricted-imports and no-restricted-globals in vite.config.ts, each with the replacement."

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deps"
+uses_example = false
+diagnostic = "[allowed-dependencies] vendored: license GPL-3.0-only isn't allowed in shipped dependencies"
