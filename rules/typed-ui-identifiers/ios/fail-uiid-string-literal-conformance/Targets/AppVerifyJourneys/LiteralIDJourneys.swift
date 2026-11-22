@@ -1,5 +1,5 @@
 public import Core
-import SettingsInterface
+import MeterInterface
 import JourneyKit
 
 extension UIID: @retroactive ExpressibleByStringLiteral {
@@ -9,8 +9,8 @@ extension UIID: @retroactive ExpressibleByStringLiteral {
 }
 
 final class LiteralIDJourneys: Journey {
-    func testTogglesNotifications() {
-        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
-        tapWhenHittable(screen.find("notificationSettings.toggle"))
+    func testAddsOne() {
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: MeterUIID.increment)
+        tapWhenHittable(screen.find("meter.increment"))
     }
 }

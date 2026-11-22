@@ -1,0 +1,10 @@
+# A journey that passes but attaches nothing fails the gate, naming it, on any app. fail-journey-without-screenshots
+# shows the same on the starter for a journey that launches the app (so it has a fixture record, but no screenshot).
+# Adapter generated as an agent would (verify.py adapters).
+expect = "fail"
+enforced_by = "verify"
+uses_example = false
+case_feature = true
+generate_adapters = true
+needs_fixtures = ["standard"]
+diagnostic = "[verify] journey MeterJourneys/testAddsOne attached no screenshots"

@@ -1,4 +1,4 @@
-import ProfileInterface
+import CaseProfileInterface
 public import JourneyKit
 
 public final class ProfileJourneys: Journey {

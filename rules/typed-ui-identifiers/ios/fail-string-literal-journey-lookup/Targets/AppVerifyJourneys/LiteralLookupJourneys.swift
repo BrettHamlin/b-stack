@@ -1,9 +1,9 @@
 import JourneyKit
 
 final class LiteralLookupJourneys: Journey {
-    func testTogglesNotifications() {
+    func testAddsOne() {
         let app = XCUIApplication()
         app.launch()
-        app.switches["notificationSettings.toggle"].switches.firstMatch.tap()
+        app.switches["meter.increment"].switches.firstMatch.tap()
     }
 }

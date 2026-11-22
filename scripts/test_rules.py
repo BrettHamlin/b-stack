@@ -4,7 +4,9 @@ Cases are per platform: rules/<rule-id>/<platform>/<case>/ runs against that pla
 says which folders and files a case may change). With no --platform and no --project, each platform runs in turn and
 the run fails if any does. For iOS, Targets/, feature-map/, Tuist/ProjectDescriptionHelpers/ (Features.swift) and
 Project.swift are reset to the project's before each case; for Rust, crates/, feature-map/ and Cargo.toml. Then the
-case's own copies are overlaid, and its `edits` (find/replace in those files) are applied:
+case's own copies are overlaid (on iOS, after the case feature in rules/case-feature/ios if the case asks for it, with
+declared features and shared links added to the project's own Features.swift), and its `edits` (find/replace in those
+files) are applied:
   fail case   `check.py --only <enforced_by>` must fail, and its output must contain the case's diagnostic
   pass case   `check.py` must pass every gate except verify, so correct code never trips any rule
 The untouched project must pass every gate, including verify (journeys in the running app); if it doesn't, no case
@@ -14,7 +16,8 @@ project doesn't have by listing it in `adds_targets`; otherwise a missing one is
 
 Every case says whether it uses the starter's example feature (`uses_example`: false, or why it does). Those cases run
 only on the starter itself; with --project <another app> they are left out (OUT) and listed with that reason, since a
-real app has replaced the example.
+real app has replaced the example. Cases that need a feature's modules bring their own (iOS: `case_feature`,
+`features`) and add it to the app's declaration rather than replacing it, so they run on any app.
 
 Cases run on --jobs workers (default: rule_jobs in ~/.config/b-stack/config.toml, else 1), each in its own copy of the project with its own build folder, so no case
 sees another's files and the order doesn't matter. More workers only pay off on a machine with spare CPU and fast disk
@@ -35,6 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import argparse
 import fcntl
+import re
 import hashlib
 import json
 import os
@@ -51,6 +55,7 @@ from paths import cache_root, machine_setting  # noqa: E402
 from simulator import HELD, in_use, simulator, state  # noqa: E402
 sys.path.insert(0, str(ROOT / 'scripts'))
 from platforms import PLATFORMS, platform_of  # noqa: E402
+import verify  # noqa: E402  (the iOS starter's fixture parser, pointed at the project below)
 SKIP = {'.build', '.tools', 'Derived'}
 
 
@@ -101,6 +106,12 @@ OVERLAYS = platform.overlays  # folders a case may add files to or replace files
 EDITABLE = platform.editable  # files a case may change with `edits` (find/replace), reset before every case
 # Rough minutes per case by what it runs, so the longest start first and no worker is left with a long one at the end.
 COST = platform.cost
+CASE_FEATURE = ROOT / 'rules/case-feature' / platform.name  # a small feature cases can bring (iOS), so they needn't use the app's
+FEATURES_FILE = 'Tuist/ProjectDescriptionHelpers/Features.swift'
+# Where declared features go (first, before the app's own) and declared shared links (a set: one the app has is kept once).
+FEATURES_LIST = re.compile(r'public\s+let\s+features\s*:\s*\[\s*Feature\s*\]\s*=\s*\[')
+SHARED_LIST = re.compile(r'public\s+let\s+sharedLinks\s*:\s*Set\s*<\s*SharedLink\s*>\s*=\s*\[')
+FEATURE_NAME = re.compile(r'Feature\("([A-Z][A-Za-z0-9]*)"')  # a declaration's feature name (same check in check_repo.py)
 if platform.name == 'rust':
     SKIP.add('target')  # Cargo's default build folder, if someone built without scripts/tools.py's settings
 
@@ -143,18 +154,31 @@ class Worker:
         proc = subprocess.run(cmd, cwd=self.work, env=self.env(), capture_output=True, text=True)
         return proc.returncode == 0, proc.stdout + proc.stderr
 
-    def reset_targets(self, case_dir: Path | None = None, edits: list[dict] = ()) -> None:
+    def reset_targets(self, case_dir: Path | None = None, case: dict | None = None) -> None:
+        case = case or {}
+        sources = ([CASE_FEATURE] if case.get('case_feature') else []) + ([case_dir] if case_dir else [])
         for folder in OVERLAYS:
             if (self.work / folder).exists():
                 shutil.rmtree(self.work / folder)
             if (project / folder).exists():
                 shutil.copytree(project / folder, self.work / folder, symlinks=True)
-            if case_dir and (case_dir / folder).is_dir():
-                shutil.copytree(case_dir / folder, self.work / folder, dirs_exist_ok=True)
+            for source in sources:
+                if (source / folder).is_dir():
+                    shutil.copytree(source / folder, self.work / folder, dirs_exist_ok=True)
         for name in EDITABLE:
             if (project / name).is_file():
                 shutil.copy2(project / name, self.work / name)
-        for edit in edits:
+        # Added to the app's own declaration, never replacing it: the app's targets must still build.
+        for start, added in ((FEATURES_LIST, [f'\n    {d},' for d in declared_features(case)]),
+                             (SHARED_LIST, [f'.{link}, ' for link in case.get('shared_links', [])])):
+            if added:
+                path = self.work / FEATURES_FILE
+                text = path.read_text()
+                found = list(start.finditer(text))
+                if len(found) != 1:
+                    raise ValueError(f'{FEATURES_FILE}: "{start.pattern}" must match exactly once to add {"".join(added).strip()}')
+                path.write_text(text[:found[0].end()] + ''.join(added) + text[found[0].end():])
+        for edit in case.get('edits', []):
             path = self.work / edit['file']
             text = path.read_text()
             if edit['file'] not in EDITABLE or text.count(edit['find']) != 1:
@@ -168,6 +192,18 @@ class Worker:
                 path = self.work / folder
                 for item in ([path] if path.is_file() else path.rglob('*') if path.is_dir() else []):
                     os.utime(item, (now, now), follow_symlinks=False)
+        if case.get('generate_adapters'):
+            # What an agent runs after adding a journey body: the adapters for the app's journeys plus the case's.
+            proc = subprocess.run([sys.executable, 'scripts/verify.py', 'adapters'], cwd=self.work, env=self.env(),
+                                  capture_output=True, text=True)
+            if proc.returncode != 0:
+                raise ValueError(f'verify.py adapters failed: {(proc.stdout + proc.stderr).strip()[-500:]}')
+
+
+def declared_features(case: dict) -> list[str]:
+    """Feature declarations the case adds to Features.swift: the case feature's, then its own `features`."""
+    kit = tomllib.loads((CASE_FEATURE / 'feature.toml').read_text())['features'] if case.get('case_feature') else []
+    return kit + case.get('features', [])
 
 
 def tail(output: str) -> str:
@@ -187,7 +223,7 @@ class Task:
 
 
 def run_case(worker: Worker, task: Task) -> tuple[str, str]:
-    worker.reset_targets(task.case_dir, (task.case or {}).get('edits', []))
+    worker.reset_targets(task.case_dir, task.case)
     if task.case is None:
         ok, output = worker.check()
         return ('PASS', '') if ok else ('FAIL', tail(output))
@@ -205,6 +241,8 @@ def run_case(worker: Worker, task: Task) -> tuple[str, str]:
 
 # Cases written against the starter's example feature only apply to the starter itself.
 runs_example_cases = project == platform.starter.resolve()
+verify.ROOT = project
+project_fixtures = verify.known_fixtures() if platform.name == 'ios' else set()
 tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=bool(platform.simulator_kinds))]
 for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
     rule, name = case_file.parents[2].name, case_file.parent.name
@@ -213,11 +251,20 @@ for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
     case = tomllib.loads(case_file.read_text())
     task = Task(len(tasks), f'{rule} / {name}  [{case["enforced_by"]}]', case_file.parent, case)
     adds = set(case.get('adds_targets', []))
+    if case.get('case_feature'):
+        adds |= {m.name for m in (CASE_FEATURE / platform.targets).iterdir()}
     case_targets = case_file.parent / platform.targets
     missing = [m.name for m in (case_targets.iterdir() if case_targets.is_dir() else [])
                if not (project / platform.targets / m.name).is_dir() and m.name not in adds]
+    names = [m.group(1) if (m := FEATURE_NAME.match(d)) else d for d in declared_features(case)]  # check_repo.py rejects a non-match
+    taken = [name for name in names if (project / platform.targets / f'{name}Interface').is_dir()]
+    no_fixture = sorted(set(case.get('needs_fixtures', [])) - project_fixtures)
     if case['uses_example'] and not runs_example_cases:
         task.result = ('OUT', f'uses the starter\'s example: {case["uses_example"]}')
+    elif taken:
+        task.result = ('SKIP', f'project already has a feature named {", ".join(taken)}')
+    elif no_fixture:
+        task.result = ('SKIP', f'project has no fixture {", ".join(no_fixture)}')
     elif missing:
         task.result = ('SKIP', f'project has no target {", ".join(missing)}')
     else:

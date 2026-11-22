@@ -1,4 +1,5 @@
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "adds code to the example module Settings"
+uses_example = false
+case_feature = true
 diagnostic = "switch must be exhaustive"

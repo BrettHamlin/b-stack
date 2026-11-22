@@ -1,5 +1,6 @@
 # Features.swift names a feature whose module folders were never created.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "Tuist/ProjectDescriptionHelpers/Features.swift uses Settings"
-diagnostic = "[module-boundaries] Features.swift declares Profile, but these folders are missing: Targets/ProfileInterface, Targets/ProfileLogic, Targets/Profile, Targets/ProfileTests"
+uses_example = false
+features = ['Feature("CaseProfile")']
+diagnostic = "[module-boundaries] Features.swift declares CaseProfile, but these folders are missing: Targets/CaseProfileInterface, Targets/CaseProfileLogic, Targets/CaseProfile, Targets/CaseProfileTests"

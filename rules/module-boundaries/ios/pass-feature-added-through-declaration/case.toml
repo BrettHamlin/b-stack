@@ -1,7 +1,9 @@
-# A new feature added the way agents are told to: its four module folders plus one line in Features.swift, using a
-# link the module shape allows (Platform implements the feature's client, as Hexfleet's saved battle needed).
-# Project.swift and ModuleBoundaries.swift are untouched.
+# A new feature added the way agents are told to: its four module folders plus one line in Features.swift, using
+# links the module shape allows (Platform implements the feature's client and App uses Platform, as Hexfleet's saved
+# battle needed). Project.swift and ModuleBoundaries.swift are untouched, and the app's own features stay declared.
 expect = "pass"
 enforced_by = "harmonize"
-uses_example = "Targets/App/App.swift uses Settings"
-adds_targets = ["ProfileInterface", "ProfileLogic", "Profile", "ProfileTests"]
+uses_example = false
+features = ['Feature("CaseProfile", links: [.viewUsesCore, .platformImplementsInterface, .fixturesUseInterface])']
+shared_links = ["appUsesPlatform"]
+adds_targets = ["CaseProfileInterface", "CaseProfileLogic", "CaseProfile", "CaseProfileTests"]

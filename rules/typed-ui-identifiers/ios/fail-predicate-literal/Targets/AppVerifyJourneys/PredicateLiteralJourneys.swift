@@ -1,9 +1,9 @@
 import JourneyKit
 
 final class PredicateLiteralJourneys: Journey {
-    func testTogglesNotifications() {
+    func testAddsOne() {
         let app = XCUIApplication()
         app.launch()
-        app.switches.element(matching: NSPredicate(format: "identifier == 'notificationSettings.toggle'")).tap()
+        app.switches.element(matching: NSPredicate(format: "identifier == 'meter.increment'")).tap()
     }
 }

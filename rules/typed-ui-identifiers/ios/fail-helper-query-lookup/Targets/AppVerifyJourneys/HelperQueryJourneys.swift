@@ -5,9 +5,9 @@ final class HelperQueryJourneys: Journey {
         app.switches
     }
 
-    func testTogglesNotifications() {
+    func testAddsOne() {
         let app = XCUIApplication()
         app.launch()
-        toggles(app)["notificationSettings.toggle"].switches.firstMatch.tap()
+        toggles(app)["meter.increment"].switches.firstMatch.tap()
     }
 }

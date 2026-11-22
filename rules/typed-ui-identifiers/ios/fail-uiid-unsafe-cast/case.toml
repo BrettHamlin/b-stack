@@ -1,5 +1,6 @@
 # Forging a UIID by reinterpreting a String.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "Targets/AppVerifyJourneys/UnsafeIDJourneys.swift uses SettingsInterface"
+uses_example = false
+case_feature = true
 diagnostic = "[typed-ui-identifiers] Dynamic UI access in journey bodies"

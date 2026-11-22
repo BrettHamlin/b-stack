@@ -2,5 +2,6 @@
 # must stop and report.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "adds code to the example module SettingsLogic"
+uses_example = false
+case_feature = true
 diagnostic = "imports Platform, which is outside the module shape"

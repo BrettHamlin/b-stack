@@ -1,5 +1,5 @@
 import Core
-import SettingsInterface
+import MeterInterface
 import JourneyKit
 
 extension UIID {
@@ -9,8 +9,8 @@ extension UIID {
 }
 
 final class FactoryIDJourneys: Journey {
-    func testTogglesNotifications() {
-        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
-        tapWhenHittable(screen.find(UIID.invented("notificationSettings.toggle")))
+    func testAddsOne() {
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: MeterUIID.increment)
+        tapWhenHittable(screen.find(UIID.invented("meter.increment")))
     }
 }

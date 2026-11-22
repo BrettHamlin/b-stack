@@ -1,4 +1,5 @@
 expect = "fail"
 enforced_by = "tuist"
-uses_example = "adds code to the example module Settings"
-diagnostic = "Settings implicitly depends on: Platform"
+uses_example = false
+case_feature = true
+diagnostic = "Meter implicitly depends on: Platform"

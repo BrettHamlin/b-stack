@@ -2,5 +2,6 @@
 # the *Interface modules.
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "Targets/AppVerifyJourneys/InventedIDJourneys.swift uses SettingsInterface"
+uses_example = false
+case_feature = true
 diagnostic = "is inaccessible due to 'package' protection level"

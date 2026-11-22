@@ -8,4 +8,4 @@ origin = "Verification design, Nov 2026: test mode as a separate app target rath
 
 [ios]
 harmonize = "NoFixturesInRelease.swift: no `import Fixtures` in production code outside Targets/AppVerify and Targets/Fixtures (text match on import lines). ModuleBoundaries also leaves Fixtures off App's allowlist."
-tuist = "inspect dependencies --only redundant: a declared but unused dependency fails (case fail-unused-dependency: App declares Platform but doesn't import it), so App can't link Fixtures without importing it."
+tuist = "inspect dependencies --only redundant: a declared but unused dependency fails (case fail-unused-dependency: Fixtures hand-edited into App's dependencies, never imported), so App can't link Fixtures without importing it."

@@ -11,11 +11,14 @@ rules/<rule-id>/
     case.toml                 what must happen
     Targets/<Target>/*.swift  code overlaid onto the starter's Targets/
     feature-map/*.toml        overlaid onto feature-map/
-    Tuist/ProjectDescriptionHelpers/Features.swift   replaces the feature declaration
+    Tuist/ProjectDescriptionHelpers/Features.swift   replaces the feature declaration (starter-only cases)
   rust/<case-name>/
     case.toml                 what must happen
     crates/**                 overlaid onto the starter's crates/ (usually a new crate, e.g. crates/features/probe/)
     feature-map/*.toml        overlaid onto feature-map/
+rules/case-feature/ios/       Meter: a small iOS feature any case can bring (case_feature = true)
+  feature.toml                its declaration, added to the project's Features.swift
+  Targets/<Target>/*.swift    its modules, plus the files App, AppVerify, Platform and journeys need to use them
 ```
 
 ### rule.toml
@@ -37,8 +40,13 @@ rules/<rule-id>/
 | `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate except `verify`, which runs on the untouched project: on iOS it drives a simulator, and a case's code isn't a mapped feature) |
 | `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `tests` or `verify` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
-| `uses_example` | `false` if the case applies to any app, or a short reason it uses the starter's example (iOS: Settings; Rust: tally; its modules, identifiers, journeys, fixtures or feature map). Required. Example cases run only on the starter; `test_rules.py --project <app>` lists them as OUT with the reason. `check_repo.py` fails a `false` case whose files mention the example |
+| `uses_example` | `false` if the case applies to any app, or a short reason it uses the starter's example (iOS: Settings; Rust: tally; its modules, identifiers, journeys, fixtures or feature map). Required. Example cases run only on the starter; `test_rules.py --project <app>` lists them as OUT with the reason. `check_repo.py` fails a `false` case whose files mention the example, or (iOS) that replaces Features.swift, which would drop the app's own features |
 | `adds_targets` | Optional: targets (iOS) or folders directly under `crates/` (Rust) the case adds that the project doesn't have (otherwise a missing one is a SKIP) |
+| `case_feature` | Optional, iOS: `true` adds the case feature (`rules/case-feature/ios`: modules `MeterInterface`, `MeterLogic`, `Meter`, `MeterTests`, identifiers `MeterUIID`) before the case's own files, so the case can put code in a feature's modules on any app |
+| `features` | Optional, iOS: Swift declarations (`'Feature("CaseProfile", links: [...])'`) added to the front of the project's `features` list, keeping the app's own. A project that already has a feature with a declared name (the case feature's too) SKIPs the case |
+| `shared_links` | Optional, iOS: `SharedLink` cases (`"appUsesPlatform"`) added to the project's `sharedLinks` |
+| `generate_adapters` | Optional, iOS: `true` runs `scripts/verify.py adapters` after the overlay, as an agent does after adding a journey body |
+| `needs_fixtures` | Optional, iOS: fixtures the case's feature map names that must already exist (e.g. `["standard"]`, the starter's default); a project without one SKIPs the case |
 | `edits` | Optional: `[[edits]]` tables (`file`, `find`, `replace`) applied to a protected project file (iOS: `Project.swift`; Rust: the root `Cargo.toml` or `Cargo.lock`), for cases about hand edits. `find` must occur exactly once, or the case FAILs |
 
 Every rule needs at least one `fail` case, unless `tests_pending` explains why.

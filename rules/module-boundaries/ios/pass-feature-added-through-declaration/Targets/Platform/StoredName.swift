@@ -1,5 +1,5 @@
 import Foundation
-public import ProfileInterface
+public import CaseProfileInterface
 
 public struct StoredName: NameStoring {
     public init() {}

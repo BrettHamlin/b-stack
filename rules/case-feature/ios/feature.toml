@@ -1,0 +1,4 @@
+# The feature a case brings with `case_feature = true` (see rules/README.md), so it can put code in a feature's modules
+# on any app. test_rules.py overlays Targets/ below onto the project (before the case's own files) and adds these
+# declarations to the front of the project's `features` list in Features.swift, keeping the app's own features.
+features = ['Feature("Meter", links: [.viewUsesCore, .platformImplementsInterface])']

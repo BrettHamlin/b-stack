@@ -1,10 +1,10 @@
-import SettingsInterface
+import MeterInterface
 import JourneyKit
 
 final class RawConstantJourneys: Journey {
-    func testTogglesNotifications() {
+    func testAddsOne() {
         let app = XCUIApplication()
         app.launch()
-        app.switches[NotificationSettingsUIID.toggle.rawValue].tap()
+        app.switches[MeterUIID.increment.rawValue].tap()
     }
 }

@@ -1,10 +1,10 @@
-import SettingsInterface
+import MeterInterface
 import JourneyKit
 
 final class KeyPathJourneys: Journey {
-    func testTogglesNotifications() {
-        let screen = launchApp(fixture: "standard", reset: true, readyWhen: NotificationSettingsUIID.toggle)
+    func testAddsOne() {
+        let screen = launchApp(fixture: "standard", reset: true, readyWhen: MeterUIID.increment)
         let path = \XCUIElement.switches
-        screen.find(NotificationSettingsUIID.toggle)[keyPath: path].firstMatch.tap()
+        screen.find(MeterUIID.increment)[keyPath: path].firstMatch.tap()
     }
 }

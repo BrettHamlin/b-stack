@@ -1,4 +1,4 @@
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "Targets/AppVerifyJourneys/PredicateLiteralJourneys.swift uses notificationSettings.toggle"
+uses_example = false
 diagnostic = "cannot find 'XCUIApplication' in scope"

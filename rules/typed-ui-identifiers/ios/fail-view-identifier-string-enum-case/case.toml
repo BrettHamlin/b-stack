@@ -1,5 +1,6 @@
 # A local String enum whose case name ends in UIID: the UIID suffix must be on the type, not the case.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "adds code to the example module Settings"
+uses_example = false
+case_feature = true
 diagnostic = "[typed-ui-identifiers] String literal accessibility identifiers"

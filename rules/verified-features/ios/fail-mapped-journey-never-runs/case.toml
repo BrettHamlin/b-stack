@@ -1,5 +1,8 @@
-# The map names a journey that doesn't exist, so nothing proves that behaviour.
+# The map names a journey that doesn't exist, so nothing proves that behaviour. Every other journey runs and passes.
+# The entry uses `standard`, the starter's default fixture; an app without one SKIPs this case.
 expect = "fail"
 enforced_by = "verify"
-uses_example = "feature-map/notification-settings.toml uses notification-settings"
-diagnostic = "[verify] journey NotificationSettingsJourneys/testRestoresAfterReinstall did not run"
+uses_example = false
+case_feature = true
+needs_fixtures = ["standard"]
+diagnostic = "[verify] journey MeterJourneys/testKeepsCountAfterReinstall did not run"

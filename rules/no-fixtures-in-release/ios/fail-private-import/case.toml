@@ -1,5 +1,5 @@
 # A private import still links Fixtures into the shipped app.
 expect = "fail"
 enforced_by = "harmonize"
-uses_example = "Targets/App/App.swift uses Settings"
+uses_example = false
 diagnostic = "[no-fixtures-in-release]"

@@ -1,5 +1,5 @@
 # The journeys pass, but attach no screenshots, so there is no evidence.
 expect = "fail"
 enforced_by = "verify"
-uses_example = "Targets/AppVerifyJourneys/NotificationSettingsJourneys.swift uses SettingsInterface"
+uses_example = "needs a journey that launches the app and passes on screen (so it has a fixture record but no screenshot); fail-journey-without-attachments proves the gate on any app"
 diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch attached no screenshots"

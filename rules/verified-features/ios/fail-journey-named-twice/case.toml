@@ -1,5 +1,6 @@
 # A second entry claims a journey that already proves another feature.
 expect = "fail"
 enforced_by = "verify"
-uses_example = "feature-map/settings-copy.toml uses Settings"
-diagnostic = "[verify] journey NotificationSettingsJourneys/testTurningOffSurvivesRelaunch is named by both feature-map/notification-settings.toml and feature-map/settings-copy.toml"
+uses_example = false
+case_feature = true
+diagnostic = "[verify] journey MeterJourneys/testAddsOne is named by both feature-map/meter-copy.toml and feature-map/meter.toml"

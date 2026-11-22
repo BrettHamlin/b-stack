@@ -1,5 +1,5 @@
 # A handwritten adapter behind a typealias cannot be hidden in the generated runner target.
 expect = "fail"
 enforced_by = "verify"
-uses_example = "Targets/AppVerifyUITests/AliasJourneys.swift uses testOpensSettings"
+uses_example = false
 diagnostic = "[verify] XCTest adapters differ from journey bodies"

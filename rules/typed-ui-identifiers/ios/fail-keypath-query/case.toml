@@ -1,4 +1,5 @@
 expect = "fail"
 enforced_by = "compiler"
-uses_example = "Targets/AppVerifyJourneys/KeyPathJourneys.swift uses SettingsInterface"
+uses_example = false
+case_feature = true
 diagnostic = "cannot find 'XCUIElement' in scope"
