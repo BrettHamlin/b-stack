@@ -122,7 +122,11 @@ def package(env: dict, targets: list[str]) -> dict[str, Path]:
         if not path.is_file():
             sys.exit(f'electron-builder left no {path}')
         if target.startswith('mac') and signed:
-            run(['codesign', '--verify', '--deep', '--strict', str(OUT / 'out' / unpacked / f'{name}.app')], env)
+            app = OUT / 'out' / unpacked / f'{name}.app'
+            proc = subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], capture_output=True, text=True)
+            if proc.returncode != 0:
+                said = [line.strip() for line in output.splitlines() if any(w in line.lower() for w in ('sign', 'identity', 'keychain'))]
+                sys.exit(f'{target}: the app isn\'t validly signed: {proc.stderr.strip()}\nelectron-builder said:\n' + '\n'.join(said))
         print(f'packaged {target}: {archive(name, target)}', flush=True)
         executables[target] = path
     return executables
