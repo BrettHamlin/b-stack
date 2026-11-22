@@ -37,6 +37,17 @@ const within = (promise, ms, what) =>
 const installing = (version) =>
   process.platform === "win32" &&
   NodeChild.execFileSync("tasklist", ["/FO", "CSV", "/NH"], { encoding: "utf8" }).includes(`-${version}-win-`);
+// Windows: every process of the app and its installer, with its parent and command line, for a failure report.
+const processes = () =>
+  process.platform !== "win32"
+    ? ""
+    : NodeChild.execFileSync(
+        "powershell",
+        ["-NoProfile", "-Command",
+          "Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'starter*' -or $_.CommandLine -like '*starter*' } | " +
+          "Format-List ProcessId,ParentProcessId,Name,CommandLine | Out-String -Width 400"],
+        { encoding: "utf8" },
+      );
 const until = async (output, pattern, ms) => {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -86,7 +97,7 @@ if (update) {
 log("closing the app");
 // The app may already be gone (the update's installer can end it): don't wait on it for long.
 await within(first.app.close(), 60_000, "closing the app").catch((error) => log(String(error)));
-log("closed");
+log(`closed\n${processes()}`);
 
 // The update installs after the app quits (on Windows the installer runs on, on macOS Squirrel stages it): reopen
 // until the new version runs, for up to 3 minutes.
@@ -110,7 +121,9 @@ for (let running = "", failure = ""; ; failure = "") {
     }
   }
   log(`not yet: ${failure || `runs ${running}`}`);
-  if (Date.now() > deadline) throw new Error(`the app still runs ${running || "an unknown version"}, not ${update}: ${failure}`);
+  if (Date.now() > deadline) {
+    throw new Error(`the app still runs ${running || "an unknown version"}, not ${update}: ${failure}\n${processes()}`);
+  }
   await new Promise((resolve) => setTimeout(resolve, 5_000));
 }
 if (update) process.stdout.write(`relaunched on ${update}\n`);
