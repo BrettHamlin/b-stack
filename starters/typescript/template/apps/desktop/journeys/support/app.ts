@@ -9,10 +9,11 @@ import { _electron, type ElectronApplication, type Locator, type Page } from "pl
 
 const DESKTOP = NodePath.resolve(import.meta.dirname, "../..");
 const PROJECT = NodePath.resolve(DESKTOP, "../..");
-const EVIDENCE = NodePath.join(PROJECT, ".build/evidence/latest");
+// Where screenshots go: the verify gate's folder, or another one scripts/package.py names per package.
+const EVIDENCE = process.env["BSTACK_EVIDENCE"] ?? NodePath.join(PROJECT, ".build/evidence/latest");
 
 /** The app to launch: the packaged app if $BSTACK_PACKAGED_APP names one (scripts/package.py), else the built one. */
-const command = async (data: string): Promise<{ readonly executablePath: string; readonly args: Array<string> }> => {
+export const command = async (data: string): Promise<{ readonly executablePath: string; readonly args: Array<string> }> => {
   const packaged = process.env["BSTACK_PACKAGED_APP"];
   if (packaged) return { executablePath: packaged, args: ["--data", data] };
   const require = NodeModule.createRequire(import.meta.url);

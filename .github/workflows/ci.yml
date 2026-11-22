@@ -48,7 +48,7 @@ jobs:
 
   typescript:
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0
@@ -66,12 +66,91 @@ jobs:
         env:
           CI: "false"
         run: python3 scripts/test_rules.py --platform typescript
-      - name: Package the app and run the journeys against the package
+      - name: Package for every platform; journeys against both macOS packages (Intel under Rosetta)
         working-directory: starters/typescript/template
-        run: python3 scripts/package.py
+        run: python3 scripts/package.py --all
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: typescript-packages
+          path: |
+            starters/typescript/template/.build/package/starter-win-x64.zip
+            starters/typescript/template/.build/package/starter-linux-x64.tar.gz
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: typescript-evidence
-          path: starters/typescript/template/.build/evidence/latest/
+          path: starters/typescript/template/.build/evidence/
+          if-no-files-found: ignore
+
+  typescript-signing:
+    # A throwaway Developer ID-style certificate, trusted only on this runner, proves the signing path end to end:
+    # electron-builder signs with the hardened runtime, codesign verifies it, and the journeys pass on the signed app.
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: Throwaway signing certificate, trusted on this runner only
+        run: |
+          cd "$RUNNER_TEMP"
+          printf '[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=Developer ID Application: b-stack CI (TEST000000)\n[ext]\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=critical,codeSigning\nbasicConstraints=critical,CA:false\n' > cert.cnf
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 1 -config cert.cnf
+          openssl pkcs12 -export -legacy -inkey key.pem -in cert.pem -out cert.p12 -passout pass:ci
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain cert.pem
+          echo "CSC_LINK=$RUNNER_TEMP/cert.p12" >> "$GITHUB_ENV"
+          echo "CSC_KEY_PASSWORD=ci" >> "$GITHUB_ENV"
+      - name: Package signed; codesign --verify; journeys against the signed app
+        working-directory: starters/typescript/template
+        run: |
+          python3 scripts/package.py mac-arm64
+          codesign -dv --verbose=2 .build/package/out/mac-arm64/starter.app 2>&1 | grep -E 'Authority|Runtime|flags'
+
+  typescript-smoke:
+    needs: typescript
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            package: starter-win-x64.zip
+            executable: starter/starter.exe
+          - os: ubuntu-latest
+            package: starter-linux-x64.tar.gz
+            executable: starter/starter
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: typescript-packages
+          path: packages
+      - name: Unpack
+        run: |
+          mkdir app && cd app
+          case "${{ matrix.package }}" in *.zip) unzip -q "../packages/${{ matrix.package }}" ;; *) tar -xzf "../packages/${{ matrix.package }}" ;; esac
+      - name: playwright-core at the starter's pinned version
+        run: npm install --prefix "$RUNNER_TEMP/smoke" --no-save --ignore-scripts playwright-core@1.64.1
+      - name: Smoke test the package on ${{ matrix.os }}
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run --auto-servernum"; else run=""; fi
+          $run node starters/typescript/template/scripts/smoke.mjs "app/${{ matrix.executable }}" "$RUNNER_TEMP/smoke" smoke-evidence
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: smoke-${{ matrix.os }}
+          path: smoke-evidence/
           if-no-files-found: ignore

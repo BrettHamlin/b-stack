@@ -3,7 +3,7 @@ layer = "foundation"
 summary = "Files that control enforcement can't change without a human code owner."
 problem = "Agents can edit compiler flags, lint config, the dependency graph and CI. Weakening a check is often the cheapest way to pass it."
 message = "This change modifies the enforcement surface. It needs code-owner review. If you changed it to make a check pass, revert and fix the underlying issue, or stop and report."
-escape_hatches = ["Moving settings to an unlisted file: the settings check asserts effective settings.", "Editing the CI workflow in the same PR: CODEOWNERS on .github/ or required org workflows."]
+escape_hatches = ["Moving settings to an unlisted file: the settings check asserts effective settings.", "Editing the CI workflow in the same PR: CODEOWNERS on .github/ or required org workflows.", "TypeScript: weakening a setting and arch/settings.json together, or editing scripts/settings.py: both are code-owned; review."]
 origin = "Design discussion, Nov 2026."
 
 [ios]

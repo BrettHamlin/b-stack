@@ -1,5 +1,10 @@
-# Runs every gate on each pull request and on main. Make the `check` job a required status check in branch
-# protection, with "Require review from Code Owners" (CODEOWNERS covers this file).
+# Runs every gate on each pull request and on main, then packages the app for every platform and proves each package
+# runs. Make `check` and both `smoke` jobs required status checks in branch protection, with "Require review from
+# Code Owners" (CODEOWNERS covers this file).
+#
+# Signing: add the repository secrets MAC_CSC_LINK (base64 of a Developer ID Application .p12) and
+# MAC_CSC_KEY_PASSWORD, and for notarizing APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID. Without them the
+# macOS packages are unsigned. Windows and Linux packages are unsigned.
 name: check
 
 on:
@@ -18,9 +23,14 @@ jobs:
   check:
     # Apple silicon: tools.toml pins the darwin-arm64 Node.js and pnpm, and the journeys open the app's window.
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PYTHONUNBUFFERED: "1"
+      CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0
@@ -31,13 +41,63 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bstack-cache"
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
       # CI=true (set by GitHub): pnpm refuses to change pnpm-lock.yaml, so a package.json edited without its lockfile fails.
-      - name: compiler, lint, deps, arch, tests, verify
+      - name: compiler, lint, deps, arch, settings, tests, verify
         run: python3 scripts/check.py
-      - name: Package the app and run the journeys against the package
-        run: python3 scripts/package.py
+      - name: Package for every platform; journeys against both macOS packages (Intel under Rosetta)
+        run: python3 scripts/package.py --all
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: packages
+          path: .build/package/*.*
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: evidence
-          path: .build/evidence/latest/
+          path: .build/evidence/
+          if-no-files-found: ignore
+
+  smoke:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            package: win-x64.zip
+            executable: .exe
+          - os: ubuntu-latest
+            package: linux-x64.tar.gz
+            executable: ""
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: packages
+          path: packages
+      - name: Unpack
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          echo "APP=app/$name/$name${{ matrix.executable }}" >> "$GITHUB_ENV"
+          mkdir app && cd app
+          case "${{ matrix.package }}" in *.zip) unzip -q ../packages/*-${{ matrix.package }} ;; *) tar -xzf ../packages/*-${{ matrix.package }} ;; esac
+      - name: playwright-core at the pinned version
+        run: npm install --prefix "$RUNNER_TEMP/smoke" --no-save --ignore-scripts "playwright-core@$(node -p 'require("./apps/desktop/package.json").devDependencies["playwright-core"]')"
+      - name: Smoke test the package
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run --auto-servernum"; else run=""; fi
+          $run node scripts/smoke.mjs "$APP" "$RUNNER_TEMP/smoke" smoke-evidence
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: smoke-${{ matrix.os }}
+          path: smoke-evidence/
           if-no-files-found: ignore

@@ -220,7 +220,8 @@
    "dist",
    ".build",
    ".tools",
-   "arch/lint"
+   "arch/lint",
+   "scripts"
   ],
   "plugins": [
    "eslint",
@@ -493,6 +494,7 @@
   "/feature-map/",
   "/apps/desktop/journeys/",
   "/packages/fixtures/",
-  "/.githooks/"
+  "/.githooks/",
+  "/.agents/"
  ]
 }

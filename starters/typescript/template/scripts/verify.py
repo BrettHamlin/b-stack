@@ -9,7 +9,11 @@ apps/desktop/journeys/*.journey.ts, each launching the built Electron app throug
   - a journey fails if it doesn't pass or saves no screenshot (journeys/support/app.ts `checkpoint`)
 Evidence (screenshots per journey, and evidence.md listing them) goes to .build/evidence/latest/.
 
+Explore (not proof): `look` builds the app, opens it on a data folder (kept in .build/look/data between looks, or
+--data), runs the steps given, and saves a screenshot and every element's test id and text to .build/look/.
+
 Usage: python3 scripts/verify.py [map|run]     (default: run, which does the map check first)
+       python3 scripts/verify.py look [--data FOLDER] [--fresh] [fill <test id> <text> | click <test id>]...
 """
 from pathlib import Path
 import json
@@ -141,7 +145,31 @@ def run(env: dict, features: list[dict], build_first: bool = True) -> list[str]:
     return errors
 
 
+def look(args: list[str]) -> int:
+    data = ROOT / '.build/look/data'
+    if '--data' in args:
+        at = args.index('--data')
+        data = Path(args[at + 1]).resolve()
+        args = args[:at] + args[at + 2:]
+    if '--fresh' in args:
+        args = [a for a in args if a != '--fresh']
+        shutil.rmtree(data, ignore_errors=True)
+    env = node_env()
+    install(env)
+    failed = build(env)
+    if failed:
+        print(failed)
+        return 1
+    out = ROOT / '.build/look'
+    proc = subprocess.run(['node', 'journeys/support/look.ts', str(data), str(out), *args], cwd=ROOT / 'apps/desktop',
+                          env=env, capture_output=True, text=True)
+    print((proc.stdout + proc.stderr).strip())
+    return proc.returncode
+
+
 if __name__ == '__main__':
+    if sys.argv[1:2] == ['look']:
+        sys.exit(look(sys.argv[2:]))
     mode = sys.argv[1] if len(sys.argv) > 1 else 'run'
     if mode not in ('map', 'run'):
         sys.exit(__doc__)

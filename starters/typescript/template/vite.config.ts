@@ -8,7 +8,7 @@ const PARTIAL =
 
 export default defineConfig({
   lint: {
-    ignorePatterns: ["node_modules", "dist", ".build", ".tools", "arch/lint"],
+    ignorePatterns: ["node_modules", "dist", ".build", ".tools", "arch/lint", "scripts"],
     plugins: ["eslint", "oxc", "typescript", "unicorn", "react", "import", "vitest"],
     jsPlugins: ["./arch/lint/index.ts"],
     categories: { correctness: ERROR, suspicious: ERROR, perf: ERROR },
