@@ -200,6 +200,17 @@ jobs:
           update=""; [ -n "${{ matrix.update }}" ] && update="--update release/update 0.1.1 8765"
           if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run --auto-servernum"; else run=""; fi
           $run python3 starters/typescript/template/scripts/install_and_smoke.py "release/${{ matrix.installer }}" "$RUNNER_TEMP/smoke" smoke-evidence $signed $update
+      - name: Diagnosis - the update installer run by hand over 0.1.0, not from the app
+        if: always() && runner.os == 'Windows' && matrix.update
+        shell: pwsh
+        run: |
+          Get-Process starter* -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Process release/starter-0.1.0-win-x64.exe -ArgumentList '/S' -Wait
+          "installed: " + (Get-Item "$env:LOCALAPPDATA\Programs\starter\starter.exe").VersionInfo.ProductVersion
+          $p = Start-Process release/update/win-x64/starter-0.1.1-win-x64.exe -ArgumentList '--updated','/S' -PassThru
+          if ($p.WaitForExit(120000)) { "update installer exited: $($p.ExitCode)" } else { "update installer still running after 120s"; Stop-Process $p -Force }
+          "now: " + (Get-Item "$env:LOCALAPPDATA\Programs\starter\starter.exe").VersionInfo.ProductVersion
+          "TEMP=$env:TEMP"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
