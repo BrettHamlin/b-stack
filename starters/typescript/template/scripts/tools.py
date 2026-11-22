@@ -10,6 +10,7 @@ Usage: python3 scripts/tools.py <tool-name>     print the tool's path, downloadi
 from pathlib import Path
 import fcntl
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -84,6 +85,45 @@ def node_env() -> dict:
         'DO_NOT_TRACK': '1',
     })
     return env
+
+
+def electron_dist(target: str) -> Path:
+    """Electron's unpacked binary for another platform ('darwin-x64', 'win32-x64', 'linux-x64'), at the version the
+    lockfile installed: downloaded from Electron's releases into the tools folder and checked against the SHA-256 in
+    the locked package's checksums.json. For packaging only."""
+    package = ROOT / 'apps/desktop/node_modules/electron'
+    version = json.loads((package / 'package.json').read_text())['version']
+    archive = f'electron-v{version}-{target}.zip'
+    expected = json.loads((package / 'checksums.json').read_text()).get(archive)
+    if expected is None:
+        sys.exit(f'Electron {version} has no {archive} in its checksums.json.')
+    home = tools_dir() / 'electron-dist' / archive.removesuffix('.zip')
+    if (home / '.complete').is_file():
+        return home
+    home.parent.mkdir(parents=True, exist_ok=True)
+    with (home.parent / f'{target}.lock').open('w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if (home / '.complete').is_file():
+            return home
+        staging = Path(tempfile.mkdtemp(dir=home.parent, prefix=f'.{target}-'))
+        try:
+            zipped = staging / archive
+            url = f'https://github.com/electron/electron/releases/download/v{version}/{archive}'
+            with urllib.request.urlopen(url) as response, zipped.open('wb') as out:
+                shutil.copyfileobj(response, out)
+            digest = hashlib.sha256(zipped.read_bytes()).hexdigest()
+            if digest != expected:
+                sys.exit(f'{archive}: checksum mismatch (expected {expected}, got {digest}). Refusing to use it.')
+            unpacked = staging / 'dist'
+            # ditto keeps the symlinks and permissions inside the archive; zipfile does not.
+            subprocess.run(['ditto', '-x', '-k', str(zipped), str(unpacked)], check=True)
+            (unpacked / '.complete').write_text(digest)
+            if home.exists():
+                shutil.rmtree(home)
+            unpacked.rename(home)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+    return home
 
 
 def install(env: dict) -> None:

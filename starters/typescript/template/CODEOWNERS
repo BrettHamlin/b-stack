@@ -7,6 +7,8 @@
 /AGENTS.md                @OWNER
 /CLAUDE.md                @OWNER
 /.claude/                 @OWNER
+/.agents/                 @OWNER
+/.githooks/               @OWNER
 
 # Workspace, tools and the dependency lock
 /package.json             @OWNER

@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] vite.config.ts: lint `ignorePatterns` changed."
+
+[[edits]]
+file = "vite.config.ts"
+find = "ignorePatterns: [\"node_modules\","
+replace = "ignorePatterns: [\"packages/features\", \"node_modules\","

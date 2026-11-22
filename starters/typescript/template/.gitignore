@@ -2,3 +2,5 @@
 .tools
 node_modules
 dist
+.claude/worktrees/
+__pycache__/

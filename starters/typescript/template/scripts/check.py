@@ -7,11 +7,15 @@ Gates:
             promises, imports inside the module shape, no ambient declarations or module state, no skipped tests
   deps      every installed package from the npm registry, with an allowed license (scripts/deps.py)
   arch      the package graph against the module shape (arch/shape.json), config files, suppression comments
+  settings  the enforcement settings in effect (compiler, Effect diagnostics, lint, tests, workspace, CODEOWNERS)
+            match arch/settings.json (scripts/settings.py)
   tests     every unit and property test (vp test, the `unit` project); a skipped or todo test fails
   verify    the feature map is complete, and every journey passes against the built app (scripts/verify.py)
 
 Before the gates, the locked packages are installed (pnpm install --frozen-lockfile) if anything changed. Each gate's
 output is printed when it fails, followed by its result and time; a summary in gate order comes last.
+
+Every run is recorded against the git tree of the files it saw (scripts/handback.py, observe mode: it never blocks).
 
 Usage: python3 scripts/check.py [--only GATE ...]
 """
@@ -27,10 +31,12 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from arch import findings as arch_findings  # noqa: E402
+from handback import record_check, snapshot  # noqa: E402
+from settings import findings as settings_findings  # noqa: E402
 from tools import install, node_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'lint', 'deps', 'arch', 'tests', 'verify']
+GATES = ['compiler', 'lint', 'deps', 'arch', 'settings', 'tests', 'verify']
 
 
 def run(cmd: list[str], env: dict) -> tuple[bool, str]:
@@ -90,6 +96,9 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
     if name == 'arch':
         found = arch_findings()
         return not found, '\n'.join(found)
+    if name == 'settings':
+        found = settings_findings(env)
+        return not found, '\n'.join(found)
     if name == 'tests':
         return tests(env)
     return run([sys.executable, str(ROOT / 'scripts/verify.py'), 'run'], env)
@@ -97,7 +106,8 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
 
 def check(selected: list[str]) -> list[str]:
     env = node_env()
-    install(env)
+    install(env)  # may update pnpm-lock.yaml, so it runs before the record's snapshot
+    before = snapshot(ROOT)  # observe mode: a run counts only for files that didn't change while it ran
     results: dict[str, bool] = {}
     for name in selected:
         started = time.monotonic()
@@ -108,7 +118,9 @@ def check(selected: list[str]) -> list[str]:
         print(f'{"PASS" if ok else "FAIL"} {name}  ({time.monotonic() - started:.0f}s)', flush=True)
     if len(selected) > 1:
         print('Summary: ' + ', '.join(f'{n} {"PASS" if results[n] else "FAIL"}' for n in selected), flush=True)
-    return [n for n in selected if not results[n]]
+    failed = [n for n in selected if not results[n]]
+    record_check(ROOT, selected, failed, before)  # observe mode: lets scripts/handback.py tell whether hand-backs were checked
+    return failed
 
 
 if __name__ == '__main__':
@@ -118,5 +130,5 @@ if __name__ == '__main__':
     try:
         failed = check([g for g in GATES if g in chosen])
     except KeyboardInterrupt:
-        sys.exit('\nStopped.')
+        sys.exit('\nStopped.')  # an interrupted run isn't a check, so it isn't recorded
     sys.exit(1 if failed else 0)

@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] CODEOWNERS: `/arch/shape.json` has no owner"
+
+[[edits]]
+file = "CODEOWNERS"
+find = "/arch/                    @OWNER\n"
+replace = "/arch/                    @OWNER\n/arch/shape.json # no owner\n"

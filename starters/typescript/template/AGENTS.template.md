@@ -10,13 +10,13 @@
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, lint, deps, arch, tests, verify: all must PASS
-python3 scripts/package.py      # the macOS app, with every journey run against it (CI runs both)
+python3 scripts/check.py        # compiler, lint, deps, arch, settings, tests, verify: all must PASS
+python3 scripts/package.py      # the macOS app, with every journey run against it (CI packages every platform)
 ```
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.
 
-`verify` runs every feature-map journey against the built app and writes screenshots and `.build/evidence/latest/evidence.md`. For behaviour changes, look at them and include the path in your report.
+Use the `verify` skill (`.agents/skills/verify`) to explore the running app and to write journeys. `verify` runs every feature-map journey against the built app and writes screenshots and `.build/evidence/latest/evidence.md`. For behaviour changes, look at them and include the path in your report.
 
 ## Never weaken enforcement
 

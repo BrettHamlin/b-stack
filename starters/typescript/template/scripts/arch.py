@@ -31,7 +31,9 @@ SUPPRESSION = re.compile(r'(?:eslint|oxlint)-(?:disable|enable)|@ts-(?:ignore|ex
 CONFIG = re.compile(r'^(?:tsconfig.*\.json|\.?oxlintrc.*|oxlint\.config\..*|\.eslintrc.*|eslint\.config\..*'
                     r'|vitest\.config\..*|vite\.config\..*|vitest\.workspace\..*|\.npmrc|\.pnpmfile\.c?js|pnpmfile\..*)$')
 # Config files the owner placed (code-owned): the apps' build configs and the journeys' TypeScript config.
-ALLOWED_CONFIG = {'apps/desktop/vite.config.ts', 'apps/web/vite.config.ts', 'apps/desktop/journeys/tsconfig.json'}
+ALLOWED_CONFIG = {'apps/desktop/vite.config.ts', 'apps/web/vite.config.ts', 'apps/desktop/journeys/tsconfig.json',
+                  # The root's own: the settings gate checks what they say.
+                  'vite.config.ts', 'tsconfig.base.json', 'tsconfig.effect.json'}
 SOURCE_SUFFIXES = ('.ts', '.tsx', '.mts', '.cts')
 
 
@@ -141,7 +143,9 @@ def findings() -> list[str]:
                        'its settings.')
 
     for path, rel in files(ROOT):
-        if CONFIG.match(path.name) and len(rel.parts) > 1 and str(rel) not in ALLOWED_CONFIG \
+        # Any other one, at the root too: a vitest.config.ts or .oxlintrc.json there would be read instead of, or as
+        # well as, vite.config.ts.
+        if CONFIG.match(path.name) and str(rel) not in ALLOWED_CONFIG \
                 and not (path.name == 'tsconfig.json' and rel.parent in packages) and rel.parts[0] != 'arch':
             out.append(f'[no-suppressions] {rel}: lint, test, compiler and package-manager settings live only in the '
                        'protected root files and arch/. Remove this file.')

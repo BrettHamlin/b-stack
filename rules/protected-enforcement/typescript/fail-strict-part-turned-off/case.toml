@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] packages/contracts/tsconfig.json: compiler option strictNullChecks is False, not None."
+
+[[edits]]
+file = "tsconfig.base.json"
+find = "\"strict\": true,"
+replace = "\"strict\": true,\n    \"strictNullChecks\": false,"

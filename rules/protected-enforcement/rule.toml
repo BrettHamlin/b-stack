@@ -3,7 +3,7 @@ layer = "foundation"
 summary = "Files that control enforcement can't change without a human code owner."
 problem = "Agents can edit compiler flags, lint config, the dependency graph and CI. Weakening a check is often the cheapest way to pass it."
 message = "This change modifies the enforcement surface. It needs code-owner review. If you changed it to make a check pass, revert and fix the underlying issue, or stop and report."
-escape_hatches = ["Moving settings to an unlisted file: the settings check asserts effective settings.", "Editing the CI workflow in the same PR: CODEOWNERS on .github/ or required org workflows."]
+escape_hatches = ["Moving settings to an unlisted file: the settings check asserts effective settings.", "Editing the CI workflow in the same PR: CODEOWNERS on .github/ or required org workflows.", "TypeScript: weakening a setting and arch/settings.json together, or editing scripts/settings.py: both are code-owned; review."]
 origin = "Design discussion, Nov 2026."
 
 [ios]
@@ -15,5 +15,5 @@ repo = "CODEOWNERS on Cargo.toml, rust-toolchain.toml, clippy.toml, deny.toml, t
 tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files) not built yet."
 
 [typescript]
-repo = "CODEOWNERS on package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.effect.json, vite.config.ts, tools.toml, arch/, scripts/, apps/desktop/journeys/, apps/desktop/vite.config.ts, apps/web/vite.config.ts, feature-map/, .github/, AGENTS.md; branch protection."
-tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files) not built yet."
+repo = "CODEOWNERS on package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.effect.json, vite.config.ts, tools.toml, arch/, scripts/, .githooks/, apps/desktop/journeys/, apps/desktop/vite.config.ts, apps/web/vite.config.ts, packages/fixtures/, feature-map/, .github/, .claude/, AGENTS.md; branch protection."
+settings = "scripts/settings.py (the settings gate) compares the settings in effect with arch/settings.json: each package's compiler options as the compiler resolves them (tsc --showConfig), the Effect language service's diagnostics, vite.config.ts's lint and test settings as Node imports them (added lint rules may only be errors), pnpm-workspace.yaml's hoisting, install scripts and overrides, and that CODEOWNERS covers every enforcement path. Weakening one means changing arch/settings.json too, in the same reviewed change."

@@ -35,14 +35,14 @@ rules/case-feature/ios/       Meter: a small iOS feature any case can bring (cas
 | `message` | What the agent sees: what's wrong, what to use instead, stop and report if blocked |
 | `escape_hatches` | Ways around the rule, and what blocks each |
 | `origin` | Where the rule came from |
-| `[ios]`, `[rust]`, `[typescript]` | One table per platform the rule is enforced on, at least one. One key per enforcing tool saying how (iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`; Rust: `compiler`, `clippy`, `deny`, `arch`, `tests`, `verify`, `repo`; TypeScript: `compiler`, `lint`, `deps`, `arch`, `tests`, `verify`, `repo`). `tests_pending` if no cases exist yet, with the reason. Optional `layer` and `message` when they differ on that platform. |
+| `[ios]`, `[rust]`, `[typescript]` | One table per platform the rule is enforced on, at least one. One key per enforcing tool saying how (iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`; Rust: `compiler`, `clippy`, `deny`, `arch`, `tests`, `verify`, `repo`; TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests`, `verify`, `repo`). `tests_pending` if no cases exist yet, with the reason. Optional `layer` and `message` when they differ on that platform. |
 
 ### case.toml
 
 | Key | Meaning |
 |---|---|
 | `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate except `verify`, which runs on the untouched project: on iOS it drives a simulator, and a case's code isn't a mapped feature) |
-| `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `tests` or `verify`. TypeScript: `compiler`, `lint`, `deps`, `arch`, `tests` or `verify` |
+| `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `tests` or `verify`. TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests` or `verify` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
 | `uses_example` | `false` if the case applies to any app, or a short reason it uses the starter's example (iOS: Settings; Rust and TypeScript: tally; its modules, identifiers, journeys, fixtures or feature map). Required. Example cases run only on the starter; `test_rules.py --project <app>` lists them as OUT with the reason. `check_repo.py` fails a `false` case whose files mention the example, or (iOS) that replaces Features.swift, which would drop the app's own features |
 | `adds_targets` | Optional: targets (iOS) or folders directly under `crates/` (Rust) or `packages/` (TypeScript) the case adds that the project doesn't have (otherwise a missing one is a SKIP) |
@@ -51,7 +51,7 @@ rules/case-feature/ios/       Meter: a small iOS feature any case can bring (cas
 | `shared_links` | Optional, iOS: `SharedLink` cases (`"appUsesPlatform"`) added to the project's `sharedLinks` |
 | `generate_adapters` | Optional, iOS: `true` runs `scripts/verify.py adapters` after the overlay, as an agent does after adding a journey body |
 | `needs_fixtures` | Optional, iOS: fixtures the case's feature map names that must already exist (e.g. `["standard"]`, the starter's default); a project without one SKIPs the case |
-| `edits` | Optional: `[[edits]]` tables (`file`, `find`, `replace`) applied to a protected project file (iOS: `Project.swift`; Rust: the root `Cargo.toml` or `Cargo.lock`; TypeScript: the root `package.json` or `pnpm-lock.yaml`), for cases about hand edits. `find` must occur exactly once, or the case FAILs |
+| `edits` | Optional: `[[edits]]` tables (`file`, `find`, `replace`) applied to a protected project file (iOS: `Project.swift`; Rust: the root `Cargo.toml` or `Cargo.lock`; TypeScript: the root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `tsconfig.effect.json`, `vite.config.ts` or `CODEOWNERS`), for cases about hand edits. `find` must occur exactly once, or the case FAILs |
 
 Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 
@@ -74,4 +74,4 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | | arch, oxlint | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |
 | [allowed-dependencies](allowed-dependencies/rule.toml) | 2 | | arch, cargo-deny | arch, deps | Third-party packages only from each role's list, the registry, allowed licenses |
 | [verified-features](verified-features/rule.toml) | 3 | verify | verify | verify (Playwright) | Every feature is in the feature map and its journeys pass in the running app |
-| [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | (not tested yet) | (not tested yet) | Enforcement files need a human code owner to change |
+| [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | (not tested yet) | settings | Enforcement files need a human code owner to change |

@@ -529,6 +529,14 @@ class TypeScriptToolsTests(unittest.TestCase):
     def test_paths_helper_matches_the_ios_starter(self) -> None:
         self.assertEqual((TS_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
 
+    def test_handback_helper_matches_the_ios_starter_but_its_gates(self) -> None:
+        # One check record for every starter that has it: only the gate list may differ.
+        strip = lambda text: [line for line in text.splitlines() if not line.startswith('GATES = ')]
+        self.assertEqual(strip((TS_TEMPLATE / 'scripts/handback.py').read_text()),
+                         strip((TEMPLATE / 'scripts/handback.py').read_text()))
+        gates = next(l for l in (TS_TEMPLATE / 'scripts/handback.py').read_text().splitlines() if l.startswith('GATES = '))
+        self.assertIn(gates.split(' = ', 1)[1], (TS_TEMPLATE / 'scripts/check.py').read_text())
+
 
 class NewFeatureTests(unittest.TestCase):
     """The TypeScript starter's scripts/new_feature.py, in a copy of its scripts and module shape."""

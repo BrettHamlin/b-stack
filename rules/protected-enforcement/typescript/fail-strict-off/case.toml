@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] packages/contracts/tsconfig.json: compiler option strict is False, not True."
+
+[[edits]]
+file = "tsconfig.base.json"
+find = "\"strict\": true,"
+replace = "\"strict\": false,"

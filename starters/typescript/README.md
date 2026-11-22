@@ -11,7 +11,7 @@ An Electron desktop app laid out like [T3 Code](https://github.com/pingdotgg/t3c
 | Compiler settings per role: no DOM or Node.js in contracts and features; Node.js in platform and desktop; DOM and React in the renderer | `template/tsconfig.base.json`, `template/tsconfig.effect.json`, `template/arch/tsconfig/` | ✅ Packages only extend their role's config (arch gate) |
 | Example feature: a tally of named items (record, show, a failed save keeps the old tally), with example tests and a property test | `template/packages/features/tally/`, `template/packages/platform/files/`, `template/apps/` | ✅ |
 | Property test for the example feature: 200 seeded random sequences of records and failed saves, checked step by step against a model | `template/packages/features/tally/tests/property.test.ts` | ✅ Under a second. No library: a seeded generator in the file |
-| Gate command: compiler, lint, deps, arch, tests, verify | `template/scripts/check.py` | ✅ Every gate passes in about 10 s; rule suite 109/109 (2026-11-22) |
+| Gate command: compiler, lint, deps, arch, settings, tests, verify | `template/scripts/check.py` | ✅ Every gate passes in about 15 s; rule suite 124/124 (2026-11-22) |
 | Lint rules of our own (oxlint JS plugin): imports inside the shape and declared, no ambient declarations, no module state, no skipped tests, typed UI identifiers | `template/arch/lint/index.ts` | ✅ |
 | Typed UI identifiers: views set `data-testid` from `UiId`s in contracts; journeys see the app only as a `Screen` that takes `UiId`s | `template/packages/contracts/src/ui.ts`, `template/apps/desktop/journeys/support/app.ts` | ✅ A raw string doesn't compile; journeys can't import Playwright |
 | Whole-value test assertions: no partial matchers, no test without an assertion | `template/vite.config.ts` | ✅ |
@@ -22,8 +22,11 @@ An Electron desktop app laid out like [T3 Code](https://github.com/pingdotgg/t3c
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py`, `template/pnpm-lock.yaml` | ✅ Node.js 26.13.1, pnpm 12.14.0; Electron's binary checked against its package's checksums |
 | Installed packages, Electron and build output in a configurable cache folder | `template/scripts/paths.py`, `template/scripts/tools.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
 | New-feature command: a feature package, its feature-map entry and a journey; the test and journey fail until written | `template/scripts/new_feature.py` | ✅ |
-| Packaging: an unsigned macOS (Apple silicon) `.app` and zip with electron-builder 26.16.1 from the locked Electron, then every journey run against the packaged app | `template/scripts/package.py`, `template/scripts/build.py` | ✅ About 1.5 min |
-| CI: `check.py` and `package.py` on a macOS runner, with pnpm refusing to change the lockfile; evidence uploaded | `template/.github/workflows/check.yml` | ✅ Make `check` a required status check; b-stack's own CI runs the same commands on the starter |
+| Packaging: macOS (Apple silicon and Intel), Windows (x64) and Linux (x64) with electron-builder 26.16.1, from the locked Electron (other platforms' binaries checked against its checksums.json); every journey runs against the Apple silicon package, and `scripts/smoke.mjs` (the app's own steps, in `apps/desktop/journeys/smoke.json`) proves the Intel macOS package under Rosetta and the Windows and Linux packages on those systems. macOS signing with the hardened runtime and notarizing when the Apple credentials are set | `template/scripts/package.py`, `template/scripts/build.py`, `template/scripts/smoke.mjs` | ✅ Unsigned without credentials; CI proves signing with a throwaway certificate. Notarizing is configured but not run here (needs an Apple Developer account) |
+| CI: `check.py` and `package.py --all` on a macOS runner, with pnpm refusing to change the lockfile, then the smoke test on Windows and Linux runners; signing from repository secrets; evidence and packages uploaded | `template/.github/workflows/check.yml` | ✅ Make `check` and both `smoke` jobs required status checks; b-stack's own CI runs the same commands on the starter |
+| Settings gate: the compiler options each package gets, the Effect diagnostics, the lint and test settings in effect, pnpm's hoisting and install scripts, and CODEOWNERS coverage must match `arch/settings.json` | `template/scripts/settings.py`, `template/arch/settings.json` | ✅ Weakening one means changing the baseline in the same reviewed change |
+| Check record, observe mode: check.py records the git tree each run saw; `audit` says whether a commit's tree was checked; each Claude Code hand-back is logged; each commit gets a `Checked:` trailer. Never blocks | `template/scripts/handback.py`, `template/.claude/settings.json`, `template/.githooks/` | ✅ The iOS starter's, with this starter's gates. `git config core.hooksPath .githooks` turns on the trailer |
+| Verify skill for agents: the gate, exploring with `verify.py look`, adding a feature | `template/.agents/skills/verify/` (linked from `.claude/skills`) | ✅ |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
 
 The pins are T3 Code's (2026-11-21): Node.js 26.13.1, pnpm 12.14.0, vite-plus 1.4.0 (oxlint 1.89.0, oxlint-tsgolint 7.0.2004, Vitest 5.0.5), @effect/tsgo 0.67.1 (TypeScript 7.0.2), Effect 4.1.5, Electron 44.10.1, React 19.3.0, playwright-core 1.64.1, electron-builder 26.16.1. `tsconfig.effect.json` is T3 Code's, unchanged (MIT). The Node.js and pnpm pins are the `darwin-arm64` builds.
@@ -55,7 +58,7 @@ This table is `template/arch/shape.json` (protected). `pnpm-workspace.yaml` list
 
 ## Not built yet (in order)
 
-1. **Check record:** the iOS starter's observe-mode hand-back record (`handback.py`, hooks) isn't ported.
-2. **Verify skill** for agents in the new app (the iOS starter has one).
-3. **Settings assertion:** a gate that fails if `vite.config.ts` or the tsconfigs are weakened (protected-enforcement).
-4. **Signing and notarizing** (needs the owner's Apple Developer ID), and packages for Windows, Linux and Intel Macs.
+1. **Windows signing:** needs a Windows code-signing certificate (usually held in a hardware module or a signing service), and signing from a Mac needs a tool electron-builder doesn't bring.
+2. **Notarizing, run for real:** configured in `package.py`, but never run here (needs an Apple Developer account).
+3. **Installers:** packages are plain archives (`.zip`, `.tar.gz`); no `.dmg`, NSIS installer, AppImage or auto-update.
+4. **Arm64 Windows and Linux packages.**
