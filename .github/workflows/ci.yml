@@ -217,8 +217,20 @@ jobs:
           }
           "TEMP=$env:TEMP"
           Run 'install 0.1.0' (Resolve-Path release/starter-0.1.0-win-x64.exe) @('/S')
+          "Defender real-time: " + (Get-MpComputerStatus).RealTimeProtectionEnabled
+          # What the old uninstaller does first: move every installed file into %TEMP%, then back.
+          $probe = Join-Path $env:TEMP "probe-old-install"
+          Get-ChildItem $dir -Recurse -File | ForEach-Object {
+            $to = Join-Path $probe $_.FullName.Substring($dir.Length + 1)
+            New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
+            try { [System.IO.File]::Move($_.FullName, $to); [System.IO.File]::Move($to, $_.FullName) }
+            catch { "  can't move $($_.FullName) (" + $to.Length + " chars): " + $_.Exception.Message }
+          }
+          "longest installed path: " + ((Get-ChildItem $dir -Recurse -File | ForEach-Object { $_.FullName.Length } | Measure-Object -Maximum).Maximum)
           Copy-Item "$dir\Uninstall starter.exe" "$env:TEMP\old-uninstaller.exe"
           Run 'uninstall 0.1.0' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', '--updated', "_?=$dir")
+          Add-MpPreference -ExclusionPath $dir, $env:TEMP
+          Run 'uninstall 0.1.0 with Defender excluding the folders' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', '--updated', "_?=$dir")
           Run 'install 0.1.0 again' (Resolve-Path release/starter-0.1.0-win-x64.exe) @('/S')
           Run 'update to 0.1.1' (Resolve-Path release/update/win-x64/starter-0.1.1-win-x64.exe) @('--updated', '/S')
           "version now: " + (Get-Item "$dir\starter.exe" -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
