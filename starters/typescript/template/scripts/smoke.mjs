@@ -108,7 +108,17 @@ if (update) {
 }
 log("closing the app");
 // The app may already be gone (the update's installer can end it): don't wait on it for long.
-const closing = first.app.close();
+// On Windows the update's installer starts as the app quits and inherits its output pipe, so the test driver's close
+// doesn't return: close the window the way a user does (taskkill without /F sends it WM_CLOSE) and wait for the exit.
+const pid = first.app.process().pid;
+const alive = () => NodeChild.execFileSync("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"], { encoding: "utf8" }).includes(`"${pid}"`);
+const exited = async () => {
+  for (const end = Date.now() + 60_000; Date.now() < end; await new Promise((resolve) => setTimeout(resolve, 500))) {
+    if (!alive()) return;
+  }
+  throw new Error("the app didn't exit within 60s of closing its window");
+};
+const closing = process.platform === "win32" ? (NodeChild.execFileSync("taskkill", ["/PID", String(pid)]), exited()) : first.app.close();
 // Diagnosis (Windows CI): which processes hold the installed app's files while the update's installer replaces them.
 if (process.env.BSTACK_HANDLE_EXE) {
   let before = new Set();
