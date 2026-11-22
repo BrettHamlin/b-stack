@@ -5,7 +5,7 @@ import { current, TallyStore } from "@app/tally";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, autoUpdater as nativeUpdater, BrowserWindow, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 
 const dataFolder = (argv: ReadonlyArray<string>): string => {
@@ -56,12 +56,20 @@ const open = async (): Promise<void> => {
 
 // Updates: a packaged app built with an update feed (scripts/package.py, $BSTACK_UPDATE_URL) checks it at start,
 // downloads a newer version (electron-updater checks its SHA-512) and installs it when the app quits. Each step is a
-// line on stdout, which the update test reads.
+// line on stdout, which the update test reads; `update ready` means quitting now installs it.
 const checkForUpdates = async (): Promise<void> => {
   if (!app.isPackaged) return;
   autoUpdater.on("update-available", (info) => process.stdout.write(`update available: ${info.version}\n`));
   autoUpdater.on("update-not-available", () => process.stdout.write("update not available\n"));
-  autoUpdater.on("update-downloaded", (info) => process.stdout.write(`update downloaded: ${info.version}\n`));
+  autoUpdater.on("update-downloaded", (info) => {
+    process.stdout.write(`update downloaded: ${info.version}\n`);
+    // On macOS, Squirrel still has to fetch and stage the update before quitting installs it.
+    if (process.platform === "darwin") {
+      nativeUpdater.once("update-downloaded", () => process.stdout.write(`update ready: ${info.version}\n`));
+    } else {
+      process.stdout.write(`update ready: ${info.version}\n`);
+    }
+  });
   autoUpdater.on("error", (error) => process.stdout.write(`update error: ${error.message}\n`));
   const result = await autoUpdater.checkForUpdates();
   // The download runs on after the check returns; awaiting it keeps a failed download inside the catch below.

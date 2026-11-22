@@ -5,5 +5,5 @@ diagnostic = "[protected-enforcement] vite.config.ts: lint `ignorePatterns` chan
 
 [[edits]]
 file = "vite.config.ts"
-find = "ignorePatterns: [\"node_modules\","
-replace = "ignorePatterns: [\"packages/features\", \"node_modules\","
+find = "ignorePatterns: [\"**/node_modules\","
+replace = "ignorePatterns: [\"packages/features\", \"**/node_modules\","

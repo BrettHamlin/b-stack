@@ -501,6 +501,9 @@
    "eslint/no-new-func": "error",
    "typescript/no-implied-eval": "error",
    "bstack/typed-ui-identifiers": "error",
+   "bstack/typed-identifiers": "error",
+   "bstack/no-io-globals": "error",
+   "bstack/no-unchecked-narrowing": "error",
    "vitest/no-restricted-matchers": [
     "error",
     {

@@ -69,7 +69,7 @@ for (const step of plan.steps) {
 await shows(first.page, plan.after);
 await first.page.screenshot({ path: NodePath.join(evidence, "01-after-steps.png") });
 if (update) {
-  if (!(await until(first.output, new RegExp(`update downloaded: ${update.replaceAll(".", "\\.")}`), 180_000))) {
+  if (!(await until(first.output, new RegExp(`update ready: ${update.replaceAll(".", "\\.")}`), 180_000))) {
     throw new Error(`no update to ${update} within 3 minutes; the app said:\n${first.output.text}`);
   }
   process.stdout.write(first.output.text);
@@ -79,18 +79,23 @@ await first.app.close();
 // The update installs after the app quits (on Windows the installer runs on, on macOS Squirrel stages it): reopen
 // until the new version runs, for up to 3 minutes.
 const deadline = Date.now() + 180_000;
-let again = await open();
-if (update) {
-  // Asked of the main process itself.
-  const version = (opened) => opened.app.evaluate(({ app }) => app.getVersion());
-  for (let running = await version(again); running !== update; running = await version(again)) {
-    await again.app.close();
-    if (Date.now() > deadline) throw new Error(`the app still runs ${running || "an unknown version"}, not ${update}`);
-    await new Promise((resolve) => setTimeout(resolve, 5_000));
+// Asked of the main process itself. A launch can fail while an installer is replacing the app: try again until the
+// deadline.
+const version = (opened) => opened.app.evaluate(({ app }) => app.getVersion());
+let again;
+for (let running = "", failure = ""; ; ) {
+  try {
     again = await open();
+    running = update ? await version(again) : "";
+    if (!update || running === update) break;
+    await again.app.close();
+  } catch (error) {
+    failure = String(error);
   }
-  process.stdout.write(`relaunched on ${update}\n`);
+  if (Date.now() > deadline) throw new Error(`the app still runs ${running || "an unknown version"}, not ${update} ${failure}`);
+  await new Promise((resolve) => setTimeout(resolve, 5_000));
 }
+if (update) process.stdout.write(`relaunched on ${update}\n`);
 await shows(again.page, plan.after);
 await again.page.screenshot({ path: NodePath.join(evidence, "02-after-relaunch.png") });
 await again.app.close();
