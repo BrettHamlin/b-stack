@@ -192,8 +192,8 @@ const noSkippedTests = defineRule({
     const owner = packageOf(context.filename);
     const relative = NodePath.relative(ROOT, context.filename).split(NodePath.sep);
     // Test and journey files only: elsewhere `.only` or `.prop` is ordinary code.
-    const isTest = (owner !== undefined && isDevFile(owner.folder, context.filename) && !/\.config\.ts$/.test(context.filename)) ||
-      /\.(test|journey)\.tsx?$/.test(relative.at(-1) ?? "");
+    const inner = owner === undefined ? [] : NodePath.relative(NodePath.join(ROOT, owner.folder), context.filename).split(NodePath.sep);
+    const isTest = inner[0] === "tests" || inner[0] === "journeys" || /\.(test|journey)\.tsx?$/.test(relative.at(-1) ?? "");
     if (!isTest) return {};
     return {
       MemberExpression(node) {
