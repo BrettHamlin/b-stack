@@ -50,6 +50,16 @@ const processes = () =>
           "$all | Where-Object { $ids -contains $_.ProcessId } | Format-List ProcessId,ParentProcessId,Name,CreationDate,CommandLine | Out-String -Width 400"],
         { encoding: "utf8" },
       );
+// Windows: a picture of the whole desktop, to show a dialog the installer is waiting on.
+const desktop = (file) => {
+  if (process.platform !== "win32") return;
+  NodeChild.execFileSync("powershell", ["-NoProfile", "-Command",
+    "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; " +
+    "$b = [System.Windows.Forms.SystemInformation]::VirtualScreen; " +
+    "$img = New-Object System.Drawing.Bitmap $b.Width, $b.Height; " +
+    "[System.Drawing.Graphics]::FromImage($img).CopyFromScreen($b.Left, $b.Top, 0, 0, $img.Size); " +
+    `$img.Save('${NodePath.resolve(file)}')`]);
+};
 const until = async (output, pattern, ms) => {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -124,6 +134,7 @@ for (let running = "", failure = ""; ; failure = "") {
   }
   log(`not yet: ${failure || `runs ${running}`}`);
   if (Date.now() > deadline) {
+    desktop(NodePath.join(evidence, "desktop-at-failure.png"));
     throw new Error(`the app still runs ${running || "an unknown version"}, not ${update}: ${failure}\n${processes()}`);
   }
   await new Promise((resolve) => setTimeout(resolve, 5_000));
