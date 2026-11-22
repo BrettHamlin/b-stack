@@ -8,7 +8,7 @@ const PARTIAL =
 
 export default defineConfig({
   lint: {
-    ignorePatterns: ["node_modules", "dist", ".build", ".tools", "arch/lint", "scripts"],
+    ignorePatterns: ["**/node_modules", "/dist", "/.build", "/.tools", "/arch/lint", "/scripts", "apps/*/dist"],
     plugins: ["eslint", "oxc", "typescript", "unicorn", "react", "import", "vitest"],
     jsPlugins: ["./arch/lint/index.ts"],
     categories: { correctness: ERROR, suspicious: ERROR, perf: ERROR },
@@ -68,6 +68,10 @@ export default defineConfig({
       "typescript/no-implied-eval": ERROR,
       // typed-ui-identifiers
       "bstack/typed-ui-identifiers": ERROR,
+      // typed-identifiers, no-io-in-logic, no-force-operations
+      "bstack/typed-identifiers": ERROR,
+      "bstack/no-io-globals": ERROR,
+      "bstack/no-unchecked-narrowing": ERROR,
       // exhaustive-tests: a test checks the whole value, so a change it didn't expect fails it
       "vitest/no-restricted-matchers": [
         ERROR,

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = false
+diagnostic = "bstack(no-io-globals): Logic does no I/O, and globalThis is how code reaches globals the compiler would refuse."

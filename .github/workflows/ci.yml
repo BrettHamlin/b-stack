@@ -69,7 +69,8 @@ jobs:
       - name: Throwaway Windows signing certificate (the Windows jobs trust it, to check the signatures)
         run: |
           cd "$RUNNER_TEMP"
-          openssl req -x509 -newkey rsa:2048 -nodes -keyout win-key.pem -out win-cert.pem -days 1 -subj "/CN=b-stack CI" -addext "extendedKeyUsage=codeSigning"
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout win-key.pem -out win-cert.pem -days 1 -subj "/CN=b-stack CI" \
+            -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=codeSigning" -addext "basicConstraints=critical,CA:false"
           openssl pkcs12 -export -legacy -inkey win-key.pem -in win-cert.pem -out win.pfx -passout pass:ci 2>/dev/null \
             || openssl pkcs12 -export -inkey win-key.pem -in win-cert.pem -out win.pfx -passout pass:ci
           mkdir -p "$RUNNER_TEMP/release" && cp win-cert.pem "$RUNNER_TEMP/release/"
@@ -80,7 +81,7 @@ jobs:
         working-directory: starters/typescript/template
         run: |
           python3 scripts/package.py win-x64 linux-x64 --version 0.1.1 --no-journeys
-          for t in win-x64 linux-x64; do mkdir -p "$RUNNER_TEMP/release/update-$t" && cp .build/package/out/update/$t/* "$RUNNER_TEMP/release/update-$t/"; done
+          mkdir -p "$RUNNER_TEMP/release/update" && cp -R .build/package/out/update/. "$RUNNER_TEMP/release/update/"
       - name: Version 0.1.0 installers for every target; journeys on the Apple silicon app, smoke on its .dmg and on the Intel app (Rosetta)
         working-directory: starters/typescript/template
         run: |
@@ -131,7 +132,7 @@ jobs:
           BSTACK_UPDATE_URL: http://127.0.0.1:8765/
         run: |
           python3 scripts/package.py mac-arm64 --version 0.1.1 --no-journeys
-          mkdir -p "$RUNNER_TEMP/update" && cp .build/package/out/update/mac-arm64/* "$RUNNER_TEMP/update/"
+          mkdir -p "$RUNNER_TEMP/update" && cp -R .build/package/out/update/. "$RUNNER_TEMP/update/"
       - name: Signed 0.1.0; codesign --verify; journeys against the signed app; smoke on its .dmg
         working-directory: starters/typescript/template
         env:
@@ -185,7 +186,7 @@ jobs:
       - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
         run: |
           signed=""; [ "$RUNNER_OS" = "Windows" ] && signed="--signed"
-          update=""; [ -n "${{ matrix.update }}" ] && update="--update release/update-${{ matrix.update }} 0.1.1 8765"
+          update=""; [ -n "${{ matrix.update }}" ] && update="--update release/update 0.1.1 8765"
           if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run --auto-servernum"; else run=""; fi
           $run python3 starters/typescript/template/scripts/install_and_smoke.py "release/${{ matrix.installer }}" "$RUNNER_TEMP/smoke" smoke-evidence $signed $update
       - uses: actions/upload-artifact@v7.0.2

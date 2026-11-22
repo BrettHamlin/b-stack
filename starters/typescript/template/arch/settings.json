@@ -377,12 +377,13 @@
  },
  "lint": {
   "ignorePatterns": [
-   "node_modules",
-   "dist",
-   ".build",
-   ".tools",
-   "arch/lint",
-   "scripts"
+   "**/node_modules",
+   "/dist",
+   "/.build",
+   "/.tools",
+   "/arch/lint",
+   "/scripts",
+   "apps/*/dist"
   ],
   "plugins": [
    "eslint",
@@ -656,6 +657,8 @@
   "/apps/desktop/journeys/",
   "/packages/fixtures/",
   "/.githooks/",
-  "/.agents/"
+  "/.agents/",
+  "/apps/desktop/src/",
+  "/apps/web/src/main.tsx"
  ]
 }

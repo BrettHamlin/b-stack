@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "error TS2741: Property 'made' is missing in type '{ value: string; }' but required in type 'UiId'."

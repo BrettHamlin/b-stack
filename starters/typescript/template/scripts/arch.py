@@ -38,9 +38,13 @@ SOURCE_SUFFIXES = ('.ts', '.tsx', '.mts', '.cts')
 
 
 def files(folder: Path):
+    # Build output and tools only where they really are: node_modules anywhere, the rest at the root or as an app's
+    # own build (apps/<app>/dist). A folder with one of those names deeper in a package is checked like any other.
     for path in sorted(folder.rglob('*')):
         rel = path.relative_to(ROOT)
-        if path.is_file() and not (set(rel.parts) & SKIP):
+        skipped = 'node_modules' in rel.parts or rel.parts[0] in SKIP or (
+            len(rel.parts) > 2 and rel.parts[0] == 'apps' and rel.parts[2] == 'dist')
+        if path.is_file() and not skipped:
             yield path, rel
 
 

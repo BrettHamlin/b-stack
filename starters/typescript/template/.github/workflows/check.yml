@@ -1,13 +1,13 @@
 # Runs every gate on each pull request and on main, then packages the app for every platform and proves each package
-# runs. Make `check` and both `smoke` jobs required status checks in branch protection, with "Require review from
-# Code Owners" (CODEOWNERS covers this file).
+# runs. Make `check` and the four `installers` jobs required status checks in branch protection, with "Require review
+# from Code Owners" (CODEOWNERS covers this file).
 #
 # Signing: add the repository secrets MAC_CSC_LINK (base64 of a Developer ID Application .p12) and
 # MAC_CSC_KEY_PASSWORD, for notarizing APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, and for Windows
 # WIN_CSC_LINK (base64 of a .pfx code-signing certificate) and WIN_CSC_KEY_PASSWORD. Builds of main are signed with
 # them; pull-request builds, and every build without them, are unsigned. Linux packages aren't signed.
-# Updates: set the repository variable UPDATE_URL to where you'll publish each target's .build/package/out/update/
-# files; the apps built here check it.
+# Updates: set the repository variable UPDATE_URL to where you'll publish .build/package/out/update/ (each target's
+# files in <UPDATE_URL>/<target>/); the apps built here check it.
 name: check
 
 on:

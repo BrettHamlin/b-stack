@@ -13,10 +13,9 @@ Targets: mac-arm64 (default), mac-x64, win-x64, win-arm64, linux-x64, linux-arm6
 Version: the root package.json's `version`, or --version X.Y.Z.
 
 Updates: with $BSTACK_UPDATE_URL set (a folder served over HTTPS, or http://127.0.0.1 for a test), the app checks it
-at start, downloads a newer version and installs it on quit (electron-updater). Each target's update files (its
-latest*.yml, installer and blockmap) are in .build/package/out/update/<target>/: publish a version by uploading that
-folder's files to the target's feed (Windows x64 and arm64 need separate feeds: both are named latest.yml). macOS
-updates need a signed app.
+at <url>/<target>/ at start, downloads a newer version and installs it on quit (electron-updater). Each target's update
+files (its latest*.yml, installer and blockmap) are in .build/package/out/update/<target>/: publish a version by
+uploading .build/package/out/update/ as is, so each target's files land in <url>/<target>/.
 
 Signing: macOS with $CSC_LINK (a .p12 Developer ID Application certificate, or its base64) and $CSC_KEY_PASSWORD,
 with the hardened runtime, and notarized when $APPLE_ID, $APPLE_APP_SPECIFIC_PASSWORD and $APPLE_TEAM_ID are set too.
@@ -97,7 +96,8 @@ def config(name: str, target: str, env: dict) -> dict:
         'linux': {'target': ['AppImage'], 'category': 'Utility'},
     }
     if env.get('BSTACK_UPDATE_URL'):
-        settings['publish'] = [{'provider': 'generic', 'url': env['BSTACK_UPDATE_URL']}]
+        # One feed per target: Windows x64 and arm64 both name theirs latest.yml.
+        settings['publish'] = [{'provider': 'generic', 'url': f'{env["BSTACK_UPDATE_URL"].rstrip("/")}/{target}/'}]
     return settings
 
 
@@ -140,9 +140,13 @@ def package(env: dict, targets: list[str], version: str) -> dict[str, Path]:
         platform, arch, _, unpacked, executable = TARGETS[target]
         settings = OUT / f'electron-builder-{target}.json'
         settings.write_text(json.dumps(config(name, target, env), indent=2))
+        builder_env = {**env, 'CSC_IDENTITY_AUTO_DISCOVERY': 'true' if has(env, MAC_SIGNING) and target.startswith('mac') else 'false'}
+        if not target.startswith('mac'):
+            # electron-builder signs Windows with CSC_LINK when WIN_CSC_LINK is unset: never with the Apple certificate.
+            for key in MAC_SIGNING:
+                builder_env.pop(key, None)
         output = run([str(builder), platform, arch, '--projectDir', str(folder), '--config', str(settings),
-                      '--publish', 'never'],
-                     {**env, 'CSC_IDENTITY_AUTO_DISCOVERY': 'true' if has(env, MAC_SIGNING) and target.startswith('mac') else 'false'})
+                      '--publish', 'never'], builder_env)
         path = OUT / 'out' / unpacked / executable.format(name=name)
         installers = [p for p in sorted((OUT / 'out').glob(f'{name}-{version}-{target}.*'))
                       if p.suffix in ('.dmg', '.zip', '.exe', '.AppImage')]

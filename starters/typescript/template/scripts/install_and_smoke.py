@@ -6,8 +6,9 @@ runners, and on macOS for the update check.
            report a valid Authenticode signature on the installer and on the installed app (Get-AuthenticodeSignature)
   Linux    the AppImage, run in place (extracted on each run, so no FUSE is needed)
   macOS    the .dmg, mounted, its app copied out to a writable folder (an update replaces it), then detached
-  --update <folder> <version>: serve <folder> (a newer build's installers and latest*.yml) at the update URL the app
-           was built with ($BSTACK_UPDATE_URL, http://127.0.0.1:<port>/), and check the app downloads <version>
+  --update <folder> <version> <port>: serve <folder> (a newer build's .build/package/out/update/) at the update URL the
+           app was built with ($BSTACK_UPDATE_URL, http://127.0.0.1:<port>/), check the app downloads <version>, and
+           that, reopened, it runs <version>
 
 Usage: python3 scripts/install_and_smoke.py <installer> <tools folder> <evidence folder> [--signed]
                                             [--update <folder> <version> <port>]
@@ -15,7 +16,9 @@ Usage: python3 scripts/install_and_smoke.py <installer> <tools folder> <evidence
 from pathlib import Path
 import functools
 import http.server
+import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,10 +27,12 @@ import threading
 ROOT = Path(__file__).resolve().parents[1]
 
 
+NAME = json.loads((ROOT / 'package.json').read_text())['name']  # what package.py names the app
+
+
 def windows_install(installer: Path) -> Path:
     subprocess.run([str(installer), '/S'], check=True)  # waits: NSIS's silent install runs in the foreground
-    name = installer.name.split('-')[0]
-    return Path(os.environ['LOCALAPPDATA']) / 'Programs' / name / f'{name}.exe'
+    return Path(os.environ['LOCALAPPDATA']) / 'Programs' / NAME / f'{NAME}.exe'
 
 
 def mac_install(image: Path) -> Path:
@@ -45,7 +50,8 @@ def mac_install(image: Path) -> Path:
 
 def authenticode(path: Path) -> str:
     proc = subprocess.run(['powershell', '-NoProfile', '-Command',
-                           f'(Get-AuthenticodeSignature -LiteralPath "{path}").Status'], capture_output=True, text=True)
+                           f'$s = Get-AuthenticodeSignature -LiteralPath "{path}"; "$($s.Status): $($s.StatusMessage)"'],
+                          capture_output=True, text=True)
     return proc.stdout.strip()
 
 
@@ -70,13 +76,15 @@ def main(args: list[str]) -> int:
             for path in (installer, app):
                 status = authenticode(path)
                 print(f'Authenticode {path.name}: {status}')
-                if status != 'Valid':
+                if not status.startswith('Valid:'):
                     return 1
     elif installer.suffix == '.dmg':
         app = mac_install(installer)
     elif installer.suffix == '.AppImage':
-        installer.chmod(0o755)
-        app = installer
+        # Installed under a name without its version, as a user keeps it: an update replaces that file in place.
+        app = Path(tempfile.mkdtemp(prefix='Applications-')) / f'{NAME}.AppImage'
+        shutil.copy2(installer, app)
+        app.chmod(0o755)
         env['APPIMAGE_EXTRACT_AND_RUN'] = '1'
     else:
         print(f'not an installer this knows: {installer}')

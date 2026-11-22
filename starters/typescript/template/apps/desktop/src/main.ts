@@ -63,7 +63,9 @@ const checkForUpdates = async (): Promise<void> => {
   autoUpdater.on("update-not-available", () => process.stdout.write("update not available\n"));
   autoUpdater.on("update-downloaded", (info) => process.stdout.write(`update downloaded: ${info.version}\n`));
   autoUpdater.on("error", (error) => process.stdout.write(`update error: ${error.message}\n`));
-  await autoUpdater.checkForUpdates();
+  const result = await autoUpdater.checkForUpdates();
+  // The download runs on after the check returns; awaiting it keeps a failed download inside the catch below.
+  await result?.downloadPromise;
 };
 
 app.on("window-all-closed", () => app.quit());

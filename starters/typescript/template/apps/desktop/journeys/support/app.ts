@@ -55,7 +55,7 @@ export interface Screen {
   readonly close: () => Promise<void>;
 }
 
-const find = (page: Page, id: UiId): Locator => page.getByTestId(id);
+const find = (page: Page, id: UiId): Locator => page.getByTestId(id.value);
 
 /** Start the app on `data`, the way a user would open it. */
 export const launch = async (journey: string, data: string): Promise<Screen> => {
