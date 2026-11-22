@@ -149,18 +149,20 @@ def run(env: dict, features: list[dict], build_first: bool = True) -> list[str]:
 
 def look(args: list[str]) -> int:
     """Options come before the first step; anything after is a step, so a test id or text can't be read as one."""
-    data = ROOT / '.build/look/data'
+    data: Path | None = ROOT / '.build/look/data'
     while args and args[0].startswith('--'):
         option, args = args[0], args[1:]
         if option == '--data' and args:
             data, args = Path(args[0]).resolve(), args[1:]
         elif option == '--fresh':
-            (ROOT / '.build/look').mkdir(parents=True, exist_ok=True)
-            data = Path(tempfile.mkdtemp(dir=ROOT / '.build/look', prefix='data-'))  # new and empty; nothing is deleted
+            data = None  # made below, once .build is linked into the cache folder
         else:
             print(__doc__)
             return 2
-    env = node_env()
+    env = node_env()  # links .build into the cache folder
+    if data is None:
+        (ROOT / '.build/look').mkdir(parents=True, exist_ok=True)
+        data = Path(tempfile.mkdtemp(dir=ROOT / '.build/look', prefix='data-'))  # new and empty; nothing is deleted
     install(env)
     failed = build(env)
     if failed:

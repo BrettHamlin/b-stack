@@ -158,6 +158,7 @@ if __name__ == '__main__':
     if '--no-journeys' not in sys.argv[1:]:
         for target, executable in executables.items():
             if target == 'mac-x64':
+                shutil.rmtree(ROOT / '.build/evidence/mac-x64', ignore_errors=True)  # only this run's screenshots
                 proc = subprocess.run(['node', 'scripts/smoke.mjs', str(executable), str(ROOT / 'apps/desktop'),
                                        str(ROOT / '.build/evidence/mac-x64')], cwd=ROOT, env=env, capture_output=True, text=True)
                 if proc.returncode != 0:
