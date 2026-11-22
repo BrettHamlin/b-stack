@@ -50,7 +50,7 @@ export default defineConfig({
           paths: [
             {
               name: "@effect/vitest",
-              importNames: ["effect", "live", "scoped", "flakyTest"],
+              importNames: ["effect", "live", "scoped", "flakyTest", "prop"],
               message: "Register Effect tests as it.effect, it.live or it.scoped, which the assertion check (vitest/expect-expect) knows; flaky tests are fixed, not retried.",
             },
           ],
@@ -92,7 +92,7 @@ export default defineConfig({
       ],
       "vitest/expect-expect": [
         ERROR,
-        { assertFunctionNames: ["expect"], additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped", "it.effect.each", "it.live.each", "it.scoped.each"] },
+        { assertFunctionNames: ["expect"], additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] },
       ],
       // tests-always-run
       "bstack/no-skipped-tests": ERROR,

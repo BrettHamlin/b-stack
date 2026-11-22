@@ -3,7 +3,7 @@
 import * as NodeFs from "node:fs";
 import * as NodePath from "node:path";
 
-import { definePlugin, defineRule, type ESTree, type Scope } from "@oxlint/plugins";
+import { definePlugin, defineRule, type ESTree, type Scope, type Variable } from "@oxlint/plugins";
 
 const ROOT = NodePath.resolve(import.meta.dirname, "../..");
 
@@ -90,7 +90,12 @@ const moduleBoundaries = defineRule({
     const dev = isDevFile(owner.folder, context.filename);
     const check = (node: ESTree.Node, specifier: string): void => {
       if (specifier.startsWith(".")) {
-        const target = NodePath.resolve(NodePath.dirname(context.filename), specifier);
+        const written = NodePath.resolve(NodePath.dirname(context.filename), specifier);
+        // TypeScript and the bundler read `./x.js` as `./x.ts` (or .tsx): classify the file it really is.
+        const target =
+          [written, written.replace(/\.(c|m)?js$/u, ".$1ts"), written.replace(/\.jsx?$/u, ".tsx")].find((candidate) =>
+            NodeFs.existsSync(candidate),
+          ) ?? written;
         if (!dev && isDevFile(owner.folder, target)) {
           context.report({
             node,
@@ -170,6 +175,9 @@ const noModuleState = defineRule({
 });
 
 const SKIPS = new Set(["skip", "only", "todo", "skipIf", "runIf", "fails"]);
+// Test forms vitest/expect-expect can't check for an assertion: generated property tests, and tables of Effect tests.
+const UNCHECKED = new Set(["prop"]);
+const EFFECT_TESTS = new Set(["effect", "live", "scoped"]);
 
 const noSkippedTests = defineRule({
   meta: { type: "problem", docs: { description: "Every test runs." } },
@@ -182,6 +190,15 @@ const noSkippedTests = defineRule({
           context.report({
             node,
             message: `Every test runs: \`.${name}\` isn't allowed. If a test can't pass, fix the code or the test, or stop and report.`,
+          });
+        }
+        const object = node.object;
+        const effectTable =
+          name === "each" && object.type === "MemberExpression" && object.property.type === "Identifier" && EFFECT_TESTS.has(object.property.name);
+        if (UNCHECKED.has(name) || effectTable) {
+          context.report({
+            node,
+            message: `\`.${name}\` registers tests the assertion check can't see. Write one it.effect (or it) that loops over its cases and asserts each with expect, like the property test in packages/features/tally/tests/property.test.ts.`,
           });
         }
       },
@@ -205,20 +222,24 @@ const typedUiIdentifiers = defineRule({
       if (node.type !== "MemberExpression" || node.computed || node.object.type !== "Identifier" || !/Ui$/.test(node.object.name)) {
         return false;
       }
-      const name = node.object.name;
-      for (let scope: Scope | null = context.sourceCode.getScope(node); scope; scope = scope.upper) {
-        const variable = scope.set.get(name);
-        if (variable) {
-          const definition = variable.defs[0];
-          return (
-            variable.defs.length === 1 &&
-            definition?.type === "ImportBinding" &&
-            definition.parent?.type === "ImportDeclaration" &&
-            definition.parent.source.value === "@app/contracts"
-          );
-        }
+      // The binding TypeScript uses for this value: the reference's own resolution, so a type of the same name or a
+      // shadowing local can't stand in for the import.
+      const object = node.object;
+      let variable: Variable | null | undefined;
+      for (let scope: Scope | null = context.sourceCode.getScope(node); scope && variable === undefined; scope = scope.upper) {
+        variable = scope.references.find((reference) => reference.identifier === object)?.resolved;
       }
-      return false;
+      // Its value comes from the contracts import; any other declaration of the name may only be a type.
+      const defs = variable?.defs ?? [];
+      const imported = defs.filter(
+        (definition) =>
+          definition.type === "ImportBinding" &&
+          definition.parent?.type === "ImportDeclaration" &&
+          definition.parent.source.value === "@app/contracts",
+      );
+      const typeOnly = (definition: (typeof defs)[number]): boolean =>
+        definition.node.type === "TSTypeAliasDeclaration" || definition.node.type === "TSInterfaceDeclaration";
+      return imported.length === 1 && defs.every((definition) => imported.includes(definition) || typeOnly(definition));
     };
     const imports = moduleSources((node, specifier) => {
       const name = specifier === undefined ? undefined : packageName(specifier);
