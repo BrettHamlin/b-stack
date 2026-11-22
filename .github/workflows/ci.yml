@@ -34,28 +34,30 @@ jobs:
   rust:
     runs-on: macos-15
     timeout-minutes: 30
-    env:
-      BSTACK_CACHE_DIR: ${{ runner.temp }}/bstack-cache
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
-      - run: mkdir -p "$BSTACK_CACHE_DIR"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
       - name: Every Rust rule case through the Rust starter's gates
         run: python3 scripts/test_rules.py --platform rust
 
   typescript:
     runs-on: macos-15
     timeout-minutes: 45
-    env:
-      BSTACK_CACHE_DIR: ${{ runner.temp }}/bstack-cache
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
-      - run: mkdir -p "$BSTACK_CACHE_DIR"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
       - name: The starter's own CI (check.py with a frozen lockfile)
         working-directory: starters/typescript/template
         run: python3 scripts/check.py

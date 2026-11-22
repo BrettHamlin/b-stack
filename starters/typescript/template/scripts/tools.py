@@ -87,10 +87,12 @@ def node_env() -> dict:
 
 
 def install(env: dict) -> None:
-    """Install the packages in pnpm-lock.yaml, updating it if a package.json changed (under CI=true pnpm refuses to
-    change it instead), then Electron's binary if it's missing."""
-    proc = subprocess.run(['pnpm', 'install', '--prefer-offline', '--reporter=append-only'], cwd=ROOT, env=env,
-                          capture_output=True, text=True)
+    """Install the packages in pnpm-lock.yaml, updating it if a package.json changed (with $CI set, refusing to change
+    it instead), then Electron's binary if it's missing."""
+    # In CI the lockfile must already match every package.json: pnpm doesn't freeze it by itself with these flags.
+    frozen = ['--frozen-lockfile'] if os.environ.get('CI', '').lower() not in ('', '0', 'false') else []
+    proc = subprocess.run(['pnpm', 'install', '--prefer-offline', '--reporter=append-only', *frozen], cwd=ROOT,
+                          env=env, capture_output=True, text=True)
     if proc.returncode != 0:
         sys.exit(f'pnpm install failed:\n{(proc.stdout + proc.stderr).strip()[-3000:]}')
     # Electron's install.js downloads the binary into the tools folder and checks it against the checksums.json in the

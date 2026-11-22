@@ -4,7 +4,8 @@ packaged app, so what ships is what was verified.
   1. build the app (scripts/build.py) and stage it alone: its bundled code and a package.json, no node_modules
   2. electron-builder --mac dir, from the Electron the lockfile installed (nothing downloaded), unsigned
   3. zip the .app with ditto, which keeps the bundle's symlinks and permissions
-  4. the journeys, launching the packaged app ($BSTACK_PACKAGED_APP); screenshots in .build/evidence/latest/
+  4. the verify gate's journeys and checks, launching the packaged app ($BSTACK_PACKAGED_APP); evidence in
+     .build/evidence/latest/
 
 Output: .build/package/<name>-mac-arm64.zip and the .app beside it. Signing and notarizing need the owner's Apple
 Developer ID and aren't done here.
@@ -21,6 +22,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build import DIST, build  # noqa: E402
 from tools import install, node_env  # noqa: E402
+from verify import EVIDENCE, run as run_journeys, verified_map  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '.build/package'
@@ -66,11 +68,13 @@ if __name__ == '__main__':
     app = package(env)
     print(f'packaged {app}\nzipped {OUT / (app.stem + "-mac-arm64.zip")}')
     if '--no-journeys' not in sys.argv[1:]:
-        shutil.rmtree(ROOT / '.build/evidence/latest', ignore_errors=True)
-        binary = app / 'Contents/MacOS' / app.stem
-        proc = subprocess.run(['vp', 'test', 'run', '--project', 'journeys'], cwd=ROOT,
-                              env={**env, 'BSTACK_PACKAGED_APP': str(binary)}, capture_output=True, text=True)
-        print((proc.stdout + proc.stderr).strip()[-3000:])
-        if proc.returncode != 0:
-            sys.exit('The packaged app failed its journeys.')
-        print('every journey passed against the packaged app')
+        # The verify gate's checks (map, every mapped journey ran once and passed, screenshots), on the packaged app.
+        shutil.rmtree(EVIDENCE, ignore_errors=True)
+        features, errors = verified_map()
+        if not errors:
+            EVIDENCE.mkdir(parents=True)
+            packaged = {**env, 'BSTACK_PACKAGED_APP': str(app / 'Contents/MacOS' / app.stem)}
+            errors = run_journeys(packaged, features, build_first=False)
+        if errors:
+            sys.exit('\n'.join(errors + ['The packaged app failed its journeys.']))
+        print(f'every journey passed against the packaged app. Evidence: {EVIDENCE / "evidence.md"}')

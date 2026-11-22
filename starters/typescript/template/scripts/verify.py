@@ -40,6 +40,11 @@ def load_map() -> tuple[list[dict], list[str]]:
     return features, errors
 
 
+def verified_map() -> tuple[list[dict], list[str]]:
+    features, errors = load_map()
+    return features, errors + map_errors(features)
+
+
 def map_errors(features: list[dict]) -> list[str]:
     errors = []
     packages = sorted(p.parent.name for p in (ROOT / 'packages/features').glob('*/package.json'))
@@ -79,8 +84,10 @@ def map_errors(features: list[dict]) -> list[str]:
     return errors
 
 
-def run(env: dict, features: list[dict]) -> list[str]:
-    failed = build(env)
+def run(env: dict, features: list[dict], build_first: bool = True) -> list[str]:
+    """Run the journeys and check them against the map. With $BSTACK_PACKAGED_APP in `env`, they launch that app
+    (package.py) instead of the built one, and nothing is built here."""
+    failed = build(env) if build_first else None
     if failed:
         return [f'[verified-features] the app didn\'t build, so it can\'t run: {failed}']
     errors: list[str] = []
@@ -140,8 +147,7 @@ if __name__ == '__main__':
         sys.exit(__doc__)
     if mode == 'run':
         shutil.rmtree(EVIDENCE, ignore_errors=True)  # never leave an earlier run's evidence as the latest
-    features, errors = load_map()
-    errors += map_errors(features)
+    features, errors = verified_map()
     if mode == 'run' and not errors:
         EVIDENCE.mkdir(parents=True)
         env = node_env()

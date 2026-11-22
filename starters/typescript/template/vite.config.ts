@@ -79,7 +79,7 @@ export default defineConfig({
           message: PARTIAL,
         })),
       ],
-      "vitest/expect-expect": [ERROR, { assertFunctionNames: ["expect"] }],
+      "vitest/expect-expect": [ERROR, { assertFunctionNames: ["expect"], additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] }],
       // tests-always-run
       "bstack/no-skipped-tests": ERROR,
       "vitest/no-standalone-expect": [ERROR, { additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] }],

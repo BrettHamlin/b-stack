@@ -56,9 +56,44 @@ def installed(env: dict, prod: bool) -> list[dict]:
 
 
 def allowed(license: str, accepted: set[str]) -> bool:
-    """An SPDX expression is allowed if every part joined by AND is, where a part joined by OR needs one choice."""
-    expression = license.replace('(', ' ').replace(')', ' ')
-    return all(any(choice.strip() in accepted for choice in part.split(' OR ')) for part in expression.split(' AND '))
+    """Whether an SPDX expression can be met with accepted licenses: OR needs one side, AND both, AND binds tighter,
+    parentheses group. `WITH <exception>` keeps the license it modifies."""
+    tokens = license.replace('(', ' ( ').replace(')', ' ) ').split()
+    position = 0
+
+    def take() -> str:
+        nonlocal position
+        position += 1
+        return tokens[position - 1] if position <= len(tokens) else ''
+
+    def peek() -> str:
+        return tokens[position] if position < len(tokens) else ''
+
+    def term() -> bool:
+        token = take()
+        if token == '(':
+            ok = any_of()
+            return take() == ')' and ok
+        if peek() == 'WITH':
+            take(), take()
+        return token in accepted
+
+    def all_of() -> bool:
+        ok = term()
+        while peek() == 'AND':
+            take()
+            ok = term() and ok
+        return ok
+
+    def any_of() -> bool:
+        ok = all_of()
+        while peek() == 'OR':
+            take()
+            ok = all_of() or ok
+        return ok
+
+    result = any_of()
+    return result and position == len(tokens)
 
 
 def findings(env: dict) -> list[str]:

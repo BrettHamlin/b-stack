@@ -60,6 +60,26 @@ const packageName = (specifier: string): string => {
   return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : (parts[0] ?? specifier);
 };
 
+/** Visitors that call `found` with every module a file names: imports, re-exports, dynamic imports, import types. */
+const moduleSources = (
+  found: (node: ESTree.Node, specifier: string | undefined) => void,
+): Record<string, (node: never) => void> => {
+  const literal = (node: ESTree.Node, source: ESTree.Node | null | undefined): void => {
+    if (!source) return;
+    found(node, source.type === "Literal" && typeof source.value === "string" ? source.value : undefined);
+  };
+  return {
+    ImportDeclaration: (node: ESTree.ImportDeclaration) => literal(node, node.source),
+    ExportNamedDeclaration: (node: ESTree.ExportNamedDeclaration) => literal(node, node.source),
+    ExportAllDeclaration: (node: ESTree.ExportAllDeclaration) => literal(node, node.source),
+    ImportExpression: (node: ESTree.ImportExpression) => literal(node, node.source),
+    TSImportType: (node: ESTree.TSImportType) => {
+      if (node.argument.type === "TSLiteralType") literal(node, node.argument.literal);
+    },
+    TSExternalModuleReference: (node: ESTree.TSExternalModuleReference) => literal(node, node.expression),
+  };
+};
+
 const moduleBoundaries = defineRule({
   meta: { type: "problem", docs: { description: "Imports stay inside what the package declares and its role allows." } },
   create(context) {
@@ -69,7 +89,18 @@ const moduleBoundaries = defineRule({
     const deps = manifest(owner.folder);
     const dev = isDevFile(owner.folder, context.filename);
     const check = (node: ESTree.Node, specifier: string): void => {
-      if (specifier.startsWith(".") || specifier.startsWith("node:")) return; // the compiler checks these per role
+      if (specifier.startsWith(".")) {
+        const target = NodePath.relative(NodePath.join(ROOT, owner.folder), NodePath.resolve(NodePath.dirname(context.filename), specifier));
+        const top = target.split(NodePath.sep)[0];
+        if (!dev && (top === "tests" || top === "journeys")) {
+          context.report({
+            node,
+            message: `The app's own code can't import ${top}/: test and journey files may use test setup (fixtures, devDependencies) that must never ship. Move shared code into src/.`,
+          });
+        }
+        return; // the compiler checks that it stays inside the package (rootDir)
+      }
+      if (specifier.startsWith("node:")) return; // the compiler checks these per role
       const name = packageName(specifier);
       const self = name === manifest(owner.folder).name;
       const declared = self || name in (deps.dependencies ?? {}) || (dev && name in (deps.devDependencies ?? {}));
@@ -90,22 +121,13 @@ const moduleBoundaries = defineRule({
         }
       }
     };
-    const literal = (node: ESTree.Node, source: ESTree.Node | null | undefined): void => {
-      if (!source) return;
-      if (source.type === "Literal" && typeof source.value === "string") check(node, source.value);
-      else context.report({ node, message: "Import a module by a string literal, so the module shape can be checked." });
-    };
-    return {
-      ImportDeclaration: (node) => literal(node, node.source),
-      ExportNamedDeclaration: (node) => literal(node, node.source),
-      ExportAllDeclaration: (node) => literal(node, node.source),
-      ImportExpression: (node) => literal(node, node.source),
-      TSImportType: (node) => {
-        const argument = node.argument;
-        if (argument.type === "TSLiteralType") literal(node, argument.literal);
-      },
-      TSExternalModuleReference: (node) => literal(node, node.expression),
-    };
+    return moduleSources((node, specifier) => {
+      if (specifier === undefined) {
+        context.report({ node, message: "Import a module by a string literal, so the module shape can be checked." });
+      } else {
+        check(node, specifier);
+      }
+    });
   },
 });
 
@@ -177,26 +199,39 @@ const typedUiIdentifiers = defineRule({
   create(context) {
     const relative = NodePath.relative(ROOT, context.filename).split(NodePath.sep).join("/");
     const inContracts = relative.startsWith("packages/contracts/");
-    const isJourneyBody = /^apps\/desktop\/journeys\/[^/]+\.journey\.ts$/.test(relative);
-    const isUiObject = (node: ESTree.Node): boolean =>
-      node.type === "MemberExpression" && node.object.type === "Identifier" && /Ui$/.test(node.object.name);
+    // Every journey file except the code-owned support layer, which wraps Playwright in the typed Screen.
+    const isJourney = relative.startsWith("apps/desktop/journeys/") && !relative.startsWith("apps/desktop/journeys/support/");
+    const fromContracts = new Set<string>();
+    const isContractsUi = (node: ESTree.Node): boolean =>
+      node.type === "MemberExpression" &&
+      !node.computed &&
+      node.object.type === "Identifier" &&
+      /Ui$/.test(node.object.name) &&
+      fromContracts.has(node.object.name);
+    const imports = moduleSources((node, specifier) => {
+      if (isJourney && (specifier === undefined || specifier === "playwright-core" || specifier.startsWith("@playwright/") || specifier === "electron")) {
+        context.report({ node, message: `Journeys don't drive the app directly. ${UI_MESSAGE}` });
+      }
+    });
     return {
-      CallExpression(node) {
+      ...imports,
+      ImportDeclaration(node: ESTree.ImportDeclaration) {
+        imports["ImportDeclaration"]?.(node as never);
+        if (node.source.value !== "@app/contracts") return;
+        for (const specifier of node.specifiers) {
+          if (specifier.type === "ImportSpecifier") fromContracts.add(specifier.local.name);
+        }
+      },
+      CallExpression(node: ESTree.CallExpression) {
         const callee = node.callee;
         const name = callee.type === "Identifier" ? callee.name : callee.type === "MemberExpression" && callee.property.type === "Identifier" ? callee.property.name : "";
         if (name === "uiId" && !inContracts) context.report({ node, message: `Only contracts make UiIds. ${UI_MESSAGE}` });
       },
-      JSXAttribute(node) {
+      JSXAttribute(node: ESTree.JSXAttribute) {
         if (node.name.type !== "JSXIdentifier" || node.name.name !== "data-testid") return;
         const value = node.value;
-        if (!(value?.type === "JSXExpressionContainer" && isUiObject(value.expression))) {
-          context.report({ node, message: `data-testid must be a contracts identifier like TallyUi.add. ${UI_MESSAGE}` });
-        }
-      },
-      ImportDeclaration(node) {
-        const source = String(node.source.value);
-        if (isJourneyBody && (source === "playwright-core" || source.startsWith("@playwright/") || source === "electron")) {
-          context.report({ node, message: `Journeys don't drive the app directly. ${UI_MESSAGE}` });
+        if (!(value?.type === "JSXExpressionContainer" && isContractsUi(value.expression))) {
+          context.report({ node, message: `data-testid must be a contracts identifier, a *Ui object imported from @app/contracts. ${UI_MESSAGE}` });
         }
       },
     };

@@ -19,15 +19,16 @@ jobs:
     # Apple silicon: tools.toml pins the darwin-arm64 Node.js and pnpm, and the journeys open the app's window.
     runs-on: macos-15
     timeout-minutes: 30
-    env:
-      BSTACK_CACHE_DIR: ${{ runner.temp }}/bstack-cache
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
-      - run: mkdir -p "$BSTACK_CACHE_DIR"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
       # CI=true (set by GitHub): pnpm refuses to change pnpm-lock.yaml, so a package.json edited without its lockfile fails.
       - name: compiler, lint, deps, arch, tests, verify
         run: python3 scripts/check.py
