@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = false
+diagnostic = "eslint(no-restricted-properties): 'expect.objectContaining' is restricted from being used."

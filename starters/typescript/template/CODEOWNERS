@@ -28,6 +28,7 @@
 # Verification: journeys and what they prove
 /feature-map/             @OWNER
 /apps/desktop/journeys/   @OWNER
+/packages/fixtures/       @OWNER
 # The composition roots: which real services each process wires in
 /apps/desktop/src/        @OWNER
 /apps/web/src/main.tsx    @OWNER

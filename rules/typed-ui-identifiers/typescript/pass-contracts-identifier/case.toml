@@ -1,0 +1,3 @@
+expect = "pass"
+enforced_by = "lint"
+uses_example = "uses the example screen's identifiers (TallyUi), the only ones the starter has"

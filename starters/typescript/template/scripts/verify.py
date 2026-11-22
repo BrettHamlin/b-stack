@@ -19,6 +19,7 @@ import sys
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build import build  # noqa: E402
 from tools import install, node_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,19 +79,11 @@ def map_errors(features: list[dict]) -> list[str]:
     return errors
 
 
-def build(env: dict) -> list[str]:
-    for cmd in (['vp', '-C', 'apps/web', 'build'], ['vp', '-C', 'apps/desktop', 'pack']):
-        proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
-        if proc.returncode != 0:
-            return [f'[verified-features] `{" ".join(cmd)}` failed, so the app can\'t run:\n'
-                    f'{(proc.stdout + proc.stderr).strip()[-3000:]}']
-    return []
-
-
 def run(env: dict, features: list[dict]) -> list[str]:
-    errors = build(env)
-    if errors:
-        return errors
+    failed = build(env)
+    if failed:
+        return [f'[verified-features] the app didn\'t build, so it can\'t run: {failed}']
+    errors: list[str] = []
     results = EVIDENCE / 'results.json'
     proc = subprocess.run(['vp', 'test', 'run', '--project', 'journeys', '--reporter=json', f'--outputFile={results}'],
                           cwd=ROOT, env=env, capture_output=True, text=True)

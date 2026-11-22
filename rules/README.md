@@ -67,11 +67,11 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-concurrency-escapes](no-concurrency-escapes/rule.toml) | 1+2 | compiler, Harmonize | compiler | oxlint | Strict concurrency on; its escape hatches banned (Rust: unsafe forbidden; TypeScript: every promise awaited, no raw timers) |
 | [no-force-operations](no-force-operations/rule.toml) | 2 | SwiftLint | Clippy | oxlint | No force unwrap, force try or force cast (Rust: unwrap, expect, panic, indexing, `as`; TypeScript: `!`, `as`, `any`) |
 | [no-suppressions](no-suppressions/rule.toml) | 2 | SwiftLint | arch | arch | No lint suppressions (Rust: also no lint-level changes, build scripts, or macros that hide code) |
-| [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | compiler, Harmonize, verify | | | Typed journey bodies cannot import XCUITest; only generated adapters use XCTestCase |
+| [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | compiler, Harmonize, verify | | compiler, oxlint | Typed journey bodies cannot import XCUITest; only generated adapters use XCTestCase (TypeScript: journeys use a typed Screen) |
 | [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | compiler, arch | compiler, oxlint, arch | Feature logic does no I/O; effects call injected clients (Rust: `no_std`; TypeScript: no Node.js or DOM types) |
-| [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | | | TCA tests stay exhaustive (no exhaustivity off or skips) |
+| [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | | oxlint | TCA tests stay exhaustive (no exhaustivity off or skips; TypeScript: whole-value assertions) |
 | [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch | tests, oxlint, arch | Every test target runs in the tests gate |
-| [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | | | Only the test-mode app (AppVerify) can use fixtures |
+| [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | | arch, oxlint | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |
 | [allowed-dependencies](allowed-dependencies/rule.toml) | 2 | | arch, cargo-deny | arch, deps | Third-party packages only from each role's list, the registry, allowed licenses |
 | [verified-features](verified-features/rule.toml) | 3 | verify | verify | verify (Playwright) | Every feature is in the feature map and its journeys pass in the running app |
 | [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | (not tested yet) | (not tested yet) | Enforcement files need a human code owner to change |

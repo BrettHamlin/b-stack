@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = "imports the example's fixture (savedTally)"
+diagnostic = "apps/desktop doesn't declare \"@app/fixtures\" in dependencies"

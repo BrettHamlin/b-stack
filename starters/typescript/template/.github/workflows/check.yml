@@ -1,0 +1,41 @@
+# Runs every gate on each pull request and on main. Make the `check` job a required status check in branch
+# protection, with "Require review from Code Owners" (CODEOWNERS covers this file).
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Apple silicon: tools.toml pins the darwin-arm64 Node.js and pnpm, and the journeys open the app's window.
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      BSTACK_CACHE_DIR: ${{ runner.temp }}/bstack-cache
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - run: mkdir -p "$BSTACK_CACHE_DIR"
+      # CI=true (set by GitHub): pnpm refuses to change pnpm-lock.yaml, so a package.json edited without its lockfile fails.
+      - name: compiler, lint, deps, arch, tests, verify
+        run: python3 scripts/check.py
+      - name: Package the app and run the journeys against the package
+        run: python3 scripts/package.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: evidence
+          path: .build/evidence/latest/
+          if-no-files-found: ignore

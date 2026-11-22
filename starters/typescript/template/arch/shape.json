@@ -68,7 +68,8 @@
         "@effect/vitest",
         "vite-plus",
         "@types/node",
-        "playwright-core"
+        "playwright-core",
+        "electron-builder"
       ],
       "dev_may_use": [
         "fixtures"

@@ -3,9 +3,14 @@ layer = "2"
 summary = "Test-mode fixtures are only reachable from the AppVerify build; the shipped App can't import them."
 problem = "If the shipped app can be switched into test mode (fake backend, preset data), that mode can reach users, and agents take the shortcut of wiring fakes into the real app."
 message = "Only AppVerify may import Fixtures. Compose real services in App and test setups in AppVerify; if a fixture seems needed in App, stop and report."
-escape_hatches = ["Importing Fixtures from another module: the Harmonize rule checks every production file outside Targets/AppVerify and Targets/Fixtures.", "Declaring Fixtures as an App dependency without importing it: tuist inspect dependencies --only redundant rejects unused dependencies.", "Editing Project.swift or the rule: protected-enforcement (code owners)."]
+escape_hatches = ["Importing Fixtures from another module: the Harmonize rule checks every production file outside Targets/AppVerify and Targets/Fixtures.", "Declaring Fixtures as an App dependency without importing it: tuist inspect dependencies --only redundant rejects unused dependencies.", "Editing Project.swift or the rule: protected-enforcement (code owners).", "TypeScript: copying fixture code into the app: review (lint and arch see the package boundary, not the code)."]
 origin = "Verification design, Nov 2026: test mode as a separate app target rather than a flag in the shipped app."
 
 [ios]
 harmonize = "NoFixturesInRelease.swift: no `import Fixtures` in production code outside Targets/AppVerify and Targets/Fixtures (text match on import lines). ModuleBoundaries also leaves Fixtures off App's allowlist."
 tuist = "inspect dependencies --only redundant: a declared but unused dependency fails (case fail-unused-dependency: Fixtures hand-edited into App's dependencies, never imported), so App can't link Fixtures without importing it."
+
+[typescript]
+arch = "scripts/arch.py: packages/fixtures is a dev_only role in arch/shape.json: it may be only a devDependency, and only of the roles whose dev_may_use names it (the desktop app, for its journeys). A shipped role listing it, in either section, fails."
+lint = "bstack/module-boundaries: the desktop app's own code (src/) may import only its dependencies, so it can't import @app/fixtures even though its journeys can; the main bundle (vp pack) is built from src/ only (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+message = "Only journeys and tests use fixtures (packages/fixtures, a devDependency). Compose real services in the app; if a fixture seems needed there, stop and report."

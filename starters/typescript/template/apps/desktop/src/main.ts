@@ -50,7 +50,7 @@ const open = async (): Promise<void> => {
       nodeIntegration: false,
     },
   });
-  await window.loadFile(`${import.meta.dirname}/../../web/dist/index.html`);
+  await window.loadFile(`${import.meta.dirname}/renderer/index.html`);
 };
 
 app.on("window-all-closed", () => app.quit());

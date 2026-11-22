@@ -11,8 +11,11 @@ packages:
 # Each package sees only the packages it declares: nothing is hoisted where an undeclared import could find it.
 hoist: false
 publicHoistPattern: []
-# No package runs install scripts (pnpm's default without allowBuilds). Electron's binary is downloaded by
-# scripts/tools.py, which runs its install.js.
+# No package runs install scripts. Electron's binary is downloaded by scripts/tools.py, which runs its install.js.
+# pnpm 12 fails an install whose packages have scripts it wasn't told about, so each is listed, as false.
+allowBuilds:
+  # electron-builder's Windows installer tool; this starter packages for macOS only.
+  electron-winstaller: false
 # One Vite (vite-plus's), as in T3 Code, so @effect/vitest and vp test share one Vitest.
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
