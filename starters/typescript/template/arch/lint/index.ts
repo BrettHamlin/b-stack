@@ -109,26 +109,6 @@ const moduleBoundaries = defineRule({
   },
 });
 
-const DIRECTIVE = /(?:eslint|oxlint)-(?:disable|enable)|@ts-(?:ignore|expect-error|nocheck)|@effect-diagnostics|^\s*(?:eslint|global|globals|exported)\s/u;
-
-const noSuppressions = defineRule({
-  meta: { type: "problem", docs: { description: "No lint or type-checker suppression comments." } },
-  create(context) {
-    return {
-      Program() {
-        for (const comment of context.sourceCode.getAllComments()) {
-          if (DIRECTIVE.test(comment.value)) {
-            context.report({
-              loc: comment.loc,
-              message: "Suppression comments aren't allowed. Fix the underlying issue. If the rule is wrong here, stop and report; lint levels live only in the protected vite.config.ts.",
-            });
-          }
-        }
-      },
-    };
-  },
-});
-
 const noAmbientDeclarations = defineRule({
   meta: { type: "problem", docs: { description: "No `declare`: every name the code uses comes from a real module or the role's own types." } },
   create(context) {
@@ -192,7 +172,6 @@ export default definePlugin({
   meta: { name: "bstack" },
   rules: {
     "module-boundaries": moduleBoundaries,
-    "no-suppressions": noSuppressions,
     "no-ambient-declarations": noAmbientDeclarations,
     "no-module-state": noModuleState,
     "no-skipped-tests": noSkippedTests,

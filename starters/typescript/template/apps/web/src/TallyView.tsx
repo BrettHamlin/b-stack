@@ -13,8 +13,12 @@ export function TallyView({ initial, store }: TallyViewProps) {
   const [tally, setTally] = useState(initial);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  // One record at a time: each one loads, counts and saves, so two at once would lose a count. The name is locked
+  // too, so a save that clears it never clears one typed meanwhile.
+  const [saving, setSaving] = useState(false);
 
   const add = () => {
+    setSaving(true);
     Effect.runFork(
       parseItemName(name).pipe(
         Effect.flatMap(record),
@@ -26,6 +30,7 @@ export function TallyView({ initial, store }: TallyViewProps) {
             setName("");
           },
         }),
+        Effect.ensuring(Effect.sync(() => setSaving(false))),
         Effect.provide(store),
       ),
     );
@@ -34,8 +39,14 @@ export function TallyView({ initial, store }: TallyViewProps) {
   const items = entries(tally);
   return (
     <main>
-      <input data-testid={TallyUi.name} value={name} onChange={(event) => setName(event.target.value)} aria-label="Item name" />
-      <button type="button" data-testid={TallyUi.add} onClick={add}>
+      <input
+        data-testid={TallyUi.name}
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        disabled={saving}
+        aria-label="Item name"
+      />
+      <button type="button" data-testid={TallyUi.add} onClick={add} disabled={saving}>
         Add
       </button>
       <p data-testid={TallyUi.error} role="alert">

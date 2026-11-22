@@ -7,7 +7,7 @@ Gates:
             promises, imports inside the module shape, no ambient declarations or module state, no skipped tests
   deps      every package from the npm registry with an integrity hash and an allowed license (scripts/deps.py)
   arch      the package graph against the module shape (arch/shape.json), config files, suppression comments
-  tests     every unit and property test (vp test, the `unit` project)
+  tests     every unit and property test (vp test, the `unit` project); a skipped or todo test fails
   verify    the feature map is complete, and every journey passes against the built app (scripts/verify.py)
 
 Before the gates, the locked packages are installed (pnpm install --frozen-lockfile) if anything changed. Each gate's
@@ -53,6 +53,24 @@ def compiler(env: dict) -> tuple[bool, str]:
     return all(ok for ok, _ in results), '\n'.join(output for _, output in results if output)
 
 
+def tests(env: dict) -> tuple[bool, str]:
+    """Every unit test runs and passes: a test Vitest skipped or left as todo fails the gate, however it was marked
+    (lint catches `.skip`; this catches options like `{ skip: true }` too)."""
+    report = ROOT / '.build/unit-results.json'
+    report.unlink(missing_ok=True)
+    ok, output = run(['vp', 'test', 'run', '--project', 'unit', '--reporter=default', '--reporter=json',
+                      f'--outputFile.json={report}'], env)
+    if not report.is_file():
+        return False, output
+    skipped = [f'{suite["name"]}: {test["fullName"]} ({test["status"]})'
+               for suite in json.loads(report.read_text()).get('testResults', [])
+               for test in suite.get('assertionResults', []) if test.get('status') not in ('passed', 'failed')]
+    if skipped:
+        return False, '\n'.join([output, '[tests-always-run] every test runs; these didn\'t:', *skipped,
+                                 'If a test can\'t pass, fix the code or the test, or stop and report.'])
+    return ok, output
+
+
 def gate(name: str, env: dict) -> tuple[bool, str]:
     if name == 'compiler':
         return compiler(env)
@@ -64,7 +82,7 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
         found = arch_findings()
         return not found, '\n'.join(found)
     if name == 'tests':
-        return run(['vp', 'test', 'run', '--project', 'unit'], env)
+        return tests(env)
     return run([sys.executable, str(ROOT / 'scripts/verify.py'), 'run'], env)
 
 

@@ -31,7 +31,7 @@ CONFIG = re.compile(r'^(?:tsconfig.*\.json|\.?oxlintrc.*|oxlint\.config\..*|\.es
                     r'|vitest\.config\..*|vite\.config\..*|vitest\.workspace\..*|\.npmrc|\.pnpmfile\.c?js|pnpmfile\..*)$')
 # Config files the owner placed (code-owned): the apps' build configs and the journeys' TypeScript config.
 ALLOWED_CONFIG = {'apps/desktop/vite.config.ts', 'apps/web/vite.config.ts', 'apps/desktop/journeys/tsconfig.json'}
-SOURCE_SUFFIXES = ('.ts', '.tsx')
+SOURCE_SUFFIXES = ('.ts', '.tsx', '.mts', '.cts')
 
 
 def files(folder: Path):
@@ -139,8 +139,8 @@ def findings() -> list[str]:
         package = next((f for f in packages if rel.is_relative_to(f)), None)
         if package is not None:
             inner = rel.relative_to(package)
-            if path.suffix in ('.js', '.mjs', '.cjs', '.jsx') or path.name.endswith('.d.ts'):
-                out.append(f'[no-io-in-logic] {rel}: only TypeScript (.ts, .tsx), so the compiler checks every file '
+            if path.suffix in ('.js', '.mjs', '.cjs', '.jsx', '.mts', '.cts') or path.name.endswith(('.d.ts', '.d.tsx')):
+                out.append(f'[no-io-in-logic] {rel}: only TypeScript (.ts, .tsx), so the compiler and lint check every file '
                            'against its role. Write it as TypeScript; never declare types for code that isn\'t there.')
             if inner.parts[0] == 'tests' and path.suffix in SOURCE_SUFFIXES and inner.parts[1:2] != ('support',) \
                     and not re.search(r'\.test\.tsx?$', path.name):

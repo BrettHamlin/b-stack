@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "tests"
+uses_example = false
+diagnostic = "[tests-always-run] every test runs; these didn't:"

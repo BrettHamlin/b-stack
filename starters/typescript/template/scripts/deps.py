@@ -25,14 +25,18 @@ TOOLS_ALSO = {'MPL-2.0'}
 
 
 def source_findings() -> list[str]:
+    """Every `resolution` in the lockfile must be exactly a registry integrity hash. Fails closed: a resolution
+    written any other way (a tarball URL, git, a folder, or a block mapping) is a finding."""
     out = []
-    text = (ROOT / 'pnpm-lock.yaml').read_text()
-    for match in re.finditer(r"^  (\S.*?):\n    resolution: \{([^}]*)\}", text, re.M):
-        name, resolution = match.group(1), match.group(2)
-        if not re.fullmatch(r'integrity: sha512-[A-Za-z0-9+/=]+', resolution.strip()):
-            out.append(f'[allowed-dependencies] pnpm-lock.yaml: {name} resolves to {{{resolution.strip()}}}. Packages '
-                       'come only from the npm registry with an integrity hash: no git, URL or folder dependencies.')
-    if not re.search(r'^    resolution: \{integrity:', text, re.M):
+    lines = (ROOT / 'pnpm-lock.yaml').read_text().splitlines()
+    for number, line in enumerate(lines, 1):
+        if 'resolution:' not in line:
+            continue
+        if not re.fullmatch(r'    resolution: \{integrity: sha512-[A-Za-z0-9+/=]+\}', line):
+            name = lines[number - 2].strip().rstrip(':') if number > 1 else '?'
+            out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: {name} {line.strip()}. Packages come only from '
+                       'the npm registry with an integrity hash: no git, URL or folder dependencies.')
+    if not any('resolution: {integrity:' in line for line in lines):
         out.append('[allowed-dependencies] pnpm-lock.yaml: no registry packages found; is the lockfile valid?')
     return out
 
@@ -48,10 +52,14 @@ def licenses(env: dict, prod: bool) -> dict[str, list[str]]:
     seen: set[str] = set()
 
     def walk(node: dict) -> None:
-        for name, dependency in (node.get('dependencies') or {}).items():
+        sections = ('dependencies', 'optionalDependencies') + (() if prod else ('devDependencies',))
+        children = [item for section in sections for item in (node.get(section) or {}).items()]
+        for name, dependency in children:
             path = dependency.get('path', '')
             if path in seen or str(dependency.get('version', '')).startswith('link:'):
                 continue
+            if not (Path(path) / 'package.json').is_file():
+                continue  # an optional package for another platform, not installed here
             seen.add(path)
             manifest = json.loads((Path(path) / 'package.json').read_text()) if path else {}
             license = manifest.get('license')

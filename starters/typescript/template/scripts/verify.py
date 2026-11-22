@@ -98,6 +98,7 @@ def run(env: dict, features: list[dict]) -> list[str]:
         return [f'[verified-features] the journeys didn\'t run:\n{(proc.stdout + proc.stderr).strip()[-4000:]}']
     report = json.loads(results.read_text())
     ran: dict[str, dict] = {}
+    titles = [test['title'] for suite in report.get('testResults', []) for test in suite.get('assertionResults', [])]
     for suite in report.get('testResults', []):
         if suite.get('status') == 'failed' and not suite.get('assertionResults'):
             errors.append(f'[verified-features] {suite.get("name")} didn\'t load:\n{suite.get("message", "")[-3000:]}')
@@ -106,6 +107,8 @@ def run(env: dict, features: list[dict]) -> list[str]:
                 errors.append(f'[verified-features] journey `{test.get("fullName")}`: journeys are top-level tests, '
                               'named as in the feature map (no describe blocks).')
             ran[test['title']] = test
+    errors += [f'[verified-features] journey `{name}` is defined {titles.count(name)} times in {JOURNEYS}/. Each journey '
+               'has one name, as in the feature map.' for name in sorted(set(titles)) if titles.count(name) > 1]
     mapped = {j['name']: f['file'] for f in features for j in f.get('journeys', []) if j.get('name')}
     errors += [f'[verified-features] journey `{name}` in {JOURNEYS}/ isn\'t in the feature map. Add it to the feature '
                'it proves.' for name in ran if name not in mapped]
@@ -131,6 +134,8 @@ def run(env: dict, features: list[dict]) -> list[str]:
             lines += [f'### {name}: {"PASS" if passed and shots else "FAIL"}', '', journey.get('proves', ''), '']
             lines += [f'- ![{shot.stem}]({name}/{shot.name})' for shot in shots] + ['']
     (EVIDENCE / 'evidence.md').write_text('\n'.join(lines))
+    if proc.returncode != 0 and not errors:
+        errors.append(f'[verified-features] the journeys failed:\n{(proc.stdout + proc.stderr).strip()[-3000:]}')
     return errors
 
 
@@ -138,10 +143,11 @@ if __name__ == '__main__':
     mode = sys.argv[1] if len(sys.argv) > 1 else 'run'
     if mode not in ('map', 'run'):
         sys.exit(__doc__)
+    if mode == 'run':
+        shutil.rmtree(EVIDENCE, ignore_errors=True)  # never leave an earlier run's evidence as the latest
     features, errors = load_map()
     errors += map_errors(features)
     if mode == 'run' and not errors:
-        shutil.rmtree(EVIDENCE, ignore_errors=True)  # never leave an earlier run's evidence as the latest
         EVIDENCE.mkdir(parents=True)
         env = node_env()
         install(env)
