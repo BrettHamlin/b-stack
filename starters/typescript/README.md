@@ -14,7 +14,7 @@ An Electron desktop app laid out like [T3 Code](https://github.com/pingdotgg/t3c
 | Gate command: compiler, lint, deps, arch, tests, verify | `template/scripts/check.py` | ✅ Every gate passes in about 10 s; rule suite 79/79 (2026-11-22) |
 | Lint rules of our own (oxlint JS plugin): imports inside the shape and declared, no ambient declarations, no module state, no skipped tests | `template/arch/lint/index.ts` | ✅ |
 | Architecture checks: packages and manifests against the shape, per-package tsconfig, config files, suppression comments | `template/scripts/arch.py` | ✅ |
-| Dependency checks: registry sources with integrity hashes, licenses | `template/scripts/deps.py` | ✅ |
+| Dependency checks: every installed package from the npm registry, licenses (from pnpm's own report) | `template/scripts/deps.py` | ✅ |
 | Verification: feature map, journeys that launch the built Electron app through Playwright, screenshots as evidence | `template/scripts/verify.py`, `template/apps/desktop/journeys/`, `template/feature-map/` | ✅ Three tally journeys, about 5 s |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py`, `template/pnpm-lock.yaml` | ✅ Node.js 26.13.1, pnpm 12.14.0; Electron's binary checked against its package's checksums |
 | Installed packages, Electron and build output in a configurable cache folder | `template/scripts/paths.py`, `template/scripts/tools.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |

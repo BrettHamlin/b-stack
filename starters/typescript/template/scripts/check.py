@@ -5,7 +5,7 @@ Gates:
             in arch/tsconfig/: no DOM or Node.js in logic, strict, every Effect diagnostic in tsconfig.effect.json
   lint      oxlint, type-aware (vite.config.ts and arch/lint): no any, `as` or `!`, exhaustive switches, awaited
             promises, imports inside the module shape, no ambient declarations or module state, no skipped tests
-  deps      every package from the npm registry with an integrity hash and an allowed license (scripts/deps.py)
+  deps      every installed package from the npm registry, with an allowed license (scripts/deps.py)
   arch      the package graph against the module shape (arch/shape.json), config files, suppression comments
   tests     every unit and property test (vp test, the `unit` project); a skipped or todo test fails
   verify    the feature map is complete, and every journey passes against the built app (scripts/verify.py)

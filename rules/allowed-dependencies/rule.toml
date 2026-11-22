@@ -12,4 +12,4 @@ deny = "deny.toml (protected), over the whole dependency tree including transiti
 
 [typescript]
 arch = "arch/shape.json (protected) gives each role its own `external` list (and `dev_external` for tests and config); a third-party package not on it fails, naming the role. Versions are exact."
-deps = "scripts/deps.py: every package in pnpm-lock.yaml resolves to the npm registry with an integrity hash (no git, URL or folder dependencies), and every installed package's license field is permissive; build and test tools may also be MPL-2.0. pnpm 12.14.0 checks each download against the lockfile's hash."
+deps = "scripts/deps.py, from what pnpm reports it installed (`pnpm list --long`, so the lockfile is read as pnpm reads it): every package was resolved from https://registry.npmjs.org/ (no git, URL or folder dependencies), and every installed copy's license is permissive; build and test tools may also be MPL-2.0. pnpm 12.14.0 checks each download against the lockfile's hash."
