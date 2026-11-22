@@ -37,19 +37,25 @@ def source_findings() -> list[str]:
     entries: list[tuple[int, str, list[str]]] = []
     section = False
     for number, line in enumerate(lines, 1):
-        if line and not line.startswith(' '):
+        if re.match(r'\s*#', line) or re.search(r'\s#', line) and not re.search(r'[\'"]', line):
+            out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: comments aren\'t a form pnpm writes.')
+        elif line and not line.startswith(' '):
             section = line == 'packages:'
-            if line.startswith(('?', '<<')):
+            if line.startswith(('?', '<<', '&', '*')) or (line.startswith('packages') and not section):
                 out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: `{line}` isn\'t a form pnpm writes.')
         elif section and re.match(r'  \S', line):
             entries.append((number, line.strip().rstrip(':'), []))
         elif section and line.strip() and entries:
             entries[-1][2].append(line)
     for number, name, body in entries:
-        canonical = [l for l in body if CANONICAL.fullmatch(l)]
-        odd = [l for l in body if not CANONICAL.fullmatch(l) and re.search(r'resolution|^\s*[?&*]|<<|: [&*]', l)]
+        # An entry's own fields are at four spaces; pnpm writes their keys as plain words.
+        fields = [l for l in body if re.match(r'    \S', l)]
+        canonical = [l for l in fields if CANONICAL.fullmatch(l)]
+        odd = [l for l in fields if not CANONICAL.fullmatch(l) and (
+            not re.match(r'    [A-Za-z]+:( |$)', l) or l.split(':', 1)[0].strip() == 'resolution'
+            or re.match(r'    [A-Za-z]+: [&*]', l))]
         if name.startswith(('?', '&', '*', '<<')) or len(canonical) != 1 or odd:
-            shown = (odd or [l for l in body if 'resolution' in l] or ['no registry resolution'])[0].strip()
+            shown = (odd or ['no registry resolution'])[0].strip()
             out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: {name} {shown}. Packages come only from the npm '
                        'registry with an integrity hash: no git, URL or folder dependencies.')
     if not entries:
