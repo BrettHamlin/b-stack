@@ -4,6 +4,7 @@
 // With an expected version, it also waits for the app to download that update, then reopens the app until it runs that
 // version (the update installs when the app quits) and checks the result was kept.
 // Usage: node scripts/smoke.mjs <executable> <folder with node_modules/playwright-core> <evidence folder> [<version>]
+import * as NodeChild from "node:child_process";
 import * as NodeFs from "node:fs/promises";
 import * as NodeModule from "node:module";
 import * as NodeOs from "node:os";
@@ -28,6 +29,14 @@ const said = (app) => {
   });
   return output;
 };
+const log = (line) => process.stdout.write(`[${new Date().toISOString()}] ${line}\n`);
+// Every wait has a limit, so a hang fails with what it was waiting for instead of running into the job's timeout.
+const within = (promise, ms, what) =>
+  Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`${what}: no answer in ${ms / 1000}s`)), ms))]);
+// Windows: the update's installer (named <app>-<version>-win-<arch>.exe) runs on after the app quits.
+const installing = (version) =>
+  process.platform === "win32" &&
+  NodeChild.execFileSync("tasklist", ["/FO", "CSV", "/NH"], { encoding: "utf8" }).includes(`-${version}-win-`);
 const until = async (output, pattern, ms) => {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -74,25 +83,34 @@ if (update) {
   }
   process.stdout.write(first.output.text);
 }
-await first.app.close();
+log("closing the app");
+// The app may already be gone (the update's installer can end it): don't wait on it for long.
+await within(first.app.close(), 60_000, "closing the app").catch((error) => log(String(error)));
+log("closed");
 
 // The update installs after the app quits (on Windows the installer runs on, on macOS Squirrel stages it): reopen
 // until the new version runs, for up to 3 minutes.
 const deadline = Date.now() + 180_000;
 // Asked of the main process itself. A launch can fail while an installer is replacing the app: try again until the
 // deadline.
-const version = (opened) => opened.app.evaluate(({ app }) => app.getVersion());
+const version = (opened) => within(opened.app.evaluate(({ app }) => app.getVersion()), 30_000, "asking the version");
 let again;
-for (let running = "", failure = ""; ; ) {
-  try {
-    again = await open();
-    running = update ? await version(again) : "";
-    if (!update || running === update) break;
-    await again.app.close();
-  } catch (error) {
-    failure = String(error);
+for (let running = "", failure = ""; ; failure = "") {
+  if (update && installing(update)) {
+    failure = "its installer is still running";
+  } else {
+    try {
+      again = await within(open(), 200_000, "opening the app");
+      running = update ? await version(again) : "";
+      log(`running ${running || "(no update expected)"}`);
+      if (!update || running === update) break;
+      await within(again.app.close(), 60_000, "closing the app").catch((error) => log(String(error)));
+    } catch (error) {
+      failure = String(error);
+    }
   }
-  if (Date.now() > deadline) throw new Error(`the app still runs ${running || "an unknown version"}, not ${update} ${failure}`);
+  log(`not yet: ${failure || `runs ${running}`}`);
+  if (Date.now() > deadline) throw new Error(`the app still runs ${running || "an unknown version"}, not ${update}: ${failure}`);
   await new Promise((resolve) => setTimeout(resolve, 5_000));
 }
 if (update) process.stdout.write(`relaunched on ${update}\n`);
