@@ -194,23 +194,41 @@ jobs:
           Invoke-WebRequest https://download.sysinternals.com/files/Handle.zip -OutFile "$env:RUNNER_TEMP\handle.zip"
           Expand-Archive "$env:RUNNER_TEMP\handle.zip" "$env:RUNNER_TEMP\handle"
           "BSTACK_HANDLE_EXE=$env:RUNNER_TEMP\handle\handle64.exe" >> $env:GITHUB_ENV
+      - name: Diagnosis - install, uninstall and update by hand, outside the app
+        if: runner.os == 'Windows' && matrix.update
+        continue-on-error: true
+        timeout-minutes: 8
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force smoke-evidence | Out-Null
+          $dir = "$env:LOCALAPPDATA\Programs\starter"
+          function Run($what, $file, $arguments) {
+            $p = Start-Process $file -ArgumentList $arguments -PassThru
+            if ($p.WaitForExit(120000)) { "$what exited: $($p.ExitCode)" } else {
+              "$what still running after 120s"
+              Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+              $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
+              $img = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+              [System.Drawing.Graphics]::FromImage($img).CopyFromScreen($b.Left, $b.Top, 0, 0, $img.Size)
+              $img.Save("$PWD\smoke-evidence\diagnosis-$($what -replace ' ','-').png")
+              Stop-Process $p -Force
+            }
+            "  files: " + ((Get-ChildItem $dir -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join ', ')
+          }
+          "TEMP=$env:TEMP"
+          Run 'install 0.1.0' (Resolve-Path release/starter-0.1.0-win-x64.exe) @('/S')
+          Copy-Item "$dir\Uninstall starter.exe" "$env:TEMP\old-uninstaller.exe"
+          Run 'uninstall 0.1.0' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', '--updated', "_?=$dir")
+          Run 'install 0.1.0 again' (Resolve-Path release/starter-0.1.0-win-x64.exe) @('/S')
+          Run 'update to 0.1.1' (Resolve-Path release/update/win-x64/starter-0.1.1-win-x64.exe) @('--updated', '/S')
+          "version now: " + (Get-Item "$dir\starter.exe" -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+          Get-Process starter* -ErrorAction SilentlyContinue | Stop-Process -Force
       - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
         run: |
           signed=""; [ "$RUNNER_OS" = "Windows" ] && signed="--signed"
           update=""; [ -n "${{ matrix.update }}" ] && update="--update release/update 0.1.1 8765"
           if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run --auto-servernum"; else run=""; fi
           $run python3 starters/typescript/template/scripts/install_and_smoke.py "release/${{ matrix.installer }}" "$RUNNER_TEMP/smoke" smoke-evidence $signed $update
-      - name: Diagnosis - the update installer run by hand over 0.1.0, not from the app
-        if: always() && runner.os == 'Windows' && matrix.update
-        shell: pwsh
-        run: |
-          Get-Process starter* -ErrorAction SilentlyContinue | Stop-Process -Force
-          Start-Process release/starter-0.1.0-win-x64.exe -ArgumentList '/S' -Wait
-          "installed: " + (Get-Item "$env:LOCALAPPDATA\Programs\starter\starter.exe").VersionInfo.ProductVersion
-          $p = Start-Process release/update/win-x64/starter-0.1.1-win-x64.exe -ArgumentList '--updated','/S' -PassThru
-          if ($p.WaitForExit(120000)) { "update installer exited: $($p.ExitCode)" } else { "update installer still running after 120s"; Stop-Process $p -Force }
-          "now: " + (Get-Item "$env:LOCALAPPDATA\Programs\starter\starter.exe").VersionInfo.ProductVersion
-          "TEMP=$env:TEMP"
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
