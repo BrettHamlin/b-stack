@@ -69,11 +69,15 @@ jobs:
       - name: Throwaway Windows signing certificate (the Windows jobs trust it, to check the signatures)
         run: |
           cd "$RUNNER_TEMP"
-          openssl req -x509 -newkey rsa:2048 -nodes -keyout win-key.pem -out win-cert.pem -days 1 -subj "/CN=b-stack CI" \
-            -addext "keyUsage=critical,digitalSignature" -addext "extendedKeyUsage=codeSigning" -addext "basicConstraints=critical,CA:false"
-          openssl pkcs12 -export -legacy -inkey win-key.pem -in win-cert.pem -out win.pfx -passout pass:ci 2>/dev/null \
-            || openssl pkcs12 -export -inkey win-key.pem -in win-cert.pem -out win.pfx -passout pass:ci
-          mkdir -p "$RUNNER_TEMP/release" && cp win-cert.pem "$RUNNER_TEMP/release/"
+          # A root (trusted on the Windows runners) and the code-signing certificate it issues, as a real publisher has.
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout win-ca-key.pem -out win-ca.pem -days 2 -subj "/CN=b-stack CI root" \
+            -addext "basicConstraints=critical,CA:true" -addext "keyUsage=critical,keyCertSign,cRLSign"
+          openssl req -newkey rsa:2048 -nodes -keyout win-key.pem -out win.csr -subj "/CN=b-stack CI"
+          printf 'basicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=codeSigning\n' > win-ext.cnf
+          openssl x509 -req -in win.csr -CA win-ca.pem -CAkey win-ca-key.pem -CAcreateserial -days 1 -extfile win-ext.cnf -out win-cert.pem
+          openssl pkcs12 -export -legacy -inkey win-key.pem -in win-cert.pem -certfile win-ca.pem -out win.pfx -passout pass:ci 2>/dev/null \
+            || openssl pkcs12 -export -inkey win-key.pem -in win-cert.pem -certfile win-ca.pem -out win.pfx -passout pass:ci
+          mkdir -p "$RUNNER_TEMP/release" && cp win-ca.pem win-cert.pem "$RUNNER_TEMP/release/"
           echo "WIN_CSC_LINK=$RUNNER_TEMP/win.pfx" >> "$GITHUB_ENV"
           echo "WIN_CSC_KEY_PASSWORD=ci" >> "$GITHUB_ENV"
           echo "BSTACK_UPDATE_URL=http://127.0.0.1:8765/" >> "$GITHUB_ENV"
@@ -181,7 +185,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Import-Certificate -FilePath release/win-cert.pem -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Import-Certificate -FilePath release/win-ca.pem -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
           Import-Certificate -FilePath release/win-cert.pem -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
       - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
         run: |
