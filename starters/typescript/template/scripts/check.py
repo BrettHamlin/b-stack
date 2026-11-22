@@ -19,8 +19,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import argparse
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -56,14 +58,20 @@ def compiler(env: dict) -> tuple[bool, str]:
 def tests(env: dict) -> tuple[bool, str]:
     """Every unit test runs and passes: a test Vitest skipped or left as todo fails the gate, however it was marked
     (lint catches `.skip`; this catches options like `{ skip: true }` too)."""
-    report = ROOT / '.build/unit-results.json'
-    report.unlink(missing_ok=True)
+    # A report of its own: another check.py in this checkout must not overwrite it.
+    (ROOT / '.build').mkdir(exist_ok=True)
+    handle, name = tempfile.mkstemp(prefix='unit-results-', suffix='.json', dir=ROOT / '.build')
+    os.close(handle)
+    report = Path(name)
+    report.unlink()
     ok, output = run(['vp', 'test', 'run', '--project', 'unit', '--reporter=default', '--reporter=json',
                       f'--outputFile.json={report}'], env)
     if not report.is_file():
         return False, output
+    results = json.loads(report.read_text())
+    report.unlink()
     skipped = [f'{suite["name"]}: {test["fullName"]} ({test["status"]})'
-               for suite in json.loads(report.read_text()).get('testResults', [])
+               for suite in results.get('testResults', [])
                for test in suite.get('assertionResults', []) if test.get('status') not in ('passed', 'failed')]
     if skipped:
         return False, '\n'.join([output, '[tests-always-run] every test runs; these didn\'t:', *skipped,

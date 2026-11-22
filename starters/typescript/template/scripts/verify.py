@@ -123,8 +123,10 @@ def run(env: dict, features: list[dict]) -> list[str]:
             if test is None:
                 continue
             shots = sorted((EVIDENCE / name).glob('*.png')) if (EVIDENCE / name).is_dir() else []
-            passed = test.get('status') == 'passed'
-            if not passed:
+            passed = test.get('status') == 'passed' and titles.count(name) == 1
+            if titles.count(name) > 1:
+                pass  # reported above
+            elif not passed:
                 message = '\n'.join(test.get('failureMessages', []))[-3000:]
                 errors.append(f'[verified-features] journey `{name}` failed ({feature["file"]}). Fix the app, or if the '
                               f'journey is wrong, say why; never weaken it.\n{message}')
