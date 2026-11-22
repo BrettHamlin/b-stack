@@ -33,10 +33,12 @@ const log = (line) => process.stdout.write(`[${new Date().toISOString()}] ${line
 // Every wait has a limit, so a hang fails with what it was waiting for instead of running into the job's timeout.
 const within = (promise, ms, what) =>
   Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`${what}: no answer in ${ms / 1000}s`)), ms))]);
-// Windows: the update's installer (named <app>-<version>-win-<arch>.exe) runs on after the app quits.
+// The update installs after the app quits: on Windows its installer (<app>-<version>-win-<arch>.exe) runs on, on macOS
+// Squirrel's ShipIt swaps the app. Reopening before it's done races it, which a user's next launch doesn't.
 const installing = (version) =>
-  process.platform === "win32" &&
-  NodeChild.execFileSync("tasklist", ["/FO", "CSV", "/NH"], { encoding: "utf8" }).includes(`-${version}-win-`);
+  process.platform === "win32"
+    ? NodeChild.execFileSync("tasklist", ["/FO", "CSV", "/NH"], { encoding: "utf8" }).includes(`-${version}-win-`)
+    : process.platform === "darwin" && NodeChild.spawnSync("pgrep", ["-x", "ShipIt"]).status === 0;
 // Windows: the app's and its installer's processes and all their children, with parent and command line, for a failure report.
 const processes = () =>
   process.platform !== "win32"
@@ -142,7 +144,10 @@ const deadline = Date.now() + 180_000;
 const version = (opened) => within(opened.app.evaluate(({ app }) => app.getVersion()), 30_000, "asking the version");
 let again;
 for (let running = "", failure = ""; ; failure = "") {
-  if (update && installing(update)) {
+  // Give the installer a moment to start before checking for it.
+  if (update && Date.now() < deadline - 175_000) {
+    failure = "giving its installer a moment to start";
+  } else if (update && installing(update)) {
     failure = "its installer is still running";
   } else {
     try {
