@@ -108,6 +108,8 @@ jobs:
           sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain cert.pem
           echo "CSC_LINK=$RUNNER_TEMP/cert.p12" >> "$GITHUB_ENV"
           echo "CSC_KEY_PASSWORD=ci" >> "$GITHUB_ENV"
+          # electron-builder skips signing in pull-request builds unless told; this certificate is a throwaway.
+          echo "CSC_FOR_PULL_REQUEST=true" >> "$GITHUB_ENV"
       - name: Package signed; codesign --verify; journeys against the signed app
         working-directory: starters/typescript/template
         run: |

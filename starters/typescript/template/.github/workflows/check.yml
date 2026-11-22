@@ -3,8 +3,8 @@
 # Code Owners" (CODEOWNERS covers this file).
 #
 # Signing: add the repository secrets MAC_CSC_LINK (base64 of a Developer ID Application .p12) and
-# MAC_CSC_KEY_PASSWORD, and for notarizing APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID. Without them the
-# macOS packages are unsigned. Windows and Linux packages are unsigned.
+# MAC_CSC_KEY_PASSWORD, and for notarizing APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID. Builds of main are
+# signed with them; pull-request builds, and every build without them, are unsigned. Windows and Linux packages are unsigned.
 name: check
 
 on:
@@ -26,11 +26,12 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONUNBUFFERED: "1"
-      CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Signed on main only: pull-request builds are unsigned, as electron-builder also defaults to.
+      CSC_LINK: ${{ github.event_name == 'push' && secrets.MAC_CSC_LINK || '' }}
+      CSC_KEY_PASSWORD: ${{ github.event_name == 'push' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+      APPLE_ID: ${{ github.event_name == 'push' && secrets.APPLE_ID || '' }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ github.event_name == 'push' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+      APPLE_TEAM_ID: ${{ github.event_name == 'push' && secrets.APPLE_TEAM_ID || '' }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0

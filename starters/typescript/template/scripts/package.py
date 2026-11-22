@@ -114,9 +114,10 @@ def package(env: dict, targets: list[str]) -> dict[str, Path]:
         settings.write_text(json.dumps(config(name, target), indent=2))
         output = run([str(builder), platform, arch, '--projectDir', str(folder), '--config', str(settings)],
                      {**env, 'CSC_IDENTITY_AUTO_DISCOVERY': 'true' if signed and target.startswith('mac') else 'false'})
-        if signed and target.startswith('mac') and 'skipped macOS application code signing' in output:
+        skips = ('skipped macOS application code signing', 'code signing will be skipped')
+        if signed and target.startswith('mac') and any(skip in output for skip in skips):
             # electron-builder skips an identity macOS doesn't trust and still succeeds: a signed build was asked for.
-            reason = next(line.strip() for line in output.splitlines() if 'skipped macOS application code signing' in line)
+            reason = next(line.strip() for line in output.splitlines() if any(skip in line for skip in skips))
             sys.exit(f'{target}: $CSC_LINK is set but the app wasn\'t signed:\n{reason}')
         path = OUT / 'out' / unpacked / executable.format(name=name)
         if not path.is_file():
