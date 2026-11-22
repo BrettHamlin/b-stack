@@ -1,4 +1,4 @@
 expect = "fail"
 enforced_by = "lint"
 uses_example = false
-diagnostic = "bstack(module-boundaries): The app's own code can't import journeys/"
+diagnostic = "bstack(module-boundaries): The app's own code can't import apps/desktop/journeys/seed.ts"

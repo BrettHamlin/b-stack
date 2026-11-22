@@ -69,14 +69,22 @@ def allowed(license: str, accepted: set[str]) -> bool:
     def peek() -> str:
         return tokens[position] if position < len(tokens) else ''
 
+    def name(token: str) -> str:
+        if not token or token in ('(', ')', 'AND', 'OR', 'WITH'):
+            raise ValueError(f'malformed license expression: {license!r}')
+        return token
+
     def term() -> bool:
         token = take()
         if token == '(':
             ok = any_of()
-            return take() == ')' and ok
+            if take() != ')':
+                raise ValueError(f'malformed license expression: {license!r}')
+            return ok
         if peek() == 'WITH':
-            take(), take()
-        return token in accepted
+            take()
+            name(take())
+        return name(token) in accepted
 
     def all_of() -> bool:
         ok = term()
@@ -92,7 +100,10 @@ def allowed(license: str, accepted: set[str]) -> bool:
             ok = all_of() or ok
         return ok
 
-    result = any_of()
+    try:
+        result = any_of()
+    except ValueError:
+        return False  # a syntax error makes the whole expression unknown
     return result and position == len(tokens)
 
 

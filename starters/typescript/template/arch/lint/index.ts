@@ -3,7 +3,7 @@
 import * as NodeFs from "node:fs";
 import * as NodePath from "node:path";
 
-import { definePlugin, defineRule, type ESTree } from "@oxlint/plugins";
+import { definePlugin, defineRule, type ESTree, type Scope } from "@oxlint/plugins";
 
 const ROOT = NodePath.resolve(import.meta.dirname, "../..");
 
@@ -90,12 +90,11 @@ const moduleBoundaries = defineRule({
     const dev = isDevFile(owner.folder, context.filename);
     const check = (node: ESTree.Node, specifier: string): void => {
       if (specifier.startsWith(".")) {
-        const target = NodePath.relative(NodePath.join(ROOT, owner.folder), NodePath.resolve(NodePath.dirname(context.filename), specifier));
-        const top = target.split(NodePath.sep)[0];
-        if (!dev && (top === "tests" || top === "journeys")) {
+        const target = NodePath.resolve(NodePath.dirname(context.filename), specifier);
+        if (!dev && isDevFile(owner.folder, target)) {
           context.report({
             node,
-            message: `The app's own code can't import ${top}/: test and journey files may use test setup (fixtures, devDependencies) that must never ship. Move shared code into src/.`,
+            message: `The app's own code can't import ${NodePath.relative(ROOT, target)}: test, journey and config files may use test setup (fixtures, devDependencies) that must never ship. Move shared code into src/.`,
           });
         }
         return; // the compiler checks that it stays inside the package (rootDir)
@@ -201,27 +200,35 @@ const typedUiIdentifiers = defineRule({
     const inContracts = relative.startsWith("packages/contracts/");
     // Every journey file except the code-owned support layer, which wraps Playwright in the typed Screen.
     const isJourney = relative.startsWith("apps/desktop/journeys/") && !relative.startsWith("apps/desktop/journeys/support/");
-    const fromContracts = new Set<string>();
-    const isContractsUi = (node: ESTree.Node): boolean =>
-      node.type === "MemberExpression" &&
-      !node.computed &&
-      node.object.type === "Identifier" &&
-      /Ui$/.test(node.object.name) &&
-      fromContracts.has(node.object.name);
+    // The identifier must be bound by an import from @app/contracts (not a local object, and not shadowed).
+    const isContractsUi = (node: ESTree.Node): boolean => {
+      if (node.type !== "MemberExpression" || node.computed || node.object.type !== "Identifier" || !/Ui$/.test(node.object.name)) {
+        return false;
+      }
+      const name = node.object.name;
+      for (let scope: Scope | null = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+        const variable = scope.set.get(name);
+        if (variable) {
+          const definition = variable.defs[0];
+          return (
+            variable.defs.length === 1 &&
+            definition?.type === "ImportBinding" &&
+            definition.parent?.type === "ImportDeclaration" &&
+            definition.parent.source.value === "@app/contracts"
+          );
+        }
+      }
+      return false;
+    };
     const imports = moduleSources((node, specifier) => {
-      if (isJourney && (specifier === undefined || specifier === "playwright-core" || specifier.startsWith("@playwright/") || specifier === "electron")) {
+      const name = specifier === undefined ? undefined : packageName(specifier);
+      const driver = name === undefined || name === "playwright-core" || name === "playwright" || name.startsWith("@playwright/") || name === "electron";
+      if (isJourney && (driver || specifier?.split(/[\\/]/).includes("node_modules"))) {
         context.report({ node, message: `Journeys don't drive the app directly. ${UI_MESSAGE}` });
       }
     });
     return {
       ...imports,
-      ImportDeclaration(node: ESTree.ImportDeclaration) {
-        imports["ImportDeclaration"]?.(node as never);
-        if (node.source.value !== "@app/contracts") return;
-        for (const specifier of node.specifiers) {
-          if (specifier.type === "ImportSpecifier") fromContracts.add(specifier.local.name);
-        }
-      },
       CallExpression(node: ESTree.CallExpression) {
         const callee = node.callee;
         const name = callee.type === "Identifier" ? callee.name : callee.type === "MemberExpression" && callee.property.type === "Identifier" ? callee.property.name : "";

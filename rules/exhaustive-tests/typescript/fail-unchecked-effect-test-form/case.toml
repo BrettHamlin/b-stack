@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = false
+diagnostic = "eslint(no-restricted-imports): 'effect' import from '@effect/vitest' is restricted."

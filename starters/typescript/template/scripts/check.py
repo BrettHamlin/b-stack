@@ -83,7 +83,8 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
     if name == 'compiler':
         return compiler(env)
     if name == 'lint':
-        return run(['vp', 'lint', '--deny-warnings'], env)
+        # One output format everywhere: oxlint otherwise picks one from the environment (agent, GitHub, terminal).
+        return run(['vp', 'lint', '--deny-warnings', '--format', 'agent'], env)
     if name == 'deps':
         return run([sys.executable, str(ROOT / 'scripts/deps.py')], env)
     if name == 'arch':

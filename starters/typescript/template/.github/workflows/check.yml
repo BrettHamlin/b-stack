@@ -19,6 +19,7 @@ jobs:
     # Apple silicon: tools.toml pins the darwin-arm64 Node.js and pnpm, and the journeys open the app's window.
     runs-on: macos-15
     timeout-minutes: 30
+    env:
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v7.0.1

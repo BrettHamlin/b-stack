@@ -44,7 +44,18 @@ export default defineConfig({
       "typescript/triple-slash-reference": [ERROR, { lib: "never", path: "never", types: "never" }],
       // retired-apis
       "typescript/no-deprecated": ERROR,
-      "eslint/no-restricted-imports": [ERROR, { paths: [] }],
+      "eslint/no-restricted-imports": [
+        ERROR,
+        {
+          paths: [
+            {
+              name: "@effect/vitest",
+              importNames: ["effect", "live", "scoped", "flakyTest"],
+              message: "Register Effect tests as it.effect, it.live or it.scoped, which the assertion check (vitest/expect-expect) knows; flaky tests are fixed, not retried.",
+            },
+          ],
+        },
+      ],
       // module-boundaries, no-io-in-logic, explicit-dependencies
       "bstack/module-boundaries": ERROR,
       "bstack/no-ambient-declarations": ERROR,
@@ -79,7 +90,10 @@ export default defineConfig({
           message: PARTIAL,
         })),
       ],
-      "vitest/expect-expect": [ERROR, { assertFunctionNames: ["expect"], additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] }],
+      "vitest/expect-expect": [
+        ERROR,
+        { assertFunctionNames: ["expect"], additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped", "it.effect.each", "it.live.each", "it.scoped.each"] },
+      ],
       // tests-always-run
       "bstack/no-skipped-tests": ERROR,
       "vitest/no-standalone-expect": [ERROR, { additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] }],
