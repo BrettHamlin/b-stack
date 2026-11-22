@@ -111,14 +111,15 @@ log("closing the app");
 const closing = first.app.close();
 // Diagnosis (Windows CI): which processes hold the installed app's files while the update's installer replaces them.
 if (process.env.BSTACK_HANDLE_EXE) {
-  const seen = new Set();
+  let before = new Set();
   for (const end = Date.now() + 40_000; Date.now() < end; ) {
     const run = NodeChild.spawnSync(process.env.BSTACK_HANDLE_EXE, ["-accepteula", "-nobanner", NodePath.dirname(NodePath.resolve(executable))], { encoding: "utf8" });
-    for (const line of `${run.stdout}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
-      if (!seen.has(line)) log(`handle: ${line}`);
-      seen.add(line);
-    }
+    const now = new Set(`${run.stdout}`.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.includes("pid:")));
+    for (const line of now) if (!before.has(line)) log(`handle opened: ${line}`);
+    for (const line of before) if (!now.has(line)) log(`handle closed: ${line}`);
+    before = now;
   }
+  log(`handle: ${before.size} still open after 40s`);
 }
 await within(closing, 60_000, "closing the app").catch((error) => log(String(error)));
 log(`closed\n${processes()}`);
