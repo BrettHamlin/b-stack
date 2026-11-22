@@ -168,6 +168,41 @@ const noSkippedTests = defineRule({
   },
 });
 
+
+const UI_MESSAGE =
+  "Use a typed identifier from contracts (e.g. TallyUi.add). Views set data-testid only to one, and journeys find elements only through the Screen in journeys/support, which takes UiIds; never by text, role or selector. Add the identifier to the screen's *Ui object in packages/contracts; if the Screen lacks what you need, stop and report.";
+
+const typedUiIdentifiers = defineRule({
+  meta: { type: "problem", docs: { description: "Elements are found only by typed identifiers from contracts." } },
+  create(context) {
+    const relative = NodePath.relative(ROOT, context.filename).split(NodePath.sep).join("/");
+    const inContracts = relative.startsWith("packages/contracts/");
+    const isJourneyBody = /^apps\/desktop\/journeys\/[^/]+\.journey\.ts$/.test(relative);
+    const isUiObject = (node: ESTree.Node): boolean =>
+      node.type === "MemberExpression" && node.object.type === "Identifier" && /Ui$/.test(node.object.name);
+    return {
+      CallExpression(node) {
+        const callee = node.callee;
+        const name = callee.type === "Identifier" ? callee.name : callee.type === "MemberExpression" && callee.property.type === "Identifier" ? callee.property.name : "";
+        if (name === "uiId" && !inContracts) context.report({ node, message: `Only contracts make UiIds. ${UI_MESSAGE}` });
+      },
+      JSXAttribute(node) {
+        if (node.name.type !== "JSXIdentifier" || node.name.name !== "data-testid") return;
+        const value = node.value;
+        if (!(value?.type === "JSXExpressionContainer" && isUiObject(value.expression))) {
+          context.report({ node, message: `data-testid must be a contracts identifier like TallyUi.add. ${UI_MESSAGE}` });
+        }
+      },
+      ImportDeclaration(node) {
+        const source = String(node.source.value);
+        if (isJourneyBody && (source === "playwright-core" || source.startsWith("@playwright/") || source === "electron")) {
+          context.report({ node, message: `Journeys don't drive the app directly. ${UI_MESSAGE}` });
+        }
+      },
+    };
+  },
+});
+
 export default definePlugin({
   meta: { name: "bstack" },
   rules: {
@@ -175,5 +210,6 @@ export default definePlugin({
     "no-ambient-declarations": noAmbientDeclarations,
     "no-module-state": noModuleState,
     "no-skipped-tests": noSkippedTests,
+    "typed-ui-identifiers": typedUiIdentifiers,
   },
 });

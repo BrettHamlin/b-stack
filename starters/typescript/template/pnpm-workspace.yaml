@@ -4,6 +4,7 @@ packages:
   - packages/contracts
   - packages/features/*
   - packages/platform/*
+  - packages/fixtures
   - apps/desktop
   - apps/web
 

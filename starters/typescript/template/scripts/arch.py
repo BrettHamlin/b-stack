@@ -8,6 +8,7 @@ Packages and manifests:
                          pinned to an exact version
   no-suppressions        each package's tsconfig.json only extends its role's config in arch/tsconfig/; no other
                          lint, test or TypeScript config files; no .npmrc or pnpmfile
+  no-fixtures-in-release a test-setup role (dev_only) is only a devDependency of the roles that may use it
   tests-always-run       no package.json scripts; every file in tests/ is a *.test.ts(x) or under tests/support/
   no-io-in-logic         no JavaScript or .d.ts files: everything is TypeScript the compiler checks against its role
 Source: suppression comments (eslint-/oxlint-disable, @ts-ignore/-expect-error/-nocheck, @effect-diagnostics), which
@@ -103,10 +104,18 @@ def findings() -> list[str]:
                 if name.startswith(f'{shape["scope"]}/'):
                     target = names.get(name)
                     target_role = packages[target][0] if target in packages else None
-                    if section == 'devDependencies' or version != 'workspace:*':
-                        out.append(f'[module-boundaries] {where}: {name} goes in dependencies as "workspace:*".')
-                    elif target_role is None:
+                    dev_only = target_role is not None and roles[target_role].get('dev_only', False)
+                    if target_role is None:
                         out.append(f'[module-boundaries] {where}: {name} isn\'t a package in this workspace.')
+                    elif dev_only and (section == 'dependencies' or target_role not in spec.get('dev_may_use', [])):
+                        users = ', '.join(r for r, s in roles.items() if target_role in s.get('dev_may_use', [])) or 'none'
+                        out.append(f'[no-fixtures-in-release] {where}: {name} ({target_role}) is test setup: only '
+                                   f'devDependencies of {users} packages, for their journeys and tests, never code the app '
+                                   'ships. Compose real services in the app; if a fixture seems needed there, stop and report.')
+                    elif version != 'workspace:*' or (section == 'devDependencies' and not dev_only):
+                        out.append(f'[module-boundaries] {where}: {name} goes in dependencies as "workspace:*".')
+                    elif dev_only:
+                        pass
                     elif target_role not in spec['may_use']:
                         may = ', '.join(spec['may_use']) or 'no other package'
                         out.append(f'[module-boundaries] {where}: a {role} package can\'t depend on {name} ({target_role}). '

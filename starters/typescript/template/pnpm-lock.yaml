@@ -203,6 +203,9 @@ importers:
         specifier: 44.10.1
         version: 44.10.1
     devDependencies:
+      '@app/fixtures':
+        specifier: workspace:*
+        version: link:../../packages/fixtures
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
@@ -265,6 +268,28 @@ importers:
       vite-plus:
         specifier: 1.4.0
         version: 1.4.0(@types/node@24.12.4)(@vitest/ui@5.0.5)
+
+  packages/fixtures:
+    dependencies:
+      '@app/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@app/files':
+        specifier: workspace:*
+        version: link:../platform/files
+      '@app/tally':
+        specifier: workspace:*
+        version: link:../features/tally
+      '@effect/platform-node':
+        specifier: 4.1.5
+        version: 4.1.5(effect@4.1.5)(redis@6.3.1)
+      effect:
+        specifier: 4.1.5
+        version: 4.1.5
+    devDependencies:
+      '@types/node':
+        specifier: 24.12.4
+        version: 24.12.4
 
   packages/platform/files:
     dependencies:
