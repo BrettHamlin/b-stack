@@ -187,6 +187,13 @@ jobs:
         run: |
           Import-Certificate -FilePath release/win-ca.pem -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
           Import-Certificate -FilePath release/win-cert.pem -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+      - name: Sysinternals handle, to see what holds the installed app's files during the update (diagnosis)
+        if: runner.os == 'Windows' && matrix.update
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://download.sysinternals.com/files/Handle.zip -OutFile "$env:RUNNER_TEMP\handle.zip"
+          Expand-Archive "$env:RUNNER_TEMP\handle.zip" "$env:RUNNER_TEMP\handle"
+          "BSTACK_HANDLE_EXE=$env:RUNNER_TEMP\handle\handle64.exe" >> $env:GITHUB_ENV
       - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
         run: |
           signed=""; [ "$RUNNER_OS" = "Windows" ] && signed="--signed"

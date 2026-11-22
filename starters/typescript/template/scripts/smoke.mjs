@@ -108,7 +108,19 @@ if (update) {
 }
 log("closing the app");
 // The app may already be gone (the update's installer can end it): don't wait on it for long.
-await within(first.app.close(), 60_000, "closing the app").catch((error) => log(String(error)));
+const closing = first.app.close();
+// Diagnosis (Windows CI): which processes hold the installed app's files while the update's installer replaces them.
+if (process.env.BSTACK_HANDLE_EXE) {
+  const seen = new Set();
+  for (const end = Date.now() + 40_000; Date.now() < end; ) {
+    const run = NodeChild.spawnSync(process.env.BSTACK_HANDLE_EXE, ["-accepteula", "-nobanner", NodePath.dirname(NodePath.resolve(executable))], { encoding: "utf8" });
+    for (const line of `${run.stdout}`.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
+      if (!seen.has(line)) log(`handle: ${line}`);
+      seen.add(line);
+    }
+  }
+}
+await within(closing, 60_000, "closing the app").catch((error) => log(String(error)));
 log(`closed\n${processes()}`);
 
 // The update installs after the app quits (on Windows the installer runs on, on macOS Squirrel stages it): reopen
