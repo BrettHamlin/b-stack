@@ -24,20 +24,36 @@ PERMISSIVE = {'MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD'
 TOOLS_ALSO = {'MPL-2.0'}
 
 
+CANONICAL = re.compile(r'    resolution: \{integrity: sha512-[A-Za-z0-9+/=]+\}')
+
+
 def source_findings() -> list[str]:
-    """Every `resolution` in the lockfile must be exactly a registry integrity hash, as pnpm writes it. Fails closed: a
-    resolution written any other way (a tarball URL, git, a folder, a block mapping, a quoted key) is a finding."""
+    """Every entry under a `packages:` section of the lockfile (each YAML document has one) must have exactly one
+    resolution of its own, written as pnpm writes a registry package: `resolution: {integrity: sha512-...}`. Fails
+    closed: any other form of it (a tarball URL, git, a folder, a block or explicit-key mapping, a merge or alias) makes
+    the entry a finding."""
     out = []
     lines = (ROOT / 'pnpm-lock.yaml').read_text().splitlines()
+    entries: list[tuple[int, str, list[str]]] = []
+    section = False
     for number, line in enumerate(lines, 1):
-        if not re.search(r'''['"]?resolution['"]?\s*:''', line):
-            continue
-        if not re.fullmatch(r'    resolution: \{integrity: sha512-[A-Za-z0-9+/=]+\}', line):
-            name = lines[number - 2].strip().rstrip(':') if number > 1 else '?'
-            out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: {name} {line.strip()}. Packages come only from '
-                       'the npm registry with an integrity hash: no git, URL or folder dependencies.')
-    if not any('resolution: {integrity:' in line for line in lines):
-        out.append('[allowed-dependencies] pnpm-lock.yaml: no registry packages found; is the lockfile valid?')
+        if line and not line.startswith(' '):
+            section = line == 'packages:'
+            if line.startswith(('?', '<<')):
+                out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: `{line}` isn\'t a form pnpm writes.')
+        elif section and re.match(r'  \S', line):
+            entries.append((number, line.strip().rstrip(':'), []))
+        elif section and line.strip() and entries:
+            entries[-1][2].append(line)
+    for number, name, body in entries:
+        canonical = [l for l in body if CANONICAL.fullmatch(l)]
+        odd = [l for l in body if not CANONICAL.fullmatch(l) and re.search(r'resolution|^\s*[?&*]|<<|: [&*]', l)]
+        if name.startswith(('?', '&', '*', '<<')) or len(canonical) != 1 or odd:
+            shown = (odd or [l for l in body if 'resolution' in l] or ['no registry resolution'])[0].strip()
+            out.append(f'[allowed-dependencies] pnpm-lock.yaml:{number}: {name} {shown}. Packages come only from the npm '
+                       'registry with an integrity hash: no git, URL or folder dependencies.')
+    if not entries:
+        out.append('[allowed-dependencies] pnpm-lock.yaml: no packages found; is the lockfile valid?')
     return out
 
 
