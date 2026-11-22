@@ -3,6 +3,8 @@
 import { defineConfig } from "vite-plus";
 
 const ERROR = "error";
+const PARTIAL =
+  "Assert the whole value with toEqual (or toBe, toStrictEqual, toBeInstanceOf), so a change the test didn't expect fails it. If the whole value can't be pinned down, stop and report.";
 
 export default defineConfig({
   lint: {
@@ -42,7 +44,18 @@ export default defineConfig({
       "typescript/triple-slash-reference": [ERROR, { lib: "never", path: "never", types: "never" }],
       // retired-apis
       "typescript/no-deprecated": ERROR,
-      "eslint/no-restricted-imports": [ERROR, { paths: [] }],
+      "eslint/no-restricted-imports": [
+        ERROR,
+        {
+          paths: [
+            {
+              name: "@effect/vitest",
+              importNames: ["effect", "live", "scoped", "flakyTest", "prop"],
+              message: "Register Effect tests as it.effect, it.live or it.scoped, which the assertion check (vitest/expect-expect) knows; flaky tests are fixed, not retried.",
+            },
+          ],
+        },
+      ],
       // module-boundaries, no-io-in-logic, explicit-dependencies
       "bstack/module-boundaries": ERROR,
       "bstack/no-ambient-declarations": ERROR,
@@ -53,6 +66,34 @@ export default defineConfig({
       "eslint/no-eval": ERROR,
       "eslint/no-new-func": ERROR,
       "typescript/no-implied-eval": ERROR,
+      // typed-ui-identifiers
+      "bstack/typed-ui-identifiers": ERROR,
+      // exhaustive-tests: a test checks the whole value, so a change it didn't expect fails it
+      "vitest/no-restricted-matchers": [
+        ERROR,
+        {
+          toMatchObject: PARTIAL,
+          toHaveProperty: PARTIAL,
+          toBeTruthy: PARTIAL,
+          toBeFalsy: PARTIAL,
+          toBeDefined: PARTIAL,
+          toContain: PARTIAL,
+          toContainEqual: PARTIAL,
+          toMatch: PARTIAL,
+        },
+      ],
+      "eslint/no-restricted-properties": [
+        ERROR,
+        ...["objectContaining", "arrayContaining", "stringContaining", "stringMatching", "any", "anything"].map((property) => ({
+          object: "expect",
+          property,
+          message: PARTIAL,
+        })),
+      ],
+      "vitest/expect-expect": [
+        ERROR,
+        { assertFunctionNames: ["expect"], additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] },
+      ],
       // tests-always-run
       "bstack/no-skipped-tests": ERROR,
       "vitest/no-standalone-expect": [ERROR, { additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] }],

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[no-fixtures-in-release] packages/platform/probe-io/package.json: @app/fixtures (fixtures) is test setup"

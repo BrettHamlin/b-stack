@@ -1,0 +1,77 @@
+# b-stack's own checks. iOS cases need Xcode 27.2 and an iOS 27.2 simulator, which hosted runners don't have; run
+# `python3 scripts/test_rules.py --platform ios` on a Mac that does before merging changes that touch iOS.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  repo:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Rule and case format, catalog, links
+        run: python3 scripts/check_repo.py
+      - name: Starter helper scripts
+        run: python3 scripts/test_starter_scripts.py
+
+  rust:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: Every Rust rule case through the Rust starter's gates
+        run: python3 scripts/test_rules.py --platform rust
+
+  typescript:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: The starter's own CI (check.py with a frozen lockfile)
+        working-directory: starters/typescript/template
+        run: python3 scripts/check.py
+      - name: Every TypeScript rule case through the starter's gates
+        # Cases add packages, so pnpm must update the lockfile in their copies; with CI=true it refuses to.
+        env:
+          CI: "false"
+        run: python3 scripts/test_rules.py --platform typescript
+      - name: Package the app and run the journeys against the package
+        working-directory: starters/typescript/template
+        run: python3 scripts/package.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: typescript-evidence
+          path: starters/typescript/template/.build/evidence/latest/
+          if-no-files-found: ignore

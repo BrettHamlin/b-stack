@@ -13,3 +13,7 @@ proves = "When the data folder can't be written, adding shows an error and the s
 [[journeys]]
 name = "bad_name_is_refused"
 proves = "An invalid name is refused with the rule for names, and nothing is saved."
+
+[[journeys]]
+name = "saved_tally_is_shown_at_start"
+proves = "A tally saved before the app starts (the fixtures package writes it) is listed, sorted, when the window opens."

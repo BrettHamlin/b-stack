@@ -6,7 +6,8 @@ pnpm reads it, whatever its text looks like.
   sources    every package was resolved from https://registry.npmjs.org/: no git, URL or folder dependencies
              (workspace packages are linked, not resolved). pnpm checks each download against the lockfile's hash.
   licenses   each installed copy's own license: shipped dependencies (each package's `dependencies`, all the way
-             down) are permissive; build and test tools (devDependencies) may also be MPL-2.0, which never ships
+             down) are permissive; build and test tools (devDependencies) may also be MPL-2.0, Python-2.0 or WTFPL,
+             which never ship. An SPDX `OR` needs one allowed choice; `AND` needs all.
 
 Usage: python3 scripts/deps.py
 """
@@ -22,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = 'https://registry.npmjs.org/'
 PERMISSIVE = {'MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'BlueOak-1.0.0', 'CC0-1.0',
               'Unlicense', 'Zlib'}
-TOOLS_ALSO = {'MPL-2.0'}
+TOOLS_ALSO = {'MPL-2.0', 'Python-2.0', 'WTFPL'}
 
 
 def installed(env: dict, prod: bool) -> list[dict]:
@@ -54,6 +55,58 @@ def installed(env: dict, prod: bool) -> list[dict]:
     return list(found.values())
 
 
+def allowed(license: str, accepted: set[str]) -> bool:
+    """Whether an SPDX expression can be met with accepted licenses: OR needs one side, AND both, AND binds tighter,
+    parentheses group. `WITH <exception>` keeps the license it modifies."""
+    tokens = license.replace('(', ' ( ').replace(')', ' ) ').split()
+    position = 0
+
+    def take() -> str:
+        nonlocal position
+        position += 1
+        return tokens[position - 1] if position <= len(tokens) else ''
+
+    def peek() -> str:
+        return tokens[position] if position < len(tokens) else ''
+
+    def name(token: str) -> str:
+        if not token or token in ('(', ')', 'AND', 'OR', 'WITH'):
+            raise ValueError(f'malformed license expression: {license!r}')
+        return token
+
+    def term() -> bool:
+        token = take()
+        if token == '(':
+            ok = any_of()
+            if take() != ')':
+                raise ValueError(f'malformed license expression: {license!r}')
+            return ok
+        if peek() == 'WITH':
+            take()
+            name(take())
+        return name(token) in accepted
+
+    def all_of() -> bool:
+        ok = term()
+        while peek() == 'AND':
+            take()
+            ok = term() and ok
+        return ok
+
+    def any_of() -> bool:
+        ok = all_of()
+        while peek() == 'OR':
+            take()
+            ok = all_of() or ok
+        return ok
+
+    try:
+        result = any_of()
+    except ValueError:
+        return False  # a syntax error makes the whole expression unknown
+    return result and position == len(tokens)
+
+
 def findings(env: dict) -> list[str]:
     out = []
     every, shipped = installed(env, prod=False), installed(env, prod=True)
@@ -62,14 +115,14 @@ def findings(env: dict) -> list[str]:
             source = package['resolved'] or package['version']
             out.append(f'[allowed-dependencies] {package["name"]}@{package["version"]} comes from {source}. Packages '
                        'come only from the npm registry: no git, URL or folder dependencies.')
-    for license in sorted({p['license'] for p in shipped} - PERMISSIVE):
+    for license in sorted(l for l in {p['license'] for p in shipped} if not allowed(l, PERMISSIVE)):
         names = sorted({p['name'] for p in shipped if p['license'] == license})
         out.append(f'[allowed-dependencies] {", ".join(names)}: license {license} isn\'t allowed in shipped '
                    f'dependencies (allowed: {", ".join(sorted(PERMISSIVE))}). Stop and report: the owner decides.')
     # Each installed copy by itself: a tool's version of a package isn't covered by a shipped version's license.
     shipped_paths = {p['path'] for p in shipped}
     tools = [p for p in every if p['path'] not in shipped_paths]
-    for license in sorted({p['license'] for p in tools} - PERMISSIVE - TOOLS_ALSO):
+    for license in sorted(l for l in {p['license'] for p in tools} if not allowed(l, PERMISSIVE | TOOLS_ALSO)):
         names = sorted({p['name'] for p in tools if p['license'] == license})
         out.append(f'[allowed-dependencies] {", ".join(names)}: license {license} isn\'t allowed, even for build and '
                    f'test tools (allowed: {", ".join(sorted(PERMISSIVE | TOOLS_ALSO))}). Stop and report.')

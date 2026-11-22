@@ -530,6 +530,44 @@ class TypeScriptToolsTests(unittest.TestCase):
         self.assertEqual((TS_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
 
 
+class NewFeatureTests(unittest.TestCase):
+    """The TypeScript starter's scripts/new_feature.py, in a copy of its scripts and module shape."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(TS_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        (self.root / 'arch').mkdir()
+        shutil.copy2(TS_TEMPLATE / 'arch/shape.json', self.root / 'arch/shape.json')
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_feature.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_creates_the_package_map_entry_and_journey(self) -> None:
+        result = self.run_new('daily-notes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        package = json.loads((self.root / 'packages/features/daily-notes/package.json').read_text())
+        self.assertEqual(package['name'], '@app/daily-notes')
+        self.assertEqual(json.loads((self.root / 'packages/features/daily-notes/tsconfig.json').read_text()),
+                         {'extends': '../../../arch/tsconfig/feature.json'})
+        self.assertIn('modules = ["daily-notes"]', (self.root / 'feature-map/daily-notes.toml').read_text())
+        self.assertIn('name = "daily_notes_works"', (self.root / 'feature-map/daily-notes.toml').read_text())
+        journey = (self.root / 'apps/desktop/journeys/daily-notes.journey.ts').read_text()
+        self.assertIn('test("daily_notes_works"', journey)
+        self.assertIn('expect.unreachable("Write this journey', journey)
+        self.assertIn('expect.unreachable("Write this test',
+                      (self.root / 'packages/features/daily-notes/tests/daily-notes.test.ts').read_text())
+
+    def test_refuses_a_bad_name_and_an_existing_feature(self) -> None:
+        self.assertEqual(self.run_new('Notes').returncode, 2)
+        self.assertEqual(self.run_new('two words').returncode, 2)
+        self.assertEqual(self.run_new('notes').returncode, 0)
+        again = self.run_new('notes')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('already exist', again.stderr)
+
+
 class HandUseTests(SimulatorProcesses):
     """Driving the simulator by hand (recordings, agent-device) goes through `simulator.py run`, which takes the same
     lock, so a gate from another checkout never runs journeys while someone else's app is in front."""

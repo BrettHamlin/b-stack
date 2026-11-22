@@ -19,6 +19,7 @@ import sys
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build import build  # noqa: E402
 from tools import install, node_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,11 @@ def load_map() -> tuple[list[dict], list[str]]:
         entry['file'] = f'feature-map/{path.name}'
         features.append(entry)
     return features, errors
+
+
+def verified_map() -> tuple[list[dict], list[str]]:
+    features, errors = load_map()
+    return features, errors + map_errors(features)
 
 
 def map_errors(features: list[dict]) -> list[str]:
@@ -78,19 +84,13 @@ def map_errors(features: list[dict]) -> list[str]:
     return errors
 
 
-def build(env: dict) -> list[str]:
-    for cmd in (['vp', '-C', 'apps/web', 'build'], ['vp', '-C', 'apps/desktop', 'pack']):
-        proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
-        if proc.returncode != 0:
-            return [f'[verified-features] `{" ".join(cmd)}` failed, so the app can\'t run:\n'
-                    f'{(proc.stdout + proc.stderr).strip()[-3000:]}']
-    return []
-
-
-def run(env: dict, features: list[dict]) -> list[str]:
-    errors = build(env)
-    if errors:
-        return errors
+def run(env: dict, features: list[dict], build_first: bool = True) -> list[str]:
+    """Run the journeys and check them against the map. With $BSTACK_PACKAGED_APP in `env`, they launch that app
+    (package.py) instead of the built one, and nothing is built here."""
+    failed = build(env) if build_first else None
+    if failed:
+        return [f'[verified-features] the app didn\'t build, so it can\'t run: {failed}']
+    errors: list[str] = []
     results = EVIDENCE / 'results.json'
     proc = subprocess.run(['vp', 'test', 'run', '--project', 'journeys', '--reporter=json', f'--outputFile={results}'],
                           cwd=ROOT, env=env, capture_output=True, text=True)
@@ -147,8 +147,7 @@ if __name__ == '__main__':
         sys.exit(__doc__)
     if mode == 'run':
         shutil.rmtree(EVIDENCE, ignore_errors=True)  # never leave an earlier run's evidence as the latest
-    features, errors = load_map()
-    errors += map_errors(features)
+    features, errors = verified_map()
     if mode == 'run' and not errors:
         EVIDENCE.mkdir(parents=True)
         env = node_env()

@@ -150,7 +150,8 @@ def stop_leftovers(proc: subprocess.Popen, grace: float = 5) -> None:
         while time.monotonic() < deadline:
             try:
                 os.killpg(proc.pid, 0)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
+                # Gone. macOS answers EPERM, not ESRCH, when only unreaped (dead) members are left in the group.
                 return
             time.sleep(0.1)
 
@@ -158,7 +159,7 @@ def stop_leftovers(proc: subprocess.Popen, grace: float = 5) -> None:
 def interrupt(proc: subprocess.Popen, signum: int) -> None:
     try:
         os.killpg(proc.pid, signum)
-    except ProcessLookupError:  # already gone
+    except (ProcessLookupError, PermissionError):  # already gone (EPERM: only dead, unreaped members left, on macOS)
         pass
 
 

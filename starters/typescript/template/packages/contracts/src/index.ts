@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
+import { uiId } from "./ui.ts";
+
 /** An item's name: 1 to 32 letters, digits, '-' or '_'. Only decoding makes one. */
 export const ItemName = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,32}$/)),
@@ -53,11 +55,12 @@ export const encodeTallyJson = (tally: Tally): Effect.Effect<string, StorageFail
   encodeSavedJson({ items: [...tally] }).pipe(Effect.mapError(() => new StorageFailed()));
 
 export * from "./ipc.ts";
+export type { UiId } from "./ui.ts";
 
 /** Element identifiers shared by the renderer and the journeys. */
 export const TallyUi = {
-  name: "tally-name",
-  add: "tally-add",
-  items: "tally-items",
-  error: "tally-error",
+  name: uiId("tally-name"),
+  add: uiId("tally-add"),
+  items: uiId("tally-items"),
+  error: uiId("tally-error"),
 } as const;

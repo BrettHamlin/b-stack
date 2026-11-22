@@ -50,10 +50,11 @@ Prove it: `python3 scripts/check.py` must PASS every gate in the new repo, and `
 Steps 1, 2 and 5 are the same. In step 2, each feature is a package in `packages/features/<name>/` (logic plus the Effect services it needs, with no I/O), with real I/O in a `packages/platform/<name>/` package, wiring in `apps/desktop` (the main process) and `apps/web` (the renderer), and anything both processes share in `packages/contracts`, following the tally example. Then:
 - copy `starters/typescript/template/` into the new repo, leaving out `node_modules/`, `dist/` and `.build/`; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, and add `CLAUDE.md` containing `@AGENTS.md`
 - replace the tally example (`packages/features/tally`, `packages/platform/files`, the tally parts of `packages/contracts`, `apps/desktop/src`, `apps/web/src`, `apps/desktop/journeys/tally.journey.ts`, `feature-map/`) with the agreed features. Don't edit the root `package.json`, `pnpm-workspace.yaml`, `vite.config.ts`, the tsconfig files or `arch/`. A third-party package needs the owner: list the ones the features need and ask before adding them to `arch/shape.json`
-- replace `@OWNER` in `CODEOWNERS`; `git init`
+- add each agreed feature with `python3 scripts/new_feature.py <name>`, then write its logic, test and journey
+- replace `@OWNER` in `CODEOWNERS`; `git init`; after the first push, make the `check` workflow a required status check
 - check `starters/typescript/README.md` for what the template doesn't include yet, and list it in your report
 
-Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (it installs the packages first), and the screenshots and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
+Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (it installs the packages first), and the screenshots and `.build/evidence/latest/evidence.md` must show each journey doing what it claims, and `python3 scripts/package.py` must build the app and pass every journey against it. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
 
 ## 5. Report
 

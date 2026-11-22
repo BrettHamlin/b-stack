@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "error TS2724: '\"@app/contracts\"' has no exported member named 'uiId'."

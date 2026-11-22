@@ -11,16 +11,22 @@ An Electron desktop app laid out like [T3 Code](https://github.com/pingdotgg/t3c
 | Compiler settings per role: no DOM or Node.js in contracts and features; Node.js in platform and desktop; DOM and React in the renderer | `template/tsconfig.base.json`, `template/tsconfig.effect.json`, `template/arch/tsconfig/` | ✅ Packages only extend their role's config (arch gate) |
 | Example feature: a tally of named items (record, show, a failed save keeps the old tally), with example tests and a property test | `template/packages/features/tally/`, `template/packages/platform/files/`, `template/apps/` | ✅ |
 | Property test for the example feature: 200 seeded random sequences of records and failed saves, checked step by step against a model | `template/packages/features/tally/tests/property.test.ts` | ✅ Under a second. No library: a seeded generator in the file |
-| Gate command: compiler, lint, deps, arch, tests, verify | `template/scripts/check.py` | ✅ Every gate passes in about 10 s; rule suite 79/79 (2026-11-22) |
-| Lint rules of our own (oxlint JS plugin): imports inside the shape and declared, no ambient declarations, no module state, no skipped tests | `template/arch/lint/index.ts` | ✅ |
+| Gate command: compiler, lint, deps, arch, tests, verify | `template/scripts/check.py` | ✅ Every gate passes in about 10 s; rule suite 109/109 (2026-11-22) |
+| Lint rules of our own (oxlint JS plugin): imports inside the shape and declared, no ambient declarations, no module state, no skipped tests, typed UI identifiers | `template/arch/lint/index.ts` | ✅ |
+| Typed UI identifiers: views set `data-testid` from `UiId`s in contracts; journeys see the app only as a `Screen` that takes `UiId`s | `template/packages/contracts/src/ui.ts`, `template/apps/desktop/journeys/support/app.ts` | ✅ A raw string doesn't compile; journeys can't import Playwright |
+| Whole-value test assertions: no partial matchers, no test without an assertion | `template/vite.config.ts` | ✅ |
+| Fixtures: test setup that only journeys and tests can use (a devDependency the shipped app can't import) | `template/packages/fixtures/` | ✅ One journey starts from a saved tally |
 | Architecture checks: packages and manifests against the shape, per-package tsconfig, config files, suppression comments | `template/scripts/arch.py` | ✅ |
 | Dependency checks: every installed package from the npm registry, licenses (from pnpm's own report) | `template/scripts/deps.py` | ✅ |
-| Verification: feature map, journeys that launch the built Electron app through Playwright, screenshots as evidence | `template/scripts/verify.py`, `template/apps/desktop/journeys/`, `template/feature-map/` | ✅ Three tally journeys, about 5 s |
+| Verification: feature map, journeys that launch the built Electron app through Playwright, screenshots as evidence | `template/scripts/verify.py`, `template/apps/desktop/journeys/`, `template/feature-map/` | ✅ Four tally journeys, about 5 s on an idle Mac mini |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py`, `template/pnpm-lock.yaml` | ✅ Node.js 26.13.1, pnpm 12.14.0; Electron's binary checked against its package's checksums |
 | Installed packages, Electron and build output in a configurable cache folder | `template/scripts/paths.py`, `template/scripts/tools.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
+| New-feature command: a feature package, its feature-map entry and a journey; the test and journey fail until written | `template/scripts/new_feature.py` | ✅ |
+| Packaging: an unsigned macOS (Apple silicon) `.app` and zip with electron-builder 26.16.1 from the locked Electron, then every journey run against the packaged app | `template/scripts/package.py`, `template/scripts/build.py` | ✅ About 1.5 min |
+| CI: `check.py` and `package.py` on a macOS runner, with pnpm refusing to change the lockfile; evidence uploaded | `template/.github/workflows/check.yml` | ✅ Make `check` a required status check; b-stack's own CI runs the same commands on the starter |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
 
-The pins are T3 Code's (2026-11-21): Node.js 26.13.1, pnpm 12.14.0, vite-plus 1.4.0 (oxlint 1.89.0, oxlint-tsgolint 7.0.2004, Vitest 5.0.5), @effect/tsgo 0.67.1 (TypeScript 7.0.2), Effect 4.1.5, Electron 44.10.1, React 19.3.0, playwright-core 1.64.1. `tsconfig.effect.json` is T3 Code's, unchanged (MIT). The Node.js and pnpm pins are the `darwin-arm64` builds.
+The pins are T3 Code's (2026-11-21): Node.js 26.13.1, pnpm 12.14.0, vite-plus 1.4.0 (oxlint 1.89.0, oxlint-tsgolint 7.0.2004, Vitest 5.0.5), @effect/tsgo 0.67.1 (TypeScript 7.0.2), Effect 4.1.5, Electron 44.10.1, React 19.3.0, playwright-core 1.64.1, electron-builder 26.16.1. `tsconfig.effect.json` is T3 Code's, unchanged (MIT). The Node.js and pnpm pins are the `darwin-arm64` builds.
 
 ## Module shape
 
@@ -29,6 +35,7 @@ The pins are T3 Code's (2026-11-21): Node.js 26.13.1, pnpm 12.14.0, vite-plus 1.
 | `packages/contracts` | contracts: types, schemas and the IPC bridge shared by every process | nothing | ES2024 only |
 | `packages/features/<name>` | feature: logic, plus the Effect services it needs from outside | contracts | ES2024 only |
 | `packages/platform/<name>` | platform: real I/O, implementing feature services | contracts, features | Node.js |
+| `packages/fixtures` | fixtures: test setup; only a devDependency of the desktop app, for its journeys | contracts, features, platform | Node.js |
 | `apps/desktop` | desktop: Electron's main process (a composition root) and preload | contracts, features, platform | Node.js, Electron |
 | `apps/web` | web: the renderer (a composition root), reaching the main process only through the preload's bridge | contracts, features | DOM, React |
 
@@ -48,10 +55,7 @@ This table is `template/arch/shape.json` (protected). `pnpm-workspace.yaml` list
 
 ## Not built yet (in order)
 
-1. **New-feature command:** creates a feature package, its feature-map entry and a journey stub.
-2. **CI workflow:** runs `scripts/check.py` and the rule tests as required checks (with `CI=true`, pnpm refuses to change the lockfile); branch protection. Journeys need a display (xvfb on Linux).
-3. **Check record:** the iOS starter's observe-mode hand-back record (`handback.py`, hooks) isn't ported.
-4. **Verify skill** for agents in the new app (the iOS starter has one).
-5. **Typed UI identifiers:** journeys and the renderer share `TallyUi` from contracts, but nothing yet stops a journey from finding elements by text.
-6. **Packaging:** no signed, distributable build (T3 Code uses electron-builder).
-7. **Settings assertion:** a gate that fails if `vite.config.ts` or the tsconfigs are weakened (protected-enforcement).
+1. **Check record:** the iOS starter's observe-mode hand-back record (`handback.py`, hooks) isn't ported.
+2. **Verify skill** for agents in the new app (the iOS starter has one).
+3. **Settings assertion:** a gate that fails if `vite.config.ts` or the tsconfigs are weakened (protected-enforcement).
+4. **Signing and notarizing** (needs the owner's Apple Developer ID), and packages for Windows, Linux and Intel Macs.

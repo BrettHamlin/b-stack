@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+uses_example = "imports the example's identifier object to shadow it"
+diagnostic = "bstack(typed-ui-identifiers): data-testid must be a contracts identifier"

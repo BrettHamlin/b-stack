@@ -3,8 +3,12 @@ layer = "2"
 summary = "TCA tests stay exhaustive: no exhaustivity = .off, skipReceivedActions or skipInFlightEffects."
 problem = "Exhaustive TestStore tests are why TCA caught untested changes and deleted assertions in the trial. Agents switch exhaustivity off when a test is hard to finish."
 message = "Keep the TestStore exhaustive. Assert every state change and received action; let effects finish or cancel them. If that's impossible, stop and report."
-escape_hatches = ["Testing reducers by hand without a TestStore: review."]
+escape_hatches = ["Testing reducers by hand without a TestStore: review.", "TypeScript: comparing a field instead of the whole value (`expect(x.a).toBe(1)`): review."]
 origin = "State-flow trial, Nov 2026: TCA's exhaustive TestStore caught probes 3 and 8."
 
 [ios]
 harmonize = "ExhaustiveTests.swift: text match in test code for exhaustivity = .off, .skipReceivedActions( and .skipInFlightEffects(."
+
+[typescript]
+lint = "Tests assert whole values: vitest/no-restricted-matchers bans toMatchObject, toHaveProperty, toBeTruthy, toBeFalsy, toBeDefined, toContain, toContainEqual and toMatch; eslint/no-restricted-properties bans expect.objectContaining, arrayContaining, stringContaining, stringMatching, any and anything; vitest/expect-expect fails a test with no assertion (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). The TypeScript form of the rule: there's no TestStore to keep exhaustive, so each assertion is."
+message = "Assert the whole value (toEqual, toBe, toStrictEqual, toBeInstanceOf), so a change the test didn't expect fails it. If the whole value can't be pinned down, stop and report."
