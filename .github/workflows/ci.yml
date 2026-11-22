@@ -197,7 +197,7 @@ jobs:
       - name: Diagnosis - install, uninstall and update by hand, outside the app
         if: runner.os == 'Windows' && matrix.update
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 12
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force smoke-evidence | Out-Null
@@ -217,23 +217,25 @@ jobs:
           }
           "TEMP=$env:TEMP"
           Run 'install 0.1.0' (Resolve-Path release/starter-0.1.0-win-x64.exe) @('/S')
-          "Defender real-time: " + (Get-MpComputerStatus).RealTimeProtectionEnabled
-          # What the old uninstaller does first: move every installed file into %TEMP%, then back.
-          $probe = Join-Path $env:TEMP "probe-old-install"
-          Get-ChildItem $dir -Recurse -File | ForEach-Object {
-            $to = Join-Path $probe $_.FullName.Substring($dir.Length + 1)
-            New-Item -ItemType Directory -Force (Split-Path $to) | Out-Null
-            try { [System.IO.File]::Move($_.FullName, $to); [System.IO.File]::Move($to, $_.FullName) }
-            catch { "  can't move $($_.FullName) (" + $to.Length + " chars): " + $_.Exception.Message }
-          }
-          "longest installed path: " + ((Get-ChildItem $dir -Recurse -File | ForEach-Object { $_.FullName.Length } | Measure-Object -Maximum).Maximum)
+          Invoke-WebRequest https://download.sysinternals.com/files/ProcessMonitor.zip -OutFile "$env:RUNNER_TEMP\pm.zip"
+          Expand-Archive "$env:RUNNER_TEMP\pm.zip" "$env:RUNNER_TEMP\pm"
+          $pm = "$env:RUNNER_TEMP\pm\Procmon64.exe"
+          $log = "$env:RUNNER_TEMP\uninstall.pml"
+          Start-Process $pm -ArgumentList '/AcceptEula', '/Quiet', '/Minimized', '/BackingFile', $log
+          Start-Sleep 10
           Copy-Item "$dir\Uninstall starter.exe" "$env:TEMP\old-uninstaller.exe"
-          Run 'uninstall 0.1.0' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', '--updated', "_?=$dir")
-          Add-MpPreference -ExclusionPath $dir, $env:TEMP
-          Run 'uninstall 0.1.0 with Defender excluding the folders' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', '--updated', "_?=$dir")
-          Run 'install 0.1.0 again' (Resolve-Path release/starter-0.1.0-win-x64.exe) @('/S')
-          Run 'update to 0.1.1' (Resolve-Path release/update/win-x64/starter-0.1.1-win-x64.exe) @('--updated', '/S')
-          "version now: " + (Get-Item "$dir\starter.exe" -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+          Run 'uninstall 0.1.0 --updated' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', '--updated', "_?=$dir")
+          Start-Process $pm -ArgumentList '/Terminate' -Wait
+          Start-Process $pm -ArgumentList '/AcceptEula', '/Quiet', '/OpenLog', $log, '/SaveAs', "$PWD\smoke-evidence\uninstall.csv" -Wait
+          $rows = Import-Csv "smoke-evidence\uninstall.csv"
+          $mine = @($rows | Where-Object { $_.'Process Name' -match 'old-uninstaller|powershell|cmd|taskkill|tasklist' })
+          "procmon: $($rows.Count) events, $($mine.Count) from the uninstaller and its children"
+          "renames in the install folder: " + @($mine | Where-Object { $_.Detail -match 'ReplaceIfExists' -or $_.Operation -eq 'SetRenameInformationFile' }).Count
+          $mine | Where-Object { $_.Operation -match 'Process Start|Process Create|Process Exit' } |
+            ForEach-Object { "  $($_.'Process Name') $($_.Operation) $($_.Path) $($_.Detail)" }
+          $mine | Where-Object { $_.Result -notin @('SUCCESS', 'NAME NOT FOUND', 'PATH NOT FOUND', 'NO MORE FILES', 'NO MORE ENTRIES', 'BUFFER OVERFLOW', 'REPARSE', 'FILE LOCKED WITH ONLY READERS', 'IS DIRECTORY', 'NOT REPARSE POINT', 'END OF FILE', 'BUFFER TOO SMALL') -and $_.Path -notmatch '\\Windows\\|HKLM|HKCU\\Software\\Microsoft|HKCR' } |
+            Select-Object -First 60 | ForEach-Object { "  $($_.'Process Name') $($_.Operation) $($_.Path) -> $($_.Result) $($_.Detail)" }
+          Run 'uninstall 0.1.0 without --updated' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', "_?=$dir")
           Get-Process starter* -ErrorAction SilentlyContinue | Stop-Process -Force
       - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
         run: |
