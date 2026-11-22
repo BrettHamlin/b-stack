@@ -25,6 +25,7 @@ class Platform:
     tools: tuple[str, ...]  # downloaded once before workers start (scripts/tools.py <name>)
     marker: str  # a file only this platform's projects have
     restamp: bool = False  # give reset files the current time: the build tool rebuilds by mtime, and copies keep theirs
+    installed: tuple[str, ...] = ()  # folder names the package manager creates in the project; never copied
 
 
 PLATFORMS = {
@@ -52,6 +53,19 @@ PLATFORMS = {
         cost={'untouched': 1, 'pass': 0.5, 'compiler': 0.2, 'clippy': 0.2, 'tests': 0.3, 'verify': 0.3, 'deny': 0.1,
               'arch': 0.1},
         tools=('rust', 'cargo-deny'), marker='arch/shape.toml', restamp=True),
+    'typescript': Platform(
+        name='typescript', starter=ROOT / 'starters/typescript/template',
+        gates=('compiler', 'lint', 'deps', 'arch', 'tests', 'verify'),
+        pass_gates=('compiler', 'lint', 'deps', 'arch', 'tests'),
+        overlays=('packages', 'apps', 'feature-map'), editable=('package.json', 'pnpm-lock.yaml'),
+        targets='packages',
+        case_files=('packages/**/*.ts', 'packages/**/*.tsx', 'packages/**/*.json', 'apps/**/*.ts', 'apps/**/*.tsx',
+                    'apps/**/*.json', 'feature-map/*.toml'),
+        example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|Count)[\w.-]*'), example_name='tally',
+        simulator_kinds=frozenset(),
+        cost={'untouched': 0.5, 'pass': 0.2, 'verify': 0.3, 'compiler': 0.1, 'lint': 0.1, 'tests': 0.1, 'deps': 0.1,
+              'arch': 0.05},
+        tools=('node', 'pnpm'), marker='arch/shape.json', installed=('node_modules', 'dist')),
 }
 
 
