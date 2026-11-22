@@ -19,7 +19,7 @@ It checks the feature map, builds the renderer and the desktop app, runs every j
 ## Explore the running app
 
 ```sh
-python3 scripts/verify.py look --fresh                                  # a new data folder; opens, screenshots, closes
+python3 scripts/verify.py look --fresh                                  # a new, empty data folder; opens, screenshots, closes
 python3 scripts/verify.py look fill tally-name apple click tally-add    # steps by test id; the data folder is kept
 ```
 
@@ -32,6 +32,7 @@ Each look prints and saves `.build/look/look.png` and every element's test id an
 3. Write the journey with the `Screen` from `journeys/support/app.ts`: `launch(journey, await dataFolder(journey))`, then `fill`, `click`, `waitForText`, `lines` (all take `UiId`s), `checkpoint("what it shows")` for the evidence, and `close`. Use `whileReadOnly` to make saving fail. Journey bodies can't import Playwright or Electron; if the Screen lacks something, add it to `journeys/support` (code-owned) or stop and report.
 4. Start from saved data with `packages/fixtures` (a devDependency only the journeys may use), never by adding a test mode to the app.
 5. In `feature-map/<id>.toml`, name the feature's packages in `modules` and each journey with what it `proves`. A journey belongs to one feature only.
+6. Keep `apps/desktop/journeys/smoke.json` about the app's main path: CI runs it against the Windows and Linux packages, where journeys can't run.
 
 ## Rules
 

@@ -9,17 +9,19 @@ apps/desktop/journeys/*.journey.ts, each launching the built Electron app throug
   - a journey fails if it doesn't pass or saves no screenshot (journeys/support/app.ts `checkpoint`)
 Evidence (screenshots per journey, and evidence.md listing them) goes to .build/evidence/latest/.
 
-Explore (not proof): `look` builds the app, opens it on a data folder (kept in .build/look/data between looks, or
---data), runs the steps given, and saves a screenshot and every element's test id and text to .build/look/.
+Explore (not proof): `look` builds the app, opens it on a data folder (kept in .build/look/data between looks; --data
+names another; --fresh starts a new, empty one), runs the steps given, and saves a screenshot and every element's test
+id and text to .build/look/.
 
 Usage: python3 scripts/verify.py [map|run]     (default: run, which does the map check first)
-       python3 scripts/verify.py look [--data FOLDER] [--fresh] [fill <test id> <text> | click <test id>]...
+       python3 scripts/verify.py look [--data FOLDER | --fresh] [fill <test id> <text> | click <test id>]...
 """
 from pathlib import Path
 import json
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -146,14 +148,17 @@ def run(env: dict, features: list[dict], build_first: bool = True) -> list[str]:
 
 
 def look(args: list[str]) -> int:
+    """Options come before the first step; anything after is a step, so a test id or text can't be read as one."""
     data = ROOT / '.build/look/data'
-    if '--data' in args:
-        at = args.index('--data')
-        data = Path(args[at + 1]).resolve()
-        args = args[:at] + args[at + 2:]
-    if '--fresh' in args:
-        args = [a for a in args if a != '--fresh']
-        shutil.rmtree(data, ignore_errors=True)
+    while args and args[0].startswith('--'):
+        option, args = args[0], args[1:]
+        if option == '--data' and args:
+            data, args = Path(args[0]).resolve(), args[1:]
+        elif option == '--fresh':
+            data = ROOT / '.build/look' / f'data-{time.strftime("%Y%m%d-%H%M%S")}'  # a new, empty folder; nothing is deleted
+        else:
+            print(__doc__)
+            return 2
     env = node_env()
     install(env)
     failed = build(env)
@@ -163,7 +168,7 @@ def look(args: list[str]) -> int:
     out = ROOT / '.build/look'
     proc = subprocess.run(['node', 'journeys/support/look.ts', str(data), str(out), *args], cwd=ROOT / 'apps/desktop',
                           env=env, capture_output=True, text=True)
-    print((proc.stdout + proc.stderr).strip())
+    print((proc.stdout + proc.stderr).strip() + f'\ndata folder: {data}')
     return proc.returncode
 
 

@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] tsconfig.base.json: `plugins` replaces the Effect language service"
+
+[[edits]]
+file = "tsconfig.base.json"
+find = "\"strict\": true,"
+replace = "\"strict\": true,\n    \"plugins\": [],"
