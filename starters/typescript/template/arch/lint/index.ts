@@ -91,11 +91,15 @@ const moduleBoundaries = defineRule({
     const check = (node: ESTree.Node, specifier: string): void => {
       if (specifier.startsWith(".")) {
         const written = NodePath.resolve(NodePath.dirname(context.filename), specifier);
-        // TypeScript and the bundler read `./x.js` as `./x.ts` (or .tsx): classify the file it really is.
+        // Classify the file the import really reaches: TypeScript and the bundler read `./x.js` as `./x.ts`.
         const target =
-          [written, written.replace(/\.(c|m)?js$/u, ".$1ts"), written.replace(/\.jsx?$/u, ".tsx")].find((candidate) =>
-            NodeFs.existsSync(candidate),
-          ) ?? written;
+          [
+            written,
+            written.replace(/\.(c|m)?js$/u, ".$1ts"),
+            written.replace(/\.jsx?$/u, ".tsx"),
+            // The renderer resolves like a bundler: no extension, or a folder's index.
+            ...[".ts", ".tsx", "/index.ts", "/index.tsx"].map((suffix) => written + suffix),
+          ].find((candidate) => NodeFs.statSync(candidate, { throwIfNoEntry: false })?.isFile()) ?? written;
         if (!dev && isDevFile(owner.folder, target)) {
           context.report({
             node,
@@ -179,13 +183,21 @@ const SKIPS = new Set(["skip", "only", "todo", "skipIf", "runIf", "fails"]);
 const UNCHECKED = new Set(["prop"]);
 const EFFECT_TESTS = new Set(["effect", "live", "scoped"]);
 
+const memberName = (node: ESTree.Node): string =>
+  node.type === "Identifier" ? node.name : node.type === "Literal" ? String(node.value) : "";
+
 const noSkippedTests = defineRule({
-  meta: { type: "problem", docs: { description: "Every test runs." } },
+  meta: { type: "problem", docs: { description: "Every test runs, in a form the assertion check can see." } },
   create(context) {
+    const owner = packageOf(context.filename);
+    const relative = NodePath.relative(ROOT, context.filename).split(NodePath.sep);
+    // Test and journey files only: elsewhere `.only` or `.prop` is ordinary code.
+    const isTest = (owner !== undefined && isDevFile(owner.folder, context.filename) && !/\.config\.ts$/.test(context.filename)) ||
+      /\.(test|journey)\.tsx?$/.test(relative.at(-1) ?? "");
+    if (!isTest) return {};
     return {
       MemberExpression(node) {
-        const property = node.property;
-        const name = property.type === "Identifier" ? property.name : property.type === "Literal" ? String(property.value) : "";
+        const name = memberName(node.property);
         if (SKIPS.has(name)) {
           context.report({
             node,
@@ -193,8 +205,7 @@ const noSkippedTests = defineRule({
           });
         }
         const object = node.object;
-        const effectTable =
-          name === "each" && object.type === "MemberExpression" && object.property.type === "Identifier" && EFFECT_TESTS.has(object.property.name);
+        const effectTable = name === "each" && object.type === "MemberExpression" && EFFECT_TESTS.has(memberName(object.property));
         if (UNCHECKED.has(name) || effectTable) {
           context.report({
             node,
@@ -205,7 +216,6 @@ const noSkippedTests = defineRule({
     };
   },
 });
-
 
 const UI_MESSAGE =
   "Use a typed identifier from contracts (e.g. TallyUi.add). Views set data-testid only to one, and journeys find elements only through the Screen in journeys/support, which takes UiIds; never by text, role or selector. Add the identifier to the screen's *Ui object in packages/contracts; if the Screen lacks what you need, stop and report.";
