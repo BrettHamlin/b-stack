@@ -11,3 +11,6 @@ compiler = "One struct per ID or unit (struct UserID: Hashable, Sendable). Valid
 
 [rust]
 compiler = "One newtype per ID or unit (struct PlayerId(u32)); validated types keep the field private and expose a parse returning Option or Result. Passing a raw number where the newtype is expected is a type error (Rust 1.99.0)."
+
+[typescript]
+compiler = "One Effect Schema brand per ID or unit (Schema.String.pipe(Schema.brand(\"PlayerId\"))); only decoding makes one. Passing a raw string where the brand is expected is a type error (TypeScript 7.0.2 (effect-tsgo 0.67.1)). Forging one with `as` is a lint error (no-force-operations)."

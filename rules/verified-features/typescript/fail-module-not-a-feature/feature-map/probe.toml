@@ -1,0 +1,7 @@
+id = "probe"
+summary = "A probe feature."
+modules = ["contracts"]
+
+[[journeys]]
+name = "probe_journey"
+proves = "Nothing; the journey doesn't exist."

@@ -56,9 +56,11 @@ export default defineConfig({
       // tests-always-run
       "bstack/no-skipped-tests": ERROR,
       "vitest/no-standalone-expect": [ERROR, { additionalTestBlockFunctions: ["it.effect", "it.live", "it.scoped"] }],
-      // Off as in T3 Code: React 17+ needs no React import for JSX, and Effect generators return conditionally.
+      // Off as in T3 Code: React 17+ needs no React import for JSX, Effect generators return conditionally, and
+      // Effect's tagged unions use `_tag`.
       "react/react-in-jsx-scope": "off",
       "typescript/consistent-return": "off",
+      "eslint/no-underscore-dangle": "off",
       "eslint/no-unused-vars": [ERROR, { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },

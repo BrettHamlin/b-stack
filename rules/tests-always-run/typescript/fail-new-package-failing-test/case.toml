@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "tests"
+uses_example = false
+diagnostic = "packages/features/probe/tests/double.test.ts"

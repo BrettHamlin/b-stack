@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[allowed-dependencies] packages/features/probe/package.json: \"effect\" must be pinned to an exact version, not \"^4.1.5\""

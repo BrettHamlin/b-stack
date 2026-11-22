@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "error TS2307: Cannot find module 'electron' or its corresponding type declarations."

@@ -34,7 +34,7 @@ Add `rules/<rule-id>/` following `rules/README.md`:
 - at least one **fail** case: code that must be rejected, with the gate that rejects it and the expected `diagnostic`
 - a **pass** case: the correct alternative, which must pass every gate
 
-Add the enforcement itself to each platform's starter the rule claims: `starters/ios/template/` (Harmonize rule, SwiftLint config, compiler setting) or `starters/rust/template/` (workspace lints, `clippy.toml`, `deny.toml`, `arch/`). Cases go in `rules/<rule-id>/<platform>/`.
+Add the enforcement itself to each platform's starter the rule claims: `starters/ios/template/` (Harmonize rule, SwiftLint config, compiler setting) `starters/rust/template/` (workspace lints, `clippy.toml`, `deny.toml`, `arch/`) or `starters/typescript/template/` (`arch/tsconfig/`, `vite.config.ts`, `arch/lint/`, `scripts/arch.py`). Cases go in `rules/<rule-id>/<platform>/`.
 
 ## 6. Prove it fires
 

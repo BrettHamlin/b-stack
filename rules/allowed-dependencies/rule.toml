@@ -9,3 +9,7 @@ origin = "Rust starter, Nov 2026. cargo-deny 0.20.2."
 [rust]
 arch = "arch/shape.toml (protected) gives each role its own `external` list, empty to start; a direct third-party dependency not on it fails, naming the role."
 deny = "deny.toml (protected), over the whole dependency tree including transitive crates: [sources] allows crates.io only; [licenses] allows permissive licenses only, which also covers workspace crates marked publish = true. cargo-deny's own allowlist ([bans] allow) isn't used: it would also have to list every workspace crate."
+
+[typescript]
+arch = "arch/shape.json (protected) gives each role its own `external` list (and `dev_external` for tests and config); a third-party package not on it fails, naming the role. Versions are exact."
+deps = "scripts/deps.py: every package in pnpm-lock.yaml resolves to the npm registry with an integrity hash (no git, URL or folder dependencies), and every installed package's license field is permissive; build and test tools may also be MPL-2.0. pnpm 12.14.0 checks each download against the lockfile's hash."

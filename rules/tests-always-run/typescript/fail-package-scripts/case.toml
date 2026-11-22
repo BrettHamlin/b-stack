@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[tests-always-run] packages/features/probe/package.json: no `scripts`."

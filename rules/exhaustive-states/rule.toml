@@ -13,3 +13,7 @@ harmonize = "ExhaustiveStates.swift: a switch whose cases are all enum-case patt
 [rust]
 compiler = "match must be exhaustive: a missing variant is an error (Rust 1.99.0)."
 clippy = "wildcard_enum_match_arm (deny): a `_` arm on an enum fails, so new variants break every site that doesn't name them."
+
+[typescript]
+layer = "2"
+lint = "typescript/switch-exhaustiveness-check (type-aware) with allowDefaultCaseForExhaustiveSwitch = false and considerDefaultExhaustiveForUnions = false: a switch over a union must name every member, and a `default` neither stands in for missing ones nor sits on an exhaustive switch (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). TypeScript itself accepts all three."

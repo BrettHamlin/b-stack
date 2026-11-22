@@ -13,3 +13,7 @@ tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files
 [rust]
 repo = "CODEOWNERS on Cargo.toml, rust-toolchain.toml, clippy.toml, deny.toml, tools.toml, arch/, scripts/, crates/app/tests/journeys.rs, feature-map/, .github/, AGENTS.md; branch protection."
 tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files) not built yet."
+
+[typescript]
+repo = "CODEOWNERS on package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.effect.json, vite.config.ts, tools.toml, arch/, scripts/, apps/desktop/journeys/, apps/desktop/vite.config.ts, apps/web/vite.config.ts, feature-map/, .github/, AGENTS.md; branch protection."
+tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files) not built yet."

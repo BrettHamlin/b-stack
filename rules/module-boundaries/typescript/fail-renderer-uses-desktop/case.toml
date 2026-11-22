@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = "replaces apps/web/package.json, which names the example feature package"
+diagnostic = "[module-boundaries] apps/web/package.json: a web package can't depend on @app/desktop (desktop)"

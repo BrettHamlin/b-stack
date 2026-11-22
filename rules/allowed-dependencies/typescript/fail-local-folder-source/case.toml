@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deps"
+uses_example = false
+diagnostic = "[allowed-dependencies] pnpm-lock.yaml: vendored@file:packages/features/probe/vendor/vendored resolves to {directory:"

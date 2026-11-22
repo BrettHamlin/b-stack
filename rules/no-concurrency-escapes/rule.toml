@@ -14,3 +14,8 @@ harmonize = "NoConcurrencyEscapes.swift: no @unchecked Sendable, no nonisolated(
 layer = "1"
 compiler = "Send and Sync are checked by the compiler; the only way around them is unsafe code, and unsafe_code is forbid in the workspace lints, which no attribute in a crate can lower (Rust 1.99.0). The arch gate makes every crate inherit those lints."
 message = "Don't silence the compiler's thread-safety checks: unsafe code is forbidden. Share through Arc, Mutex, channels or ownership. If none fits, stop and report what you're trying to share."
+
+[typescript]
+layer = "2"
+lint = "typescript/no-floating-promises (with ignoreVoid = false, so `void p()` doesn't count) and no-misused-promises (type-aware); raw timers (setTimeout, setInterval, setImmediate, queueMicrotask) banned by eslint/no-restricted-globals with Effect's replacement (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). Logic packages have no timers at all (no-io-in-logic)."
+message = "Await every promise or run the work as an Effect; don't fire and forget, and don't schedule with raw timers. Use Effect.sleep or a Schedule, which can be interrupted and tested. If neither fits, stop and report what you're trying to do."

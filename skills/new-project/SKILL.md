@@ -9,7 +9,7 @@ Agents copy whatever patterns exist first, so enforcement must exist before the 
 
 ## 1. Confirm what's being built
 
-Ask the user for the platform and a one-line description of the app. Available starters: `starters/ios/` (an iOS app) and `starters/rust/` (a Rust workspace with a binary). For any other platform, **stop and report** that no starter exists yet. The steps below are for iOS; for Rust, see [Rust](#rust).
+Ask the user for the platform and a one-line description of the app. Available starters: `starters/ios/` (an iOS app), `starters/rust/` (a Rust workspace with a binary) and `starters/typescript/` (an Electron desktop app laid out like T3 Code). For any other platform, **stop and report** that no starter exists yet. The steps below are for iOS; for Rust, see [Rust](#rust); for TypeScript, see [TypeScript](#typescript).
 
 ## 2. Agree the module plan with the user
 
@@ -44,6 +44,16 @@ Steps 1, 2 and 5 are the same. In step 2, each feature is a `no_std` crate in `c
 - check `starters/rust/README.md` for what the template doesn't include yet, and list it in your report
 
 Prove it: `python3 scripts/check.py` must PASS every gate in the new repo, and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` (the platform is found from the repo's files) must give zero FAIL.
+
+## TypeScript
+
+Steps 1, 2 and 5 are the same. In step 2, each feature is a package in `packages/features/<name>/` (logic plus the Effect services it needs, with no I/O), with real I/O in a `packages/platform/<name>/` package, wiring in `apps/desktop` (the main process) and `apps/web` (the renderer), and anything both processes share in `packages/contracts`, following the tally example. Then:
+- copy `starters/typescript/template/` into the new repo, leaving out `node_modules/`, `dist/` and `.build/`; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, and add `CLAUDE.md` containing `@AGENTS.md`
+- replace the tally example (`packages/features/tally`, `packages/platform/files`, the tally parts of `packages/contracts`, `apps/desktop/src`, `apps/web/src`, `apps/desktop/journeys/tally.journey.ts`, `feature-map/`) with the agreed features. Don't edit the root `package.json`, `pnpm-workspace.yaml`, `vite.config.ts`, the tsconfig files or `arch/`. A third-party package needs the owner: list the ones the features need and ask before adding them to `arch/shape.json`
+- replace `@OWNER` in `CODEOWNERS`; `git init`
+- check `starters/typescript/README.md` for what the template doesn't include yet, and list it in your report
+
+Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (it installs the packages first), and the screenshots and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
 
 ## 5. Report
 

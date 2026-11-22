@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+uses_example = false
+diagnostic = "Type 'Greeter' is not assignable to type 'never'."

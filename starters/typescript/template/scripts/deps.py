@@ -3,7 +3,8 @@ allowed license. Which third-party packages each role may use is the arch gate's
 
   sources    every package in pnpm-lock.yaml resolves to the registry with an integrity hash: no git, tarball URL or
              local folder dependencies (workspace packages are linked, not resolved)
-  licenses   `pnpm licenses list`: shipped dependencies (each package's `dependencies`) have a permissive license;
+  licenses   every installed package's own license field: shipped dependencies (each package's `dependencies`, all
+             the way down) have a permissive license;
              build and test tools (devDependencies) may also be MPL-2.0, which never ships in the app
 
 Usage: python3 scripts/deps.py
@@ -26,7 +27,7 @@ TOOLS_ALSO = {'MPL-2.0'}
 def source_findings() -> list[str]:
     out = []
     text = (ROOT / 'pnpm-lock.yaml').read_text()
-    for match in re.finditer(r"^  '?([^\s:']+)'?:\n    resolution: \{([^}]*)\}", text, re.M):
+    for match in re.finditer(r"^  (\S.*?):\n    resolution: \{([^}]*)\}", text, re.M):
         name, resolution = match.group(1), match.group(2)
         if not re.fullmatch(r'integrity: sha512-[A-Za-z0-9+/=]+', resolution.strip()):
             out.append(f'[allowed-dependencies] pnpm-lock.yaml: {name} resolves to {{{resolution.strip()}}}. Packages '
@@ -37,11 +38,32 @@ def source_findings() -> list[str]:
 
 
 def licenses(env: dict, prod: bool) -> dict[str, list[str]]:
-    proc = subprocess.run(['pnpm', 'licenses', 'list', '--json', *(['--prod'] if prod else [])], cwd=ROOT, env=env,
-                          capture_output=True, text=True)
+    """License -> package names, read from each installed package's package.json (`pnpm list`). Workspace packages are
+    the app's own and are left out; everything else is in, registry or not."""
+    proc = subprocess.run(['pnpm', 'list', '--recursive', '--json', '--depth', 'Infinity', *(['--prod'] if prod else [])],
+                          cwd=ROOT, env=env, capture_output=True, text=True)
     if proc.returncode != 0:
-        sys.exit(f'pnpm licenses list failed:\n{(proc.stdout + proc.stderr).strip()[-2000:]}')
-    return {license: sorted({p['name'] for p in found}) for license, found in json.loads(proc.stdout or '{}').items()}
+        sys.exit(f'pnpm list failed:\n{(proc.stdout + proc.stderr).strip()[-2000:]}')
+    found: dict[str, set[str]] = {}
+    seen: set[str] = set()
+
+    def walk(node: dict) -> None:
+        for name, dependency in (node.get('dependencies') or {}).items():
+            path = dependency.get('path', '')
+            if path in seen or str(dependency.get('version', '')).startswith('link:'):
+                continue
+            seen.add(path)
+            manifest = json.loads((Path(path) / 'package.json').read_text()) if path else {}
+            license = manifest.get('license')
+            if not isinstance(license, str):
+                legacy = manifest.get('licenses')
+                license = ' OR '.join(l.get('type', '?') for l in legacy) if isinstance(legacy, list) else 'none'
+            found.setdefault(license, set()).add(name)
+            walk(dependency)
+
+    for importer in json.loads(proc.stdout or '[]'):
+        walk(importer)
+    return {license: sorted(names) for license, names in found.items()}
 
 
 def license_findings(env: dict) -> list[str]:
