@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] vite.config.ts: the test settings changed"
+
+[[edits]]
+file = "vite.config.ts"
+find = "passWithNoTests: false,"
+replace = "passWithNoTests: true,"

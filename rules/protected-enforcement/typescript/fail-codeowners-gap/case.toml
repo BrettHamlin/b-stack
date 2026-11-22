@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] CODEOWNERS: no code owner for /arch/."
+
+[[edits]]
+file = "CODEOWNERS"
+find = "/arch/                    @OWNER\n"
+replace = ""

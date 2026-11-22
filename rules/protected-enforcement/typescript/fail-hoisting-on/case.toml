@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] pnpm-workspace.yaml: `hoist` must be false."
+
+[[edits]]
+file = "pnpm-workspace.yaml"
+find = "hoist: false"
+replace = "hoist: true"

@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] vite.config.ts: lint rule typescript/no-explicit-any is 'off', not 'error'."
+
+[[edits]]
+file = "vite.config.ts"
+find = "\"typescript/no-explicit-any\": ERROR,"
+replace = "\"typescript/no-explicit-any\": \"off\","

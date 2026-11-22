@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] tsconfig.effect.json: the Effect language service changed (diagnostic missingEffectServiceDependency)."
+
+[[edits]]
+file = "tsconfig.effect.json"
+find = "\"missingEffectServiceDependency\": \"error\","
+replace = "\"missingEffectServiceDependency\": \"off\","

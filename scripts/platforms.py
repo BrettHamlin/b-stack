@@ -55,16 +55,18 @@ PLATFORMS = {
         tools=('rust', 'cargo-deny'), marker='arch/shape.toml', restamp=True),
     'typescript': Platform(
         name='typescript', starter=ROOT / 'starters/typescript/template',
-        gates=('compiler', 'lint', 'deps', 'arch', 'tests', 'verify'),
-        pass_gates=('compiler', 'lint', 'deps', 'arch', 'tests'),
-        overlays=('packages', 'apps', 'feature-map'), editable=('package.json', 'pnpm-lock.yaml'),
+        gates=('compiler', 'lint', 'deps', 'arch', 'settings', 'tests', 'verify'),
+        pass_gates=('compiler', 'lint', 'deps', 'arch', 'settings', 'tests'),
+        overlays=('packages', 'apps', 'feature-map'),
+        editable=('package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.base.json', 'tsconfig.effect.json',
+                  'vite.config.ts', 'CODEOWNERS'),
         targets='packages',
         case_files=('packages/**/*.ts', 'packages/**/*.tsx', 'packages/**/*.json', 'apps/**/*.ts', 'apps/**/*.tsx',
                     'apps/**/*.json', 'feature-map/*.toml'),
         example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|Count)[\w.-]*'), example_name='tally',
         simulator_kinds=frozenset(),
         cost={'untouched': 0.5, 'pass': 0.2, 'verify': 0.3, 'compiler': 0.1, 'lint': 0.1, 'tests': 0.1, 'deps': 0.1,
-              'arch': 0.05},
+              'arch': 0.05, 'settings': 0.05},
         tools=('node', 'pnpm'), marker='arch/shape.json', installed=('node_modules', 'dist')),
 }
 
