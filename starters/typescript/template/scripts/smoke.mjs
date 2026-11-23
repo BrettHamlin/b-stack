@@ -31,8 +31,13 @@ const said = (app) => {
 };
 const log = (line) => process.stdout.write(`[${new Date().toISOString()}] ${line}\n`);
 // Every wait has a limit, so a hang fails with what it was waiting for instead of running into the job's timeout.
-const within = (promise, ms, what) =>
-  Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`${what}: no answer in ${ms / 1000}s`)), ms))]);
+const within = (promise, ms, what) => {
+  let timer;
+  const limit = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what}: no answer in ${ms / 1000}s`)), ms);
+  });
+  return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+};
 // The update installs after the app quits: on Windows its installer (<app>-<version>-win-<arch>.exe) runs on, on macOS
 // Squirrel's ShipIt swaps the app. Reopening before it's done races it, which a user's next launch doesn't.
 const installing = (version) =>
@@ -127,7 +132,7 @@ const closeWindows = () => {
   return exited();
 };
 const closing = process.platform === "win32" ? closeWindows() : first.app.close();
-await within(closing, 60_000, "closing the app").catch((error) => log(String(error)));
+await within(closing, 60_000, "closing the app");
 log("closed");
 
 // The update installs after the app quits (on Windows the installer runs on, on macOS Squirrel stages it): reopen
@@ -149,7 +154,7 @@ for (let running = "", failure = ""; ; failure = "") {
       running = update ? await version(again) : "";
       log(`running ${running || "(no update expected)"}`);
       if (!update || running === update) break;
-      await within(again.app.close(), 60_000, "closing the app").catch((error) => log(String(error)));
+      await within(again.app.close(), 60_000, "closing the app");
     } catch (error) {
       failure = String(error);
     }
