@@ -202,10 +202,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force smoke-evidence | Out-Null
           $dir = "$env:LOCALAPPDATA\Programs\starter"
-          function Run($what, $file, $arguments) {
+          function Run($what, $file, $arguments, $wait = 120000) {
             $p = Start-Process $file -ArgumentList $arguments -PassThru
-            if ($p.WaitForExit(120000)) { "$what exited: $($p.ExitCode)" } else {
-              "$what still running after 120s"
+            if ($p.WaitForExit($wait)) { "$what exited: $($p.ExitCode)" } else {
+              "$what still running after $($wait / 1000)s"
               Add-Type -AssemblyName System.Windows.Forms,System.Drawing
               $b = [System.Windows.Forms.SystemInformation]::VirtualScreen
               $img = New-Object System.Drawing.Bitmap $b.Width, $b.Height
@@ -236,6 +236,9 @@ jobs:
           $mine | Where-Object { $_.Result -notin @('SUCCESS', 'NAME NOT FOUND', 'PATH NOT FOUND', 'NO MORE FILES', 'NO MORE ENTRIES', 'BUFFER OVERFLOW', 'REPARSE', 'FILE LOCKED WITH ONLY READERS', 'IS DIRECTORY', 'NOT REPARSE POINT', 'END OF FILE', 'BUFFER TOO SMALL') -and $_.Path -notmatch '\\Windows\\|HKLM|HKCU\\Software\\Microsoft|HKCR' } |
             Select-Object -First 60 | ForEach-Object { "  $($_.'Process Name') $($_.Operation) $($_.Path) -> $($_.Result) $($_.Detail)" }
           Run 'uninstall 0.1.0 without --updated' "$env:TEMP\old-uninstaller.exe" @('/S', '/KEEP_APP_DATA', "_?=$dir")
+          $sig = Get-AuthenticodeSignature "$dir\Uninstall starter.exe"
+          "uninstaller signature: $($sig.Status) $($sig.StatusMessage)"
+          Run 'uninstall 0.1.0 shown' "$env:TEMP\old-uninstaller.exe" @("_?=$dir") 20000
           Get-Process starter* -ErrorAction SilentlyContinue | Stop-Process -Force
       - name: Install, check, smoke test${{ matrix.update && ', update to 0.1.1' || '' }}
         run: |
