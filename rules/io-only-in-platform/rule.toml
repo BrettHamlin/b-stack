@@ -8,3 +8,9 @@ origin = "Fable 5.2 audit of code in the wrong module, 2026-11-23: no-io-in-logi
 
 [ios]
 harmonize = "NoIOInLogic.swift (SwiftSyntax, every file under Targets/<module>/ including subfolders): in Core, Interface, Logic, view, App and AppVerify modules, no reference to FileManager, FileHandle, FileWrapper, NSFileCoordinator, InputStream, OutputStream, fopen, URLSession, URLSessionConfiguration, NSURLConnection, NWConnection, NWListener, UserDefaults, NSUbiquitousKeyValueStore, AppStorage, SecItemAdd/CopyMatching/Update/Delete, Process or ProcessInfo; no Data/String/NSData/NSString/NSArray/NSDictionary/(NS)AttributedString(contentsOf…:), module-qualified or through .init; no write(to:) or write(toFile:). Matches names, not text: comments, strings and append(contentsOf:) don't count. Logic modules report as no-io-in-logic."
+
+[android]
+layer = "1+2"
+compiler = "Core, a feature's api and logic are common code: java.io, java.net and android.* don't exist there (no-io-in-logic). Kotlin 2.4.21."
+konsist = "ArchitectureTest.ioOnlyInPlatform (Konsist 0.18.1): outside platform modules and fixtures (app, app-verify, a feature's ui, core-ui, and common code too), no import of java.io, java.net, java.nio, android.database, android.content.SharedPreferences, androidx.datastore, androidx.room, okhttp3 or io.ktor, and no getSharedPreferences, openFileInput, openFileOutput, openOrCreateDatabase, deleteFile or getExternalFilesDir call (text matches; a fully qualified name without an import isn't seen). The platform store and the fixtures build their own paths from a Context."
+message = "No I/O outside a platform module. Define a client interface in the feature's api module, implement it in a platform module (and a fake in fixtures), and pass it in from the app."

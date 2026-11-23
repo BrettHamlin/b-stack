@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import coreui.rememberModel
 import fixtures.fixtureNamed
+import tally.logic.TallyModel
 import tally.ui.TallyRoute
 
 /** Shows the same feature entry points as the shipped app, on the fixture's services. Journeys start it with
@@ -22,7 +24,11 @@ class VerifyActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface {
-                    if (store == null) Text("Unknown fixture: ${intent.getStringExtra("bstack.fixture")}") else TallyRoute(store)
+                    if (store == null) {
+                        Text("Unknown fixture: ${intent.getStringExtra("bstack.fixture")}")
+                    } else {
+                        TallyRoute(rememberModel("tally") { scope -> TallyModel(store, scope) })
+                    }
                 }
             }
         }

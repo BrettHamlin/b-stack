@@ -102,6 +102,62 @@ class ArchitectureTest {
     )
 
     @Test
+    fun ioOnlyInPlatform() = check(
+        matches(
+            files.filter { !it.test && it.role in setOf("app", "app-verify", "ui", "core-ui", "core", "api", "logic") },
+            Regex("""^\s*import\s+((?:java\.io|java\.net|java\.nio|android\.database|android\.content\.SharedPreferences|androidx\.datastore|androidx\.room|okhttp3|io\.ktor)\b[\w.*]*)|\b(getSharedPreferences|openFileInput|openFileOutput|openOrCreateDatabase|deleteFile|getExternalFilesDir)\s*\(""", RegexOption.MULTILINE),
+        ) {
+            "[io-only-in-platform] `${(it.groupValues[1].ifEmpty { it.groupValues[2] }).trim()}` does I/O outside a " +
+                "platform module. Define a client interface in the feature's api module, implement it in a platform " +
+                "module (and a fake in fixtures), and pass it in from the app."
+        },
+    )
+
+    @Test
+    fun thinApp() {
+        val app = files.filter { it.role == "app" && !it.test }
+        val found = matches(
+            app,
+            Regex("""\b(if|when|for|while|do|try|launch|async|runCatching)\b\s*[({]|\b(LaunchedEffect|SideEffect|DisposableEffect)\b|^\s*(?:private\s+|internal\s+)?fun\s""", RegexOption.MULTILINE),
+        ) {
+            "[thin-app] `${it.value.trim()}`: the shipped app only composes (an Application that builds services, " +
+                "Activities that show each feature's screen with a model). Decisions and side effects go in a " +
+                "feature's logic, where tests and journeys run them."
+        }.toMutableList()
+        app.forEach { source ->
+            source.file.functions(includeNested = true).filterNot { it.hasOverrideModifier }.forEach {
+                found += "${source.relative}: [thin-app] fun ${it.name}: the shipped app declares no functions of its " +
+                    "own (overriding onCreate is how it composes)."
+            }
+            source.file.classes(includeNested = true)
+                .filterNot { cls -> cls.parents().any { it.name in setOf("Application", "ComponentActivity") } }
+                .forEach {
+                    found += "${source.relative}: [thin-app] class ${it.name}: the shipped app holds only its " +
+                        "Application and Activities; types go in a feature or platform module."
+                }
+        }
+        check(found.distinct())
+    }
+
+    @Test
+    fun viewsHoldNoClients() {
+        // Interfaces declared in api and logic modules are the clients platform implements; a view never sees one.
+        val clients = files.filter { !it.test && it.role in setOf("api", "logic") }
+            .flatMap { source -> source.file.interfaces(includeNested = true).filterNot { it.hasSealedModifier }.map { it.name } }
+            .toSet()
+        check(
+            files.filter { !it.test && it.role == "ui" }.flatMap { source ->
+                val code = code(source.text)
+                clients.filter { Regex("""\b${Regex.escape(it)}\b""").containsMatchIn(code) }.map {
+                    "${source.relative}: [views-hold-no-clients] the view names $it, a client. A view gets only its " +
+                        "model (`TallyRoute(model)`); the app builds the model from the clients with rememberModel, " +
+                        "and the model calls them."
+                }
+            },
+        )
+    }
+
+    @Test
     fun typedIdentifiers() = check(
         matches(
             files.filter { it.role in setOf("core", "api") && !it.test },

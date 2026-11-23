@@ -6,7 +6,6 @@ import fixtures.Fixture
 import fixtures.tallyStore
 import kotlinx.coroutines.Dispatchers
 import tally.api.TallyStore
-import java.io.File
 
 /** The test-mode app's composition root. The first launch in a process picks the fixture (journeys stop the app
  * before each launch), and the store lives as long as the process, as in the shipped app. Disk or network work on
@@ -25,7 +24,7 @@ class VerifyApp : Application() {
     fun tallyStore(fixture: Fixture, reset: Boolean): TallyStore = store ?: run {
         val policy = StrictMode.allowThreadDiskWrites()
         try {
-            tallyStore(fixture, File(filesDir, "fixture"), Dispatchers.IO, reset).also { store = it }
+            tallyStore(fixture, this, Dispatchers.IO, reset).also { store = it }
         } finally {
             StrictMode.setThreadPolicy(policy)
         }

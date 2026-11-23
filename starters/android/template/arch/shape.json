@@ -3,7 +3,7 @@
   "roles": {
     "core": {"folders": ["core"], "kind": "common", "may_use": [], "external": []},
     "core-ui": {"folders": ["core-ui"], "kind": "android-library", "compose": true, "may_use": ["core"],
-                "external": ["compose-ui", "compose-foundation"]},
+                "external": ["compose-ui", "compose-foundation", "lifecycle-viewmodel-compose", "kotlinx-coroutines-core"]},
     "api": {"folders": ["features/*/api"], "kind": "common", "declares_ui_ids": true, "may_use": ["core"],
             "external": []},
     "logic": {"folders": ["features/*/logic"], "kind": "common", "may_use": ["core", "api(own)"],

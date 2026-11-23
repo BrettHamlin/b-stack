@@ -16,11 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coreui.uiId
-import tally.api.TallyStore
 import tally.api.TallyUi
 import tally.logic.TallyAction
 import tally.logic.TallyModel
@@ -28,17 +24,12 @@ import tally.logic.TallyProblem
 import tally.logic.TallyState
 import tally.logic.entries
 
-/** Holds the model across configuration changes; its scope ends when the screen is gone for good. */
-private class TallyHolder(store: TallyStore) : ViewModel() {
-    val model = TallyModel(store, viewModelScope)
-}
-
-/** The tally feature's entry point. Both apps call it, with the store each composes (real or fixture). */
+/** The tally feature's entry point. Both apps call it with the model they built from their services. The view gets
+ * only the model: it sends actions, and the model calls the store. */
 @Composable
-fun TallyRoute(store: TallyStore) {
-    val holder = viewModel { TallyHolder(store) }
-    val state by holder.model.state.collectAsState()
-    TallyScreen(state, holder.model::send)
+fun TallyRoute(model: TallyModel) {
+    val state by model.state.collectAsState()
+    TallyScreen(state, model::send)
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package platform.files
 
+import android.content.Context
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import tally.api.ItemName
@@ -12,6 +13,9 @@ import java.io.IOException
 /** Keeps the tally in [file], one `name<TAB>count` line per item. A save writes a new file and renames it into place,
  * so a failed save leaves the old tally. File work runs on [io]. */
 class FileTallyStore(private val file: File, private val io: CoroutineDispatcher) : TallyStore {
+    /** The store in the app's own files folder. */
+    constructor(context: Context, io: CoroutineDispatcher) : this(File(context.filesDir, "tally.txt"), io)
+
     override suspend fun load(): Stored<Tally> = withContext(io) {
         try {
             if (!file.exists()) return@withContext Stored.Done(Tally.Empty)

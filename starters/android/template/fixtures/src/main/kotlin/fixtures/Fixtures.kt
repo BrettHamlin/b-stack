@@ -1,5 +1,6 @@
 package fixtures
 
+import android.content.Context
 import kotlinx.coroutines.CoroutineDispatcher
 import platform.files.FileTallyStore
 import tally.api.Stored
@@ -24,9 +25,10 @@ enum class Fixture {
 
 fun fixtureNamed(name: String?): Fixture? = Fixture.entries.firstOrNull { it.name == (name ?: Fixture.Standard.name) }
 
-/** The store [fixture] runs on, in [dir]. With [reset], the folder starts from the fixture's data; without it (a
- * relaunch), it keeps what the last launch saved. */
-fun tallyStore(fixture: Fixture, dir: File, io: CoroutineDispatcher, reset: Boolean): TallyStore {
+/** The store [fixture] runs on, in the app's files folder. With [reset], it starts from the fixture's data; without it
+ * (a relaunch), it keeps what the last launch saved. */
+fun tallyStore(fixture: Fixture, context: Context, io: CoroutineDispatcher, reset: Boolean): TallyStore {
+    val dir = File(context.filesDir, "fixture")
     val file = File(dir, "tally.txt")
     if (reset) {
         dir.deleteRecursively()
