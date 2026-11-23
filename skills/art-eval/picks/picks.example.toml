@@ -1,0 +1,28 @@
+# Pick page config for build.py and export.py. Paths are relative to this file.
+title = "Art Picks"
+intro = "Hexfleet art, round 1."
+
+[[lane]]
+key = "sprites"                      # lowercase, digits, single dashes; part of every saved pick's id
+name = "Ship sprites"                # tab label
+question = "Which sprite would you rather see in the game?"
+how = "Judge it on the hex tile at game size: which looks better and reads at a glance. The 2x copy is only for a closer look."
+pairs = "sprites/picks/pairs.json"   # [{"id", "title", "note", "x", "y"}]; a missing file shows the tab as "coming"
+# answers = "sprites/picks/answers.json"   # default: answers.json next to the pairs file
+
+[[lane]]
+key = "icons"
+name = "Toolbar icons"
+question = "Which icon is clearer, and more at home next to the others?"
+how = "Judge the small 24 px copy, as it would sit in a toolbar. The big one is only for a closer look."
+pairs = "icons/picks/pairs.json"
+sizes = [96, 24]                     # show each image at these widths, on a light tile
+
+[[lane]]
+key = "anim"
+name = "Animation"
+question = "Which animation would you rather see in the game?"
+how = "Watch it at 1x for a few loops. If you can't see any motion at 1x, that counts against it. 2x and 3x are only to see what moves."
+pairs = "anim/picks/pairs.json"      # animated WebP or GIF become frame strips the page plays itself
+layout = "stack"                     # one above the other, for wide frames
+skip = ["old-"]                      # leave out pairs whose id starts with these
