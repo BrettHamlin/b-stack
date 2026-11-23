@@ -10,7 +10,7 @@
               "external": ["kotlinx-coroutines-core"]},
     "ui": {"folders": ["features/*/ui"], "kind": "android-library", "compose": true,
            "may_use": ["core", "core-ui", "api(own)", "logic(own)"],
-           "external": ["compose-ui", "compose-foundation", "compose-material3", "kotlinx-coroutines-core", "lifecycle-viewmodel-compose"]},
+           "external": ["compose-ui", "compose-foundation", "compose-material3", "kotlinx-coroutines-core"]},
     "platform": {"folders": ["platform/*"], "kind": "android-library", "may_use": ["core", "api"],
                  "external": ["kotlinx-coroutines-core"]},
     "fixtures": {"folders": ["fixtures"], "kind": "android-library", "may_use": ["core", "api", "platform"],

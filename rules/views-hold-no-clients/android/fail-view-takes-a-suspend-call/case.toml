@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[views-hold-no-clients] Notes takes a suspend function"
+uses_example = false
+adds_targets = ["probe"]

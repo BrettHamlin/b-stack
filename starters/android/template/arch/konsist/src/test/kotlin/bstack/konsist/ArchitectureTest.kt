@@ -105,7 +105,7 @@ class ArchitectureTest {
     fun ioOnlyInPlatform() = check(
         matches(
             files.filter { !it.test && it.role in setOf("app", "app-verify", "ui", "core-ui", "core", "api", "logic") },
-            Regex("""^\s*import\s+((?:java\.io|java\.net|java\.nio|android\.database|android\.content\.SharedPreferences|androidx\.datastore|androidx\.room|okhttp3|io\.ktor)\b[\w.*]*)|\b(getSharedPreferences|openFileInput|openFileOutput|openOrCreateDatabase|deleteFile|getExternalFilesDir)\s*\(""", RegexOption.MULTILINE),
+            Regex("""^\s*import\s+((?:java\.io|java\.net(?!\.(?:URLEncoder|URLDecoder|URI)\b)|java\.nio(?!\.charset\b)|android\.database|android\.preference|android\.content\.SharedPreferences|androidx\.datastore|androidx\.room|okhttp3|io\.ktor)\b[\w.*]*)|\b(getSharedPreferences|getDefaultSharedPreferences|openFileInput|openFileOutput|openOrCreateDatabase|deleteFile|getExternalFilesDir|getDir|getDatabasePath|openInputStream|openOutputStream|openFileDescriptor|filesDir|cacheDir|dataDir|noBackupFilesDir|assets\.open)\b""", RegexOption.MULTILINE),
         ) {
             "[io-only-in-platform] `${(it.groupValues[1].ifEmpty { it.groupValues[2] }).trim()}` does I/O outside a " +
                 "platform module. Define a client interface in the feature's api module, implement it in a platform " +
@@ -122,12 +122,14 @@ class ArchitectureTest {
         ) {
             "[thin-app] `${it.value.trim()}`: the shipped app only composes (an Application that builds services, " +
                 "Activities that show each feature's screen with a model). Decisions and side effects go in a " +
-                "feature's logic, where tests and journeys run them."
+                "feature's logic, where tests and journeys run them; composables shared by screens (a theme) go in " +
+                "core-ui."
         }.toMutableList()
         app.forEach { source ->
-            source.file.functions(includeNested = true).filterNot { it.hasOverrideModifier }.forEach {
-                found += "${source.relative}: [thin-app] fun ${it.name}: the shipped app declares no functions of its " +
-                    "own (overriding onCreate is how it composes)."
+            source.file.functions(includeNested = true).filterNot { it.hasOverrideModifier && it.name == "onCreate" }.forEach {
+                found += "${source.relative}: [thin-app] fun ${it.name}: the shipped app declares no functions but " +
+                    "onCreate, where it composes (lifecycle and event hooks such as onNewIntent decide things; that " +
+                    "belongs in a feature's logic). Composables shared by screens (a theme) go in core-ui."
             }
             source.file.classes(includeNested = true)
                 .filterNot { cls -> cls.parents().any { it.name in setOf("Application", "ComponentActivity") } }
@@ -152,7 +154,14 @@ class ArchitectureTest {
                     "${source.relative}: [views-hold-no-clients] the view names $it, a client. A view gets only its " +
                         "model (`TallyRoute(model)`); the app builds the model from the clients with rememberModel, " +
                         "and the model calls them."
-                }
+                } + source.file.functions(includeNested = false)
+                    .filterNot { it.hasPrivateModifier || it.hasInternalModifier }
+                    .filter { fn -> fn.parameters.any { Regex("""\bsuspend\b""").containsMatchIn(it.text) } }
+                    .map {
+                        "${source.relative}: [views-hold-no-clients] ${it.name} takes a suspend function, a client's " +
+                            "call in disguise. A view gets only its model and plain callbacks (`onBack: () -> Unit`); " +
+                            "the model calls the clients."
+                    }
             },
         )
     }
