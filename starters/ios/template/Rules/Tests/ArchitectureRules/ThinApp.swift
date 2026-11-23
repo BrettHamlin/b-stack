@@ -47,8 +47,14 @@ private final class AppBehaviourFinder: SyntaxVisitor {
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind { hit(node, "enum \(node.name.text)") }
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind { hit(node, "protocol \(node.name.text)") }
     override func visit(_ node: VariableDeclSyntax) -> SyntaxVisitorContinueKind {
-        // A file-level declaration sits in a CodeBlockItem, in the file's item list.
-        node.parent?.parent?.parent?.is(SourceFileSyntax.self) == true ? hit(node, "global variable") : .visitChildren
+        // A file-level declaration sits in the file's item list, possibly inside #if blocks.
+        var scope = node.parent
+        while let current = scope, !current.is(SourceFileSyntax.self) {
+            if current.is(MemberBlockSyntax.self) || current.is(CodeBlockSyntax.self) || current.is(ClosureExprSyntax.self)
+                || current.is(AccessorBlockSyntax.self) { return .visitChildren }
+            scope = current.parent
+        }
+        return hit(node, "global variable")
     }
 
     // Decisions and loops.

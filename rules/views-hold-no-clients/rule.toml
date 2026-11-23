@@ -8,4 +8,4 @@ origin = "Fable 5.2 audit of code in the wrong module, 2026-11-23: the starter's
 
 [ios]
 compiler = "Views can't import Platform or Fixtures (module-boundaries), so they can't create a client, only be handed one. App and AppVerify build each store with the feature's Logic (App → <Feature>Logic and AppVerify → <Feature>Logic are in the module shape) and pass it to the view's init(store:)."
-harmonize = "ViewsHoldNoClients.swift (SwiftSyntax, every file under Targets/<Feature>/): no reference to a protocol declared in an Interface or Logic module (holding, receiving, conforming to or constraining by one), and every public, open or package initializer takes only Store/StoreOf parameters."
+harmonize = "ViewsHoldNoClients.swift (SwiftSyntax, every file under Targets/<Feature>/): no reference to a protocol declared in an Interface or Logic module (holding, receiving, conforming to or constraining by one), and every public, open or package initializer (including one in a public extension) takes only Store/StoreOf parameters."

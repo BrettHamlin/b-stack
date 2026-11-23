@@ -1,0 +1,6 @@
+# SwiftUI's @AppStorage reads and writes UserDefaults from a view, around Platform and the reducer.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[io-only-in-platform] I/O outside Platform: Targets/Meter/Remembered.swift:4 AppStorage"

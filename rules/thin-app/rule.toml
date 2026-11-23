@@ -7,4 +7,4 @@ escape_hatches = ["Straight-line work in a stored property's initializer or a vi
 origin = "Fable 5.2 audit of code in the wrong module, 2026-11-23: App is the one shipped module no gate or journey runs."
 
 [ios]
-harmonize = "ThinApp.swift (SwiftSyntax, every file under Targets/App/): no func, init, deinit, subscript, extension, class, actor, enum, protocol or global variable; no if, guard, switch, ternary, for, while, repeat, do or defer; no Task; no event modifiers (.task, .onAppear, .onDisappear, .onChange, .onReceive, .onOpenURL, .onContinueUserActivity, .backgroundTask, .onSubmit, .onTapGesture, .refreshable)."
+harmonize = "ThinApp.swift (SwiftSyntax, every file under Targets/App/): no func, init, deinit, subscript, extension, class, actor, enum, protocol or global variable (inside #if blocks too); no if, guard, switch, ternary, for, while, repeat, do or defer; no Task; no event modifiers (.task, .onAppear, .onDisappear, .onChange, .onReceive, .onOpenURL, .onContinueUserActivity, .backgroundTask, .onSubmit, .onTapGesture, .refreshable)."

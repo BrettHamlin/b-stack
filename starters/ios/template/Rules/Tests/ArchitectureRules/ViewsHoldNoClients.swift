@@ -53,7 +53,11 @@ private final class ClientNameFinder: SyntaxVisitor {
     }
 
     override func visit(_ node: InitializerDeclSyntax) -> SyntaxVisitorContinueKind {
-        let exposed = node.modifiers.contains { ["public", "open", "package"].contains($0.name.text) }
+        // An init with no access modifier in a `public extension` is public too (init → item → list → block → extension).
+        let access: Set<String> = ["public", "open", "package"]
+        let explicit = node.modifiers.contains { access.contains($0.name.text) || ["internal", "fileprivate", "private"].contains($0.name.text) }
+        let exposed = node.modifiers.contains { access.contains($0.name.text) }
+            || (!explicit && node.parent?.parent?.parent?.parent?.as(ExtensionDeclSyntax.self)?.modifiers.contains { access.contains($0.name.text) } == true)
         for parameter in node.signature.parameterClause.parameters where exposed {
             let type = parameter.type.trimmedDescription.replacingOccurrences(of: "ComposableArchitecture.", with: "")
             if !(type.hasPrefix("StoreOf<") || type.hasPrefix("Store<")) {

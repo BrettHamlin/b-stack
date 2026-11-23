@@ -2,13 +2,13 @@ import ModuleShape
 import SwiftSyntax
 import Testing
 
-/// Network, disk, preferences, keychain, process and environment APIs. Only Platform (the real services) and Fixtures
+/// Network, disk, preferences (including SwiftUI's @AppStorage), keychain, process and environment APIs. Only Platform (the real services) and Fixtures
 /// (test mode's fakes) may use them. Everything else reaches the outside world through an Interface protocol that
 /// Platform implements, so logic stays testable and the screens never bypass it.
 private let ioNames: Set<String> = [
     "FileManager", "FileHandle", "FileWrapper", "NSFileCoordinator", "InputStream", "OutputStream", "fopen",
     "URLSession", "URLSessionConfiguration", "NSURLConnection", "NWConnection", "NWListener",
-    "UserDefaults", "NSUbiquitousKeyValueStore",
+    "UserDefaults", "NSUbiquitousKeyValueStore", "AppStorage",
     "SecItemAdd", "SecItemCopyMatching", "SecItemUpdate", "SecItemDelete",
     "Process", "ProcessInfo",
 ]
@@ -75,7 +75,11 @@ private final class IOFinder: SyntaxVisitor {
         } else if let member = node.calledExpression.as(MemberAccessExprSyntax.self) {
             let method = plainName(member.declName.baseName)
             if method == "init" {
+                // Data.init(contentsOf:), Foundation.Data.init(contentsOf:)
                 type = member.base?.as(DeclReferenceExprSyntax.self).map { plainName($0.baseName) }
+                    ?? member.base?.as(MemberAccessExprSyntax.self).map { plainName($0.declName.baseName) }
+            } else if readingTypes.contains(method) {
+                type = method  // Foundation.Data(contentsOf:)
             } else if method == "write", ["to", "toFile", "toURL"].contains(label) {
                 hit(node, "write(\(label):)")
             }
