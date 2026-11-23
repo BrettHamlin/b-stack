@@ -74,6 +74,8 @@ public func modules(_ features: [Feature], shared: Set<SharedLink>) -> [Module] 
         ]
     }
     let views = features.map(\.name)
+    // Each app builds every feature's store from its Logic and hands it to the view, so views never hold a client.
+    let logics = features.map { "\($0.name)Logic" }
     all += [
         module("Platform", .platform, interfaces(.platformImplementsInterface) + core(shared.contains(.platformUsesCore)),
                imports: ["Foundation"]),
@@ -81,10 +83,10 @@ public func modules(_ features: [Feature], shared: Set<SharedLink>) -> [Module] 
         module("Fixtures", .fixtures, (shared.contains(.fixturesUsePlatform) ? ["Platform"] : [])
                + interfaces(.fixturesUseInterface) + core(shared.contains(.fixturesUseCore)), imports: ["Foundation"]),
         // The shipped app's composition root.
-        module("App", .app, views + interfaces(.appUsesInterface) + (shared.contains(.appUsesPlatform) ? ["Platform"] : []),
+        module("App", .app, views + logics + interfaces(.appUsesInterface) + (shared.contains(.appUsesPlatform) ? ["Platform"] : []),
                imports: ["Foundation", "SwiftUI"]),
         // The app in test mode, driven by scripts/verify.py. Never shipped.
-        module("AppVerify", .appVerify, views + interfaces(.appVerifyUsesInterface) + ["Fixtures"],
+        module("AppVerify", .appVerify, views + logics + interfaces(.appVerifyUsesInterface) + ["Fixtures"],
                imports: ["Foundation", "SwiftUI"]),
         module("JourneyKit", .journeyKit, ["Core"], imports: ["XCTest"]),
         module("AppVerifyJourneys", .journeys, ["JourneyKit"] + features.map { "\($0.name)Interface" }, imports: ["Foundation"]),

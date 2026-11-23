@@ -1,0 +1,6 @@
+# A view module providing its own client, so the screen supplies its own data.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[views-hold-no-clients] A view names a client or takes more than its store: Targets/Meter/Local.swift:3 MeterStore"

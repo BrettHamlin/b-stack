@@ -1,0 +1,10 @@
+id = "thin-app"
+layer = "2"
+summary = "The shipped App only puts screens together and plugs services in; it decides and does nothing itself."
+problem = "App can import every view, every feature's Logic and Platform, and no journey runs it (journeys run AppVerify). A migration, a launch check or a deep-link branch written there is never tested or verified, and it looks like the place such code goes."
+message = "App only composes: a @main struct whose body puts the screens in a WindowGroup, stored properties that build each feature's store from its Logic with Platform's services, and View structs that compose screens. Move decisions and side effects into a feature's Logic, where tests and journeys run them."
+escape_hatches = ["Straight-line work in a stored property's initializer or a view expression, with no control flow (a call chain, `??`): not caught; I/O there is caught by io-only-in-platform, the rest is review.", "Calling into a Platform type that does the work: Platform implements Interface protocols; review.", "AppVerify isn't checked: journeys run it, and it's code-owned (CODEOWNERS)."]
+origin = "Fable 5.2 audit of code in the wrong module, 2026-11-23: App is the one shipped module no gate or journey runs."
+
+[ios]
+harmonize = "ThinApp.swift (SwiftSyntax, every file under Targets/App/): no func, init, deinit, subscript, extension, class, actor, enum, protocol or global variable (inside #if blocks too); no if, guard, switch, ternary, for, while, repeat, do or defer; no Task; no event modifiers (.task, .onAppear, .onDisappear, .onChange, .onReceive, .onOpenURL, .onContinueUserActivity, .backgroundTask, .onSubmit, .onTapGesture, .refreshable)."

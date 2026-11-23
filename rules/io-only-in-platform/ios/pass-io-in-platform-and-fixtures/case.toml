@@ -1,0 +1,4 @@
+# Real services in Platform and test mode's fakes in Fixtures may do I/O.
+expect = "pass"
+enforced_by = "harmonize"
+uses_example = false

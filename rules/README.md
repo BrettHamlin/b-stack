@@ -69,6 +69,9 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-suppressions](no-suppressions/rule.toml) | 2 | SwiftLint | arch | arch | No lint suppressions (Rust: also no lint-level changes, build scripts, or macros that hide code) |
 | [typed-ui-identifiers](typed-ui-identifiers/rule.toml) | 1+2 | compiler, Harmonize, verify | | compiler, oxlint | Typed journey bodies cannot import XCUITest; only generated adapters use XCTestCase (TypeScript: journeys use a typed Screen) |
 | [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | compiler, arch | compiler, oxlint, arch | Feature logic does no I/O; effects call injected clients (Rust: `no_std`; TypeScript: no Node.js or DOM types) |
+| [io-only-in-platform](io-only-in-platform/rule.toml) | 2 | Harmonize | | | Only Platform (and test mode's Fixtures) does network, disk, preferences, keychain or environment I/O |
+| [thin-app](thin-app/rule.toml) | 2 | Harmonize | | | The shipped App only composes screens and services; no decisions, functions or tasks |
+| [views-hold-no-clients](views-hold-no-clients/rule.toml) | 1+2 | compiler, Harmonize | | | A feature's view gets only its store; clients go into the reducer |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize | | oxlint | TCA tests stay exhaustive (no exhaustivity off or skips; TypeScript: whole-value assertions) |
 | [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch | tests, oxlint, arch | Every test target runs in the tests gate |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist | | arch, oxlint | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |

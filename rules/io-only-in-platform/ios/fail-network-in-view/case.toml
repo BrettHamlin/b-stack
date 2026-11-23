@@ -1,0 +1,6 @@
+# A screen fetching from the network itself instead of going through its Logic and an Interface client.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[io-only-in-platform] I/O outside Platform: Targets/Meter/Fetch.swift:7 URLSession"

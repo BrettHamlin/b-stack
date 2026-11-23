@@ -1,0 +1,6 @@
+# String(contentsOfFile:) reads a file without naming an I/O type.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[no-io-in-logic] I/O in a Logic module: Targets/MeterLogic/Load.swift:3 String(contentsOfFile:)"

@@ -1,0 +1,7 @@
+# A folder named like a test folder inside a shipped module: its code compiles into MeterLogic, but Harmonize's
+# productionCode() skips folders named *Tests, so the rules that scan it would never read the file.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[module-boundaries] Targets/MeterLogic/NetTests is inside MeterLogic but named like a test folder"

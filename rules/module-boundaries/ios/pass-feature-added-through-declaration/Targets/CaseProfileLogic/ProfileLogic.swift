@@ -32,3 +32,11 @@ public struct ProfileScreen: Sendable {
         }
     }
 }
+
+extension ProfileScreen {
+    /// The profile screen's store; apps build it here and hand it to the view.
+    @MainActor
+    public static func store(names: any NameStoring) -> StoreOf<Self> {
+        Store(initialState: State()) { Self(names: names) }
+    }
+}

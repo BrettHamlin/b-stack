@@ -11,14 +11,14 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | TCA 1.26.2, linked once as shared frameworks | `template/Tuist/Package.swift` | ✅ |
 | Example feature: notification toggle (save, failure revert, cancellation) with exhaustive TestStore tests | `Targets/Settings*` | ✅ Built by an agent in the state-flow trial |
 | Property test for the example feature: 200 seeded random sequences of toggles, waits and closes, checked step by step against a model of the spec; stops at the first divergence and prints its steps | `Targets/SettingsTests/NotificationSettingsPropertyTests.swift` | ✅ About 5 s. No library: a seeded generator in the file |
-| Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | ✅ Every gate passes; full rule suite 103/103 (2026-11-21, Xcode 27.2, iOS 27.2 Simulator) |
+| Gate command: compiler, Tuist, SwiftLint, Harmonize, tests, verify | `template/scripts/check.py` | ✅ Every gate passes; full rule suite 121/121 (2026-11-23, Xcode 27.2, iOS 27.2 Simulator) |
 | Simulator lock: tests and verify wait while another checkout on the Mac uses the same simulator, and print who holds it (pid, checkout); the rule suite holds its simulators for its whole run. Hand use (agent-device, simctl, recordings) takes the same lock through `python3 scripts/simulator.py run [--for SECONDS] -- <command>`, as do `verify.py launch` and `cleanup` | `template/scripts/simulator.py`, `template/scripts/verify.py` | ✅ Two checkouts' `check.py` started together both pass, one after the other; a checkout's `check.py` waits while another records the simulator through `run`, then passes |
 | Per-checkout identity: AppVerify and its UI-test runner get a bundle ID per checkout (`dev.bstack.starter.verify.c<8 hex>`, from the checkout's path), so parallel checkouts' installs sit side by side on a shared simulator; the shipped App keeps `dev.bstack.starter` | `template/Project.swift`, `template/scripts/verify.py` (reads it from the built app) | ✅ Same with `tuist generate` run by hand |
 | Verification: test-mode app (`AppVerify` + `Fixtures`), XCUITest journeys, feature map, evidence with screenshots | `template/scripts/verify.py`, `template/Targets/AppVerify*`, `template/Targets/Fixtures`, `template/feature-map/` | ✅ Two Settings journeys (saved across relaunch; failed save reverts), run on the simulator by the rule suite |
 | Verify skill for agents in the new app: run, explore with agent-device, add journeys | `template/.agents/skills/verify/` | ✅ |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py` | ✅ Tuist 4.216.7, SwiftLint 0.65.1 |
 | Build output and tools in a configurable cache folder | `template/scripts/paths.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
-| Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers (views and journeys), no I/O in Logic, exhaustive tests, no fixtures outside AppVerify |
+| Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers (views and journeys), I/O only in Platform and Fixtures, a thin App, views that hold only their store, exhaustive tests, no fixtures outside AppVerify |
 | Lint rules | `template/.swiftlint.yml` | ✅ Force operations, suppression comments |
 | Check record, observe mode: check.py records the git tree each run saw. `audit` says whether any commit's tree was checked (squash merges included; a check after the commit counts); each Claude Code hand-back is logged for every checkout the session worked in (Stop hook, headless too); each commit gets a `Checked:` trailer. Never blocks | `template/scripts/handback.py`, `template/.claude/settings.json`, `template/.githooks/`, `template/.gitignore` | ✅ `python3 scripts/handback.py audit main~5..main`, `summary`. Records are in the clone's git folder, local to that machine. Codex has no hand-back hook here; its commits are stamped and audited |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
@@ -37,13 +37,13 @@ The Settings feature is a small, complete example of the feature shape, includin
 |---|---|---|
 | Core | nothing | Foundation |
 | `<Feature>Interface` | Core | Foundation (also holds the feature's `UIID` constants) |
-| `<Feature>Logic` | its Interface, Core, TCA | Foundation, ComposableArchitecture (no I/O APIs) |
-| `<Feature>` | its Logic and Interface, Core, TCA | Foundation, SwiftUI, Observation, ComposableArchitecture |
+| `<Feature>Logic` (builds its store) | its Interface, Core, TCA | Foundation, ComposableArchitecture (no I/O APIs) |
+| `<Feature>` (view: takes only its store) | its Logic and Interface, Core, TCA | Foundation, SwiftUI, Observation, ComposableArchitecture |
 | `<Feature>Tests` | its Logic and Interface, Core, TCA | (test code) |
 | Platform | Core, Interfaces it implements | Foundation |
 | Fixtures (test-mode setups) | Platform, Interfaces, Core | Foundation |
-| App (composition root, shipped) | features, Interfaces, Platform | Foundation, SwiftUI |
-| AppVerify (composition root, test mode) | features, Interfaces, Fixtures | Foundation, SwiftUI |
+| App (composition root, shipped; composes only) | features' views and Logic, Interfaces, Platform | Foundation, SwiftUI |
+| AppVerify (composition root, test mode) | features' views and Logic, Interfaces, Fixtures | Foundation, SwiftUI |
 | JourneyKit (typed UI driver) | Core | XCTest (internal import; library evolution enabled) |
 | AppVerifyJourneys (journey bodies) | JourneyKit, Interfaces | Foundation; no testing search paths |
 | AppVerifyUITests (generated adapters) | AppVerify, AppVerifyJourneys | XCTest |
