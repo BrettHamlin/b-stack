@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[typed-ui-identifiers] a UiId is declared only as"
+uses_example = false
+adds_targets = ["probe"]

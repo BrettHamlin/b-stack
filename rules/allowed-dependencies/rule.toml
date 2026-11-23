@@ -13,3 +13,9 @@ deny = "deny.toml (protected), over the whole dependency tree including transiti
 [typescript]
 arch = "arch/shape.json (protected) gives each role its own `external` list (and `dev_external` for tests and config); a third-party package not on it fails, naming the role. Versions are exact."
 deps = "scripts/deps.py, from what pnpm reports it installed (`pnpm list --long`, so the lockfile is read as pnpm reads it): every package was resolved from https://registry.npmjs.org/ (no git, URL or folder dependencies), and every installed copy's license is permissive (Python-2.0 included); build and test tools may also be MPL-2.0 or WTFPL; an SPDX OR needs one allowed choice, AND all. pnpm 12.14.0 checks each download against the lockfile's hash."
+
+[android]
+layer = "1+2"
+compiler = "arch/shape.json (protected) gives each role its libraries, by version-catalog alias (gradle/libs.versions.toml, exact versions), and every module of the role gets them all, so modules resolve the same versions; build-logic fails the build when a module.toml tries to add one. gradle/verification-metadata.xml holds every artifact's SHA-256, and Gradle refuses one that isn't listed or doesn't match (Gradle 9.9.2)."
+deps = "scripts/deps.py: settings.gradle.kts and build-logic's name only google(), mavenCentral() and gradlePluginPortal(), with FAIL_ON_PROJECT_REPOS; the verification metadata verifies every artifact and trusts none without a checksum; every component's license, from its POM and parents, is permissive if it ships in the app (app's release runtime classpath), or also EPL or MPL for build and test tools (JUnit, parts of the Android Gradle Plugin); an unknown or missing license fails."
+message = "This library isn't allowed. Write the code without it, or stop and report which library you need and why: adding one needs the owner (arch/shape.json, gradle/libs.versions.toml, gradle/verification-metadata.xml)."

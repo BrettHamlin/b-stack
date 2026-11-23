@@ -3,7 +3,7 @@ layer = "1"
 summary = "Dependencies are passed in through initializers; no singletons or global service access."
 problem = "Singletons hide coupling from the compiler, can't be swapped for fixtures, and let any code reach any service. They're the shortest path, so agents use them."
 message = "Global service access isn't allowed. Accept this dependency as an initializer parameter; it's wired up in the composition root."
-escape_hatches = ["static let shared / global state: Harmonize rule.", "Service locators: add a Harmonize rule if one appears.", "TypeScript: a module-level `const` holding mutable state another way (a class instance, a closure over a local): review (lint catches `let`, `var`, mutable statics and literal or Map/Set/Array containers)."]
+escape_hatches = ["Android: a top-level `val`, or a companion's `private val`, holding a service made by a plain constructor (`val client = HttpClient()`): review (Konsist catches var, objects and companions that implement interfaces or hold vals, mutable containers and `by lazy`).", "static let shared / global state: Harmonize rule.", "Service locators: add a Harmonize rule if one appears.", "TypeScript: a module-level `const` holding mutable state another way (a class instance, a closure over a local): review (lint catches `let`, `var`, mutable statics and literal or Map/Set/Array containers)."]
 origin = "Design discussion, Nov 2026. Also needed by verification (launching in a known state)."
 
 [ios]
@@ -18,3 +18,7 @@ arch = "arch/checker: no `static` items at all (use const for constants) and no 
 [typescript]
 compiler = "Dependencies are Effect services (Context.Service) provided by Layers in the composition roots (apps/desktop/src/main.ts, apps/web/src/main.tsx). Running an Effect whose services aren't all provided is a type error (the requirement isn't assignable to never) (TypeScript 7.0.2 (effect-tsgo 0.67.1))."
 lint = "bstack/no-module-state: no module-level `let` or `var`, no module-level `const` holding a container (new Map, Set, WeakMap, WeakSet or Array, an array literal, or an object literal not frozen with `as const`), no mutable `static` fields or static blocks (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+
+[android]
+layer = "2"
+konsist = "ArchitectureTest.explicitDependencies (Konsist 0.18.1): no top-level `var`, no `var` in an object, no object or companion object that implements an interface or holds a non-const, non-private `val` (excepted: a sealed type's `data object` cases, the sealed type in the same module, whose `override val`s are literals, names or getters returning one (never a string template), a data or value class's companion values of its own type such as `Tally.Empty`, and a feature api's `<Feature>Ui` id objects), no top-level or object property initialized with a mutable container, mutable state or `by lazy`, and no `compositionLocalOf`/`staticCompositionLocalOf` outside core-ui (heuristics on declarations and initializer text, without types). Dependencies are constructor parameters; app and app-verify compose them, process-wide services in their Application class (StarterApp, VerifyApp). ArchitectureTest.stateIsOwned: a logic class keeps mutable state private (no public var or Mutable* property), so the view changes it only through send(action)."

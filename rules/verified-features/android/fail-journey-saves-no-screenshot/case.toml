@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "journey `savedTallyIsShownAtStart` saved no screenshot"
+uses_example = "removes a tally journey's checkpoint"

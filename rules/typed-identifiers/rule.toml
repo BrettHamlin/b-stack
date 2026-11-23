@@ -16,3 +16,8 @@ compiler = "One newtype per ID or unit (struct PlayerId(u32)); validated types k
 layer = "1+2"
 compiler = "One Effect Schema brand per ID or unit, in packages/contracts (Schema.String.pipe(Schema.brand(\"PlayerId\"))). Passing a raw string where the brand is expected is a type error (TypeScript 7.0.2 (effect-tsgo 0.67.1)). Forging one with `as` is a lint error (no-force-operations)."
 lint = "bstack/typed-identifiers: outside packages/contracts, no runtime import of effect/Brand and no Schema.brand, so only contracts mints a branded type and its values come from decoding its schema (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+
+[android]
+layer = "1+2"
+compiler = "One `@JvmInline value class` per ID or unit; validated types have a private constructor and a parse returning null. A raw Int where a PlayerId is expected is `Argument type mismatch`, and the private constructor is `Cannot access` (Kotlin 2.4.21, AGP 9.5.2)."
+konsist = "ArchitectureTest.typedIdentifiers (Konsist 0.18.1): no `typealias X = String` (or another primitive) in core or a feature's api module, which the compiler treats as the same type."

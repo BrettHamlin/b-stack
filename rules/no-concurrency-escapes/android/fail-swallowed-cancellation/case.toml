@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "SuspendFunSwallowedCancellation"
+uses_example = false

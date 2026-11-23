@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "object Notes implements NotesClient, so it is a singleton service"
+uses_example = false
+adds_targets = ["probe"]

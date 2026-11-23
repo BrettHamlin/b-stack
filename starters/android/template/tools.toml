@@ -1,0 +1,31 @@
+# Pinned tools, downloaded by scripts/tools.py into the tools folder and verified by SHA-256. Nothing is installed
+# globally. Libraries and Gradle plugins are pinned in gradle/libs.versions.toml, and every artifact's SHA-256 in
+# gradle/verification-metadata.xml, which Gradle checks on every download.
+
+[jdk]
+version = "21.0.13.1"
+url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13.1%2B2/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.13.1_2.tar.gz"
+sha256 = "48067f2b7c958ed104a9d8a5749be7d25220b0a356b4d2d1bcfaab3e16ad0b14"
+home = "jdk-21.0.13.1+2/Contents/Home"
+
+[gradle]
+version = "9.9.2"
+url = "https://services.gradle.org/distributions/gradle-9.9.2-bin.zip"
+sha256 = "971fcd7150ca4ba04852c0b2ca0d2d0ab9468e14b03473eab19528809914c76b"
+home = "gradle-9.9.2"
+
+[cmdline-tools]
+version = "23.0"
+url = "https://dl.google.com/android/repository/commandlinetools-mac_arm64-16111833_latest.zip"
+sha256 = "58da8f215781cc0208743e88b65ae259780c55e7eb40e50373d377cf369232d6"
+home = "cmdline-tools"
+
+# Android SDK packages, installed by the pinned sdkmanager (which checks each download against Google's published
+# checksum). sdkmanager installs a package's newest revision, so tools.py checks the revision it got against this
+# list and stops if Google has published a new one: update the pin here (with the owner) rather than build on it.
+[android-sdk.packages]
+"platform-tools" = "37.0.3"
+"platforms;android-37.2" = "2"
+"build-tools;36.0.0" = "36.0.0"
+"emulator" = "37.3.10"
+"system-images;android-37.0;default;arm64-v8a" = "6"

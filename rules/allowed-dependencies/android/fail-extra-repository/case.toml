@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "deps"
+diagnostic = "[allowed-dependencies] settings.gradle.kts"
+uses_example = false
+
+[[edits]]
+file = "settings.gradle.kts"
+find = "repositories { google(); mavenCentral() }"
+replace = "repositories { google(); mavenCentral(); maven(\"https://jitpack.io\") }"

@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Argument type mismatch: actual type is 'Int', but 'PlayerId' was expected"
+uses_example = false
+adds_targets = ["probe"]

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[tests-always-run] `assumeTrue(`"
+uses_example = false

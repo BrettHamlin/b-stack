@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verified-features] verify/runner holds only the driver"
+uses_example = false

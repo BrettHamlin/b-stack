@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[typed-ui-identifiers] only core names DeclaresUiId"
+uses_example = false
+adds_targets = ["probe"]

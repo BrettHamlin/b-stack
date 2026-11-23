@@ -17,3 +17,8 @@ clippy = "wildcard_enum_match_arm (deny): a `_` arm on an enum fails, so new var
 [typescript]
 layer = "2"
 lint = "typescript/switch-exhaustiveness-check (type-aware) with allowDefaultCaseForExhaustiveSwitch = false and considerDefaultExhaustiveForUnions = false: a switch over a union must name every member, and a `default` neither stands in for missing ones nor sits on an exhaustive switch (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). TypeScript itself accepts all three."
+
+[android]
+layer = "1+2"
+compiler = "`when` over a sealed type or an enum must name every case, as a statement too, and an `else` on a `when` that already names every case is a warning, so an error with warnings as errors (Kotlin 2.4.21, AGP 9.5.2)."
+detekt = "ElseCaseInsteadOfExhaustiveWhen (detekt 2.0.0-alpha.6, type-resolved): an `else` standing in for cases of a sealed type or enum fails, in common and Android modules."

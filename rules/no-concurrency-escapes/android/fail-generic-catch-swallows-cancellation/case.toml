@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "TooGenericExceptionCaught"
+uses_example = false

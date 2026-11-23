@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "companion object of Repository holds `val shared`, a global"
+uses_example = false

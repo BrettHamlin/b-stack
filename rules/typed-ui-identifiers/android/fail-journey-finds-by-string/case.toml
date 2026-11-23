@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Argument type mismatch: actual type is 'String', but 'UiId' was expected"
+uses_example = false

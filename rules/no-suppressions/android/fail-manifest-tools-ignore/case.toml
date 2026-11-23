@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "`tools:ignore`"
+uses_example = false

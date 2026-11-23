@@ -1,8 +1,9 @@
 """Tests for the starter's Python helpers that rule cases can't reach (they run outside check.py's gates).
 
-Covers every starter: the iOS one's check record and simulator lock, the Rust one's tool and toolchain setup, and the
-TypeScript one's tool setup (Node.js, pnpm and where installed packages go). Also the skills' tools: art-eval's pick
-page builder, its answer export and its planted-flaw ranking.
+Covers every starter: the iOS one's check record and simulator lock, the Rust one's tool and toolchain setup, the
+TypeScript one's tool setup (Node.js, pnpm and where installed packages go), and the Android one's tool setup (JDK,
+Gradle, the SDK's pinned revisions) and emulator lock. Also the skills' tools: art-eval's pick page builder, its answer
+export and its planted-flaw ranking.
 
 Usage: python3 scripts/test_starter_scripts.py
 """
@@ -24,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / 'starters/ios/template'
 RUST_TEMPLATE = ROOT / 'starters/rust/template'
 TS_TEMPLATE = ROOT / 'starters/typescript/template'
+ANDROID_TEMPLATE = ROOT / 'starters/android/template'
 sys.path.insert(0, str(TEMPLATE / 'scripts'))
 import handback  # noqa: E402
 import paths  # noqa: E402
@@ -543,6 +545,114 @@ class TypeScriptToolsTests(unittest.TestCase):
                          strip((TEMPLATE / 'scripts/handback.py').read_text()))
         gates = next(l for l in (TS_TEMPLATE / 'scripts/handback.py').read_text().splitlines() if l.startswith('GATES = '))
         self.assertIn(gates.split(' = ', 1)[1], (TS_TEMPLATE / 'scripts/check.py').read_text())
+
+
+class AndroidToolsTests(unittest.TestCase):
+    """The Android starter's scripts/tools.py and emulator lock, in a copy of its scripts with fake tool archives."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(ANDROID_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        self.tools = self.root / 'tools'
+        self.cache = self.root / 'cache'
+        self.cache.mkdir()
+        self.env = {**os.environ, 'BSTACK_TOOLS_DIR': str(self.tools), 'BSTACK_CACHE_DIR': str(self.cache),
+                    'GRADLE_USER_HOME': '/home/gradle', 'ANDROID_HOME': '/home/sdk'}
+
+    def archive(self, name: str, script: str, zipped: bool = False) -> tuple[Path, str]:
+        source = self.root / f'src/{name}/bin'
+        source.mkdir(parents=True)
+        (source / name).write_text(script)
+        (source / name).chmod(0o755)
+        if zipped:
+            archive = self.root / f'{name}.zip'
+            subprocess.run(['ditto', '-c', '-k', str(self.root / f'src/{name}'), str(archive)], check=True)
+        else:
+            archive = self.root / f'{name}.tar.gz'
+            subprocess.run(['tar', 'czf', str(archive), '-C', str(self.root / 'src'), name], check=True)
+        return archive, hashlib.sha256(archive.read_bytes()).hexdigest()
+
+    def pin(self, jdk_sha: str | None = None, installs: str = '2') -> None:
+        """A fake JDK (tar.gz) and command-line tools (zip) whose sdkmanager installs revision `installs`."""
+        jdk, jdk_digest = self.archive('jdk', '#!/bin/sh\necho jdk\n')
+        sdkmanager = ('#!/bin/sh\nfor a in "$@"; do case "$a" in --sdk_root=*) root="${a#--sdk_root=}";; esac; done\n'
+                      f'mkdir -p "$root/platforms/android-1" && echo "Pkg.Revision={installs}" > "$root/platforms/android-1/source.properties"\n')
+        tools_zip, tools_digest = self.archive('sdkmanager', sdkmanager, zipped=True)
+        (self.root / 'tools.toml').write_text(
+            f'[jdk]\nversion = "1.0"\nurl = "{jdk.as_uri()}"\nsha256 = "{jdk_sha or jdk_digest}"\nhome = "jdk"\n'
+            f'[cmdline-tools]\nversion = "1.0"\nurl = "{tools_zip.as_uri()}"\nsha256 = "{tools_digest}"\nhome = "."\n'
+            '[android-sdk.packages]\n"platforms;android-1" = "2"\n')
+
+    def call(self, expression: str) -> subprocess.CompletedProcess:
+        script = f'import json, sys; sys.path.insert(0, sys.argv[1]); import tools; print(json.dumps({expression}))'
+        return subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], env=self.env,
+                              capture_output=True, text=True)
+
+    def test_tool_env_keeps_the_jdk_sdk_and_gradle_in_the_tools_folder(self) -> None:
+        self.pin()
+        result = self.call('tools.tool_env()')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        env = json.loads(result.stdout)
+        self.assertEqual(env['JAVA_HOME'], str(self.tools / 'jdk-1.0/jdk'))
+        self.assertEqual(env['ANDROID_HOME'], str(self.tools / 'android-sdk'))
+        self.assertEqual(env['GRADLE_USER_HOME'], str(self.tools / 'gradle-home'))
+        self.assertEqual(env['ANDROID_AVD_HOME'], str(self.tools / 'android-user/avd'))
+        self.assertEqual(env['PATH'].split(os.pathsep)[0], str(self.tools / 'jdk-1.0/jdk/bin'))
+
+    def test_sdk_installs_the_pinned_revision(self) -> None:
+        self.pin()
+        result = self.call('str(tools.sdk())')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.tools / 'android-sdk/platforms/android-1/source.properties').is_file())
+
+    def test_a_newer_sdk_revision_than_pinned_stops(self) -> None:
+        self.pin(installs='3')
+        result = self.call('str(tools.sdk())')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('platforms;android-1 3 (pinned 2)', result.stderr)
+
+    def test_checksum_mismatch_is_refused_and_leaves_nothing(self) -> None:
+        self.pin(jdk_sha='0' * 64)
+        result = self.call('str(tools.tool_path("jdk"))')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('checksum mismatch', result.stderr)
+        self.assertFalse((self.tools / 'jdk-1.0').exists())
+
+    def test_missing_cache_drive_stops_instead_of_building_elsewhere(self) -> None:
+        self.pin()
+        del self.env['BSTACK_TOOLS_DIR']
+        self.env['BSTACK_CACHE_DIR'] = str(self.root / 'unmounted')
+        result = self.call('str(tools.tool_path("jdk"))')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Is its drive mounted?', result.stderr)
+
+    def test_paths_helper_matches_the_ios_starter(self) -> None:
+        self.assertEqual((ANDROID_TEMPLATE / 'scripts/paths.py').read_text(), (TEMPLATE / 'scripts/paths.py').read_text())
+
+    def test_handback_helper_matches_the_ios_starter_but_its_gates(self) -> None:
+        strip = lambda text: [line for line in text.splitlines() if not line.startswith('GATES = ')]
+        self.assertEqual(strip((ANDROID_TEMPLATE / 'scripts/handback.py').read_text()),
+                         strip((TEMPLATE / 'scripts/handback.py').read_text()))
+        gates = next(l for l in (ANDROID_TEMPLATE / 'scripts/handback.py').read_text().splitlines() if l.startswith('GATES = '))
+        self.assertIn(gates.split(' = ', 1)[1], (ANDROID_TEMPLATE / 'scripts/check.py').read_text())
+
+    def test_second_emulator_holder_waits_and_says_who_holds_it(self) -> None:
+        home = self.root / 'home'
+        holder = ('import sys, time; sys.path.insert(0, sys.argv[1]); import emulator\n'
+                  'with emulator.in_use("first holder"):\n    print("held", flush=True); time.sleep(2)\n')
+        env = {**self.env, 'HOME': str(home)}
+        env.pop('BSTACK_EMULATOR_LOCK', None)
+        first = subprocess.Popen([sys.executable, '-c', holder, str(self.root / 'scripts')], env=env,
+                                 stdout=subprocess.PIPE, text=True)
+        self.assertEqual(first.stdout.readline().strip(), 'held')
+        second = subprocess.run([sys.executable, '-c', holder, str(self.root / 'scripts')], env=env, capture_output=True,
+                                text=True, timeout=30)
+        first.wait()
+        first.stdout.close()
+        self.assertIn('waiting for the emulator: in use by pid', second.stdout)
+        self.assertIn('first holder', second.stdout)
+        self.assertIn('held', second.stdout)
 
 
 class NewFeatureTests(unittest.TestCase):

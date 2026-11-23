@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Use saveAll, which writes every change at once and can be cancelled."
+uses_example = false
+adds_targets = ["probe"]
