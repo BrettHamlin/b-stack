@@ -1,0 +1,5 @@
+# Work started from App when a screen appears.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+diagnostic = "[thin-app] Behaviour in App: Targets/App/Extra.swift:4 .task"

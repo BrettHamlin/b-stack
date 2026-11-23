@@ -1,0 +1,5 @@
+# I/O API names in comments and strings, and Array's append(contentsOf:), aren't I/O.
+expect = "pass"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true

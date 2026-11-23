@@ -1,8 +1,11 @@
 import Fixtures
 import CaseProfile
+import CaseProfileLogic
 import SwiftUI
 
 /// The test-mode app composes it the same way, with a fixture's storage.
 struct CaseProfileScreen: View {
-    var body: some View { ProfileView(names: FixtureName()) }
+    private let store = ProfileScreen.store(names: FixtureName())
+
+    var body: some View { ProfileView(store: store) }
 }

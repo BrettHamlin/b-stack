@@ -33,3 +33,11 @@ public struct MeterCounter: Sendable {
         }
     }
 }
+
+extension MeterCounter {
+    /// The meter screen's store. Apps build it here and hand it to the view (views-hold-no-clients).
+    @MainActor
+    public static func store() -> StoreOf<Self> {
+        Store(initialState: State()) { Self() }
+    }
+}

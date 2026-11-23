@@ -1,24 +1,16 @@
 import Core
-public import SettingsInterface
+import SettingsInterface
 public import SettingsLogic
 public import ComposableArchitecture
 public import SwiftUI
 
+/// The notification settings screen. It gets only its store, built by `NotificationSettings.store(preferences:)` in
+/// SettingsLogic, so it can show state and send actions but never reach the preferences client itself.
 public struct NotificationSettingsView: View {
     @Bindable var store: StoreOf<NotificationSettings>
 
-    /// Internal: apps compose the screen through init(preferences:), which loads the saved value.
-    init(store: StoreOf<NotificationSettings>) {
+    public init(store: StoreOf<NotificationSettings>) {
         self.store = store
-    }
-
-    /// The screen as both apps compose it: it starts from the saved value and saves changes to the same place.
-    public init(preferences: any NotificationPreferences) {
-        self.init(
-            store: Store(initialState: NotificationSettings.State(isEnabled: preferences.load())) {
-                NotificationSettings(saver: preferences)
-            }
-        )
     }
 
     public var body: some View {

@@ -1,0 +1,6 @@
+# A view handed a client, calling it directly.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[views-hold-no-clients] A view names a client or takes more than its store: Targets/Meter/Saved.swift:5 MeterStore"

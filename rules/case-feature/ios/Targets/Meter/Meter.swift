@@ -8,8 +8,8 @@ public struct MeterView: View {
     let store: StoreOf<MeterCounter>
     private let incrementID: UIID = MeterUIID.increment
 
-    public init() {
-        store = Store(initialState: MeterCounter.State()) { MeterCounter() }
+    public init(store: StoreOf<MeterCounter>) {
+        self.store = store
     }
 
     public var body: some View {

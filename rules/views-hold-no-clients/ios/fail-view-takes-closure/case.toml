@@ -1,0 +1,6 @@
+# A public initializer that lets App hand the view a client's work as a closure.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true
+diagnostic = "[views-hold-no-clients] A view names a client or takes more than its store: Targets/Meter/Reset.swift:5 public init takes `onReset: @escaping @Sendable () -> Void`"

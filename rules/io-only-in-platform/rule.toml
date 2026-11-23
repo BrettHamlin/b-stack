@@ -1,0 +1,10 @@
+id = "io-only-in-platform"
+layer = "2"
+summary = "Only Platform (and test mode's Fixtures) talks to the network, disk, preferences, keychain or environment."
+problem = "The module shape keeps Logic away from Platform, but Foundation is allowed nearly everywhere and contains URLSession, FileManager and UserDefaults. A view, App, Core or an Interface could do I/O directly and skip the Interface protocol, so test mode can't swap in a fake and nothing tests the call."
+message = "No I/O outside Platform. Define a client protocol in the feature's Interface module, implement it in Platform (and a fake in Fixtures), and let the feature's Logic call it from an effect."
+escape_hatches = ["Unlisted I/O APIs (a new Foundation or C API): add the name to NoIOInLogic.swift when found.", "Reaching an API through a typealias declared in the same module: the alias declaration names the API, so it's caught there.", "Fixtures may do I/O (test mode only, code-owned); AppVerify, tests and journeys aren't shipped."]
+origin = "Fable 5.2 audit of code in the wrong module, 2026-11-23: no-io-in-logic covered Logic only, so a view could call URLSession.shared directly and pass every gate."
+
+[ios]
+harmonize = "NoIOInLogic.swift (SwiftSyntax, every file under Targets/<module>/ including subfolders): in Core, Interface, Logic, view, App and AppVerify modules, no reference to FileManager, FileHandle, FileWrapper, NSFileCoordinator, InputStream, OutputStream, fopen, URLSession, URLSessionConfiguration, NSURLConnection, NWConnection, NWListener, UserDefaults, NSUbiquitousKeyValueStore, SecItemAdd/CopyMatching/Update/Delete, Process or ProcessInfo; no Data/String/NSData/NSString/NSArray/NSDictionary/(NS)AttributedString(contentsOf…:); no write(to:) or write(toFile:). Matches names, not text: comments, strings and append(contentsOf:) don't count. Logic modules report as no-io-in-logic."

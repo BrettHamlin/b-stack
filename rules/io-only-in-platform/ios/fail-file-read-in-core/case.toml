@@ -1,0 +1,5 @@
+# Core reading a file through Data's initializer (no I/O type name in sight) and writing one back.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+diagnostic = "[io-only-in-platform] I/O outside Platform: Targets/Core/Load.swift:3 Data(contentsOf:), Targets/Core/Load.swift:4 write(to:)"

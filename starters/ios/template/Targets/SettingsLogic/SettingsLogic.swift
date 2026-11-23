@@ -72,3 +72,12 @@ public struct NotificationSettings: Sendable {
         }
     }
 }
+
+extension NotificationSettings {
+    /// The screen's store, starting from the saved value and saving changes to the same place. App and AppVerify build
+    /// it here and hand it to the view, so the view never holds the preferences client (views-hold-no-clients).
+    @MainActor
+    public static func store(preferences: any NotificationPreferences) -> StoreOf<Self> {
+        Store(initialState: State(isEnabled: preferences.load())) { Self(saver: preferences) }
+    }
+}

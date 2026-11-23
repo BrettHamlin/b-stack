@@ -1,0 +1,11 @@
+id = "views-hold-no-clients"
+layer = "1+2"
+summary = "A feature's view gets only its store; clients go into the reducer, never the view."
+problem = "If a view can hold a client (a protocol Platform implements), it can call it from a button and go around the reducer: the call skips Logic's tests, and the state the reducer keeps no longer matches what happened."
+message = "A view takes only its store (`init(store: StoreOf<Feature>)`). Build the store in the feature's Logic with a function that takes the clients, like `NotificationSettings.store(preferences:)`, and let App and AppVerify pass it in. The view sends actions; the reducer calls the clients."
+escape_hatches = ["Logic exposing a client publicly (a `public let` on the reducer or state) for the view to read: not caught; review.", "A typealias for a client protocol declared in an Interface module: the alias name isn't on the list; Interface modules are code-owned.", "An internal initializer taking a closure, called from another view in the same module: the module's public initializers take only a store, so App can't hand one in."]
+origin = "Fable 5.2 audit of code in the wrong module, 2026-11-23: the starter's view received the preferences client in its initializer, so it could call save() directly."
+
+[ios]
+compiler = "Views can't import Platform or Fixtures (module-boundaries), so they can't create a client, only be handed one. App and AppVerify build each store with the feature's Logic (App → <Feature>Logic and AppVerify → <Feature>Logic are in the module shape) and pass it to the view's init(store:)."
+harmonize = "ViewsHoldNoClients.swift (SwiftSyntax, every file under Targets/<Feature>/): no reference to a protocol declared in an Interface or Logic module (holding, receiving, conforming to or constraining by one), and every public, open or package initializer takes only Store/StoreOf parameters."

@@ -122,6 +122,27 @@ func linkHint(_ module: String, _ dependency: String) -> String {
     #expect(hits.isEmpty, "\(hits.joined(separator: "\n"))")
 }
 
+/// No folder inside a shipped module is named like a test folder. Harmonize's productionCode() skips folders named
+/// *Tests or *Fixtures, so code in Targets/SettingsLogic/NetTests would compile into SettingsLogic while the rules
+/// that scan productionCode() never read it.
+@Test func noSkippedSubfolders() {
+    var hits: [String] = []
+    for module in declared where module.role != .tests && module.role != .uiTests {
+        let folder = projectRoot.appendingPathComponent("Targets/\(module.name)")
+        guard let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isDirectoryKey]) else { continue }
+        for case let url as URL in walker
+        where (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            && (url.lastPathComponent.hasSuffix("Tests") || url.lastPathComponent.hasSuffix("Fixtures")) {
+            let components = url.standardizedFileURL.pathComponents
+            let path = components[(components.lastIndex(of: "Targets") ?? 0)...].joined(separator: "/")
+            hits.append("[module-boundaries] \(path) is inside \(module.name) but named like a test folder. The architecture "
+                + "rules skip folders named *Tests or *Fixtures, so they wouldn't check the code in it. Rename the folder; "
+                + "tests go in the feature's Tests module.")
+        }
+    }
+    #expect(hits.isEmpty, "\(hits.joined(separator: "\n"))")
+}
+
 struct DumpedProject: Decodable {
     struct Target: Decodable {
         /// One key per dependency: its kind (target, external, sdk, ...).

@@ -1,0 +1,5 @@
+# A helper function in App: logic that no test or journey runs.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+diagnostic = "[thin-app] Behaviour in App: Targets/App/Extra.swift:3 func shouldShowOnboarding"

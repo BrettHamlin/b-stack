@@ -1,0 +1,5 @@
+# App composing screens: View structs with a body, and a stored store built from a feature's Logic.
+expect = "pass"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true

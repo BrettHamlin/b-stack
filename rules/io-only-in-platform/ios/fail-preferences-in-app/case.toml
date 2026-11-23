@@ -1,0 +1,5 @@
+# The shipped app reading saved preferences itself. No journey runs App, so this would never be verified.
+expect = "fail"
+enforced_by = "harmonize"
+uses_example = false
+diagnostic = "[io-only-in-platform] I/O outside Platform: Targets/App/Greeting.swift:5 UserDefaults"

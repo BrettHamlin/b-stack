@@ -1,0 +1,5 @@
+# Views may use an Interface module's values and identifiers; only its client protocols are off limits.
+expect = "pass"
+enforced_by = "harmonize"
+uses_example = false
+case_feature = true

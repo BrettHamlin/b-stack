@@ -18,7 +18,7 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | Verify skill for agents in the new app: run, explore with agent-device, add journeys | `template/.agents/skills/verify/` | ✅ |
 | Pinned tools, checksum-verified, no global install | `template/tools.toml`, `template/scripts/tools.py` | ✅ Tuist 4.216.7, SwiftLint 0.65.1 |
 | Build output and tools in a configurable cache folder | `template/scripts/paths.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
-| Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers (views and journeys), no I/O in Logic, exhaustive tests, no fixtures outside AppVerify |
+| Architecture rules | `template/Rules/` (Harmonize 1.3.0) | ✅ Allowed imports, singletons, concurrency escapes, catch-all defaults, UI identifiers (views and journeys), I/O only in Platform and Fixtures, a thin App, views that hold only their store, exhaustive tests, no fixtures outside AppVerify |
 | Lint rules | `template/.swiftlint.yml` | ✅ Force operations, suppression comments |
 | Check record, observe mode: check.py records the git tree each run saw. `audit` says whether any commit's tree was checked (squash merges included; a check after the commit counts); each Claude Code hand-back is logged for every checkout the session worked in (Stop hook, headless too); each commit gets a `Checked:` trailer. Never blocks | `template/scripts/handback.py`, `template/.claude/settings.json`, `template/.githooks/`, `template/.gitignore` | ✅ `python3 scripts/handback.py audit main~5..main`, `summary`. Records are in the clone's git folder, local to that machine. Codex has no hand-back hook here; its commits are stamped and audited |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
@@ -37,13 +37,13 @@ The Settings feature is a small, complete example of the feature shape, includin
 |---|---|---|
 | Core | nothing | Foundation |
 | `<Feature>Interface` | Core | Foundation (also holds the feature's `UIID` constants) |
-| `<Feature>Logic` | its Interface, Core, TCA | Foundation, ComposableArchitecture (no I/O APIs) |
-| `<Feature>` | its Logic and Interface, Core, TCA | Foundation, SwiftUI, Observation, ComposableArchitecture |
+| `<Feature>Logic` (builds its store) | its Interface, Core, TCA | Foundation, ComposableArchitecture (no I/O APIs) |
+| `<Feature>` (view: takes only its store) | its Logic and Interface, Core, TCA | Foundation, SwiftUI, Observation, ComposableArchitecture |
 | `<Feature>Tests` | its Logic and Interface, Core, TCA | (test code) |
 | Platform | Core, Interfaces it implements | Foundation |
 | Fixtures (test-mode setups) | Platform, Interfaces, Core | Foundation |
-| App (composition root, shipped) | features, Interfaces, Platform | Foundation, SwiftUI |
-| AppVerify (composition root, test mode) | features, Interfaces, Fixtures | Foundation, SwiftUI |
+| App (composition root, shipped; composes only) | features' views and Logic, Interfaces, Platform | Foundation, SwiftUI |
+| AppVerify (composition root, test mode) | features' views and Logic, Interfaces, Fixtures | Foundation, SwiftUI |
 | JourneyKit (typed UI driver) | Core | XCTest (internal import; library evolution enabled) |
 | AppVerifyJourneys (journey bodies) | JourneyKit, Interfaces | Foundation; no testing search paths |
 | AppVerifyUITests (generated adapters) | AppVerify, AppVerifyJourneys | XCTest |
