@@ -1,0 +1,8 @@
+.build
+.tools
+build/
+.gradle/
+.kotlin/
+local.properties
+.claude/worktrees/
+__pycache__/

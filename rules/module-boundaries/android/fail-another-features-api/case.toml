@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "a logic module may not use features/other/api"
+uses_example = false
+adds_targets = ["other", "probe"]

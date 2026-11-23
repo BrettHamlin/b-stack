@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "is deprecated"
+uses_example = false

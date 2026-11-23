@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "`@SuppressLint`"
+uses_example = false

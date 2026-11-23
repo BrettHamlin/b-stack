@@ -3,7 +3,7 @@ layer = "1+2"
 summary = "Strict concurrency checking is on, and the escape hatches that silence it are banned."
 problem = "Agents patch races with quick dispatches and delays, and silence the compiler with unchecked markers when it objects."
 message = "Don't silence concurrency checking. Make the type an actor or confine it to the main actor. If neither fits, stop and report what you're trying to share."
-escape_hatches = ["@unchecked Sendable, nonisolated(unsafe), @preconcurrency, Task.detached and DispatchQueue in features: banned by Harmonize rules.", "Hand-rolled locks: review."]
+escape_hatches = ["Android: catching IllegalStateException around a suspend call (CancellationException is one): review.", "@unchecked Sendable, nonisolated(unsafe), @preconcurrency, Task.detached and DispatchQueue in features: banned by Harmonize rules.", "Hand-rolled locks: review."]
 origin = "Lauren Tan talk (timer/scheduling workarounds). Design discussion, Nov 2026."
 
 [ios]
@@ -19,3 +19,10 @@ message = "Don't silence the compiler's thread-safety checks: unsafe code is for
 layer = "2"
 lint = "typescript/no-floating-promises (with ignoreVoid = false, so `void p()` doesn't count) and no-misused-promises (type-aware); raw timers (setTimeout, setInterval, setImmediate, queueMicrotask) banned by eslint/no-restricted-globals with Effect's replacement (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). Logic packages have no timers at all (no-io-in-logic)."
 message = "Await every promise or run the work as an Effect; don't fire and forget, and don't schedule with raw timers. Use Effect.sleep or a Schedule, which can be interrupted and tested. If neither fits, stop and report what you're trying to do."
+
+[android]
+layer = "1+2"
+compiler = "kotlinx.coroutines' `GlobalScope` is a delicate API: using it without opting in is a warning, so an error with warnings as errors (Kotlin 2.4.21, AGP 9.5.2, kotlinx-coroutines 1.11.0). Opting in (`@OptIn`) is banned by the arch gate."
+detekt = "InjectDispatcher (Dispatchers.IO, Default, Unconfined and Main outside the composition roots), SuspendFunSwallowedCancellation (runCatching around suspend calls), TooGenericExceptionCaught (catching Exception or Throwable, which catches CancellationException too), GlobalCoroutineUsage, SleepInsteadOfDelay, ForbiddenMethodCall on runBlocking, Thread constructors, thread {}, synchronized and new thread pools (resolved by type, so a domain type named Thread is fine), and ForbiddenImport on GlobalScope (detekt 2.0.0-alpha.6, type-resolved)."
+konsist = "ArchitectureTest.noConcurrencyEscapes (Konsist 0.18.1): outside app and app-verify, no `CoroutineScope(`, `MainScope(`, `SupervisorJob(` or `Job(` in a file that imports that kotlinx.coroutines name or written fully qualified (a domain type called Job is fine), and no Thread subclass (scopes come from the composition root); nowhere `@Volatile`, `@Synchronized`, java.util.concurrent imports other than TimeUnit, or Dispatchers.Unconfined (text matches)."
+message = "Don't step outside structured concurrency. Launch in the scope you were given and switch to the dispatcher you were given; share state through one owner or a Mutex. If neither fits, stop and report what you're trying to share."

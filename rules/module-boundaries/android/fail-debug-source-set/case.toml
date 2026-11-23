@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "[module-boundaries] platform/probe/src/debug/kotlin"
+uses_example = false

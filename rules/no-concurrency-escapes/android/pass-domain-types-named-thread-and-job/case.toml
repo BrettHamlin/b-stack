@@ -1,0 +1,4 @@
+expect = "pass"
+enforced_by = "compiler"
+uses_example = false
+adds_targets = ["probe"]

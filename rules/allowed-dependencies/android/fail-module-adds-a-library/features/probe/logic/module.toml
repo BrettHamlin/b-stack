@@ -1,0 +1,2 @@
+uses = ["core", "features/probe/api"]
+external = ["compose-ui"]

@@ -1,0 +1,220 @@
+# detekt 2.0.0-alpha.6, run with type resolution by scripts/check.py's detekt gate. Only the rules below run (the
+# build doesn't build on detekt's defaults), each an error. bstack is our own rule set (arch/detekt-rules).
+# Each `reason` starts with the b-stack rule it enforces, so the message says which rule fired and what to do.
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    active: true
+  ElseCaseInsteadOfExhaustiveWhen:
+    active: true
+  LateinitUsage:
+    active: true
+    excludes: ['**/commonTest/**', '**/src/test/**']
+
+exceptions:
+  NotImplementedDeclaration:
+    active: true
+  # catch (e: Exception) also catches CancellationException, so a cancelled coroutine carries on (no-concurrency-escapes).
+  TooGenericExceptionCaught:
+    active: true
+    allowedExceptionNameRegex: 'a^'
+    excludes: ['**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  InjectDispatcher:
+    active: true
+    dispatcherNames: ['IO', 'Default', 'Unconfined', 'Main']
+    # The composition roots are where dispatchers are chosen and passed in.
+    excludes: ['**/app/src/**', '**/app-verify/src/**', '**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
+  SuspendFunSwallowedCancellation:
+    active: true
+  SleepInsteadOfDelay:
+    active: true
+
+style:
+  ForbiddenMethodCall:
+    active: true
+    excludes: ['**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
+    methods:
+      - value: 'kotlin.requireNotNull'
+        reason: '[no-force-operations] requireNotNull throws on null, like !!. Handle the null (?., ?:, if/when), or model the value as non-null.'
+      - value: 'kotlin.checkNotNull'
+        reason: '[no-force-operations] checkNotNull throws on null, like !!. Handle the null (?., ?:, if/when), or model the value as non-null.'
+      - value: 'kotlin.error'
+        reason: '[no-force-operations] error() throws. Return a sealed result the caller must handle.'
+      - value: 'kotlin.collections.first'
+        reason: '[no-force-operations] first() throws when nothing matches. Use firstOrNull() and handle null.'
+      - value: 'kotlin.sequences.first'
+        reason: '[no-force-operations] first() throws when nothing matches. Use firstOrNull() and handle null.'
+      - value: 'kotlin.text.first'
+        reason: '[no-force-operations] first() throws when nothing matches. Use firstOrNull() and handle null.'
+      - value: 'kotlin.collections.last'
+        reason: '[no-force-operations] last() throws when nothing matches. Use lastOrNull() and handle null.'
+      - value: 'kotlin.sequences.last'
+        reason: '[no-force-operations] last() throws when nothing matches. Use lastOrNull() and handle null.'
+      - value: 'kotlin.text.last'
+        reason: '[no-force-operations] last() throws when nothing matches. Use lastOrNull() and handle null.'
+      - value: 'kotlin.collections.single'
+        reason: '[no-force-operations] single() throws unless exactly one matches. Use singleOrNull() and handle null.'
+      - value: 'kotlin.sequences.single'
+        reason: '[no-force-operations] single() throws unless exactly one matches. Use singleOrNull() and handle null.'
+      - value: 'kotlin.text.single'
+        reason: '[no-force-operations] single() throws unless exactly one matches. Use singleOrNull() and handle null.'
+      - value: 'kotlin.require'
+        reason: '[no-force-operations] require() throws. Return a sealed result the caller must handle, or make the type say it.'
+      - value: 'kotlin.check'
+        reason: '[no-force-operations] check() throws. Return a sealed result the caller must handle, or make the type say it.'
+      - value: 'kotlin.collections.List.get'
+        reason: '[no-force-operations] list.get(i) throws when i is out of range. Use getOrNull(i) and handle null.'
+      - value: 'kotlin.Array.get'
+        reason: '[no-force-operations] array.get(i) throws when i is out of range. Use getOrNull(i) and handle null.'
+      - value: 'kotlin.collections.getValue'
+        reason: '[no-force-operations] getValue throws on a missing key. Use get() and handle null.'
+      - value: 'kotlin.text.toInt'
+        reason: '[no-force-operations] toInt() throws on text that isn''t a number. Use toIntOrNull() and handle null.'
+      - value: 'kotlin.text.toLong'
+        reason: '[no-force-operations] toLong() throws on text that isn''t a number. Use toLongOrNull() and handle null.'
+      - value: 'kotlin.text.toShort'
+        reason: '[no-force-operations] toShort() throws on text that isn''t a number. Use toShortOrNull() and handle null.'
+      - value: 'kotlin.text.toByte'
+        reason: '[no-force-operations] toByte() throws on text that isn''t a number. Use toByteOrNull() and handle null.'
+      - value: 'kotlin.text.toDouble'
+        reason: '[no-force-operations] toDouble() throws on text that isn''t a number. Use toDoubleOrNull() and handle null.'
+      - value: 'kotlin.text.toFloat'
+        reason: '[no-force-operations] toFloat() throws on text that isn''t a number. Use toFloatOrNull() and handle null.'
+      - value: 'kotlin.enumValueOf'
+        reason: '[no-force-operations] enumValueOf throws on an unknown name. Use entries.firstOrNull { it.name == name } and handle null.'
+      - value: 'kotlin.getOrThrow'
+        reason: '[no-force-operations] getOrThrow() throws. Use getOrNull(), getOrElse or fold.'
+      - value: 'kotlin.collections.reduce'
+        reason: '[no-force-operations] reduce() throws on an empty collection. Use reduceOrNull() and handle null.'
+      - value: 'kotlin.collections.max'
+        reason: '[no-force-operations] max() throws on an empty collection. Use maxOrNull() and handle null.'
+      - value: 'kotlin.collections.min'
+        reason: '[no-force-operations] min() throws on an empty collection. Use minOrNull() and handle null.'
+      - value: 'kotlin.collections.maxBy'
+        reason: '[no-force-operations] maxBy() throws on an empty collection. Use maxByOrNull() and handle null.'
+      - value: 'kotlin.collections.minBy'
+        reason: '[no-force-operations] minBy() throws on an empty collection. Use minByOrNull() and handle null.'
+      - value: 'kotlin.collections.maxOf'
+        reason: '[no-force-operations] maxOf() throws on an empty collection. Use maxOfOrNull() and handle null.'
+      - value: 'kotlin.collections.minOf'
+        reason: '[no-force-operations] minOf() throws on an empty collection. Use minOfOrNull() and handle null.'
+      - value: 'kotlin.collections.elementAt'
+        reason: '[no-force-operations] elementAt() throws on an empty collection. Use elementAtOrNull() and handle null.'
+      - value: 'kotlin.collections.random'
+        reason: '[no-force-operations] random() throws on an empty collection. Use randomOrNull() and handle null.'
+      - value: 'kotlin.sequences.reduce'
+        reason: '[no-force-operations] reduce() throws on an empty collection. Use reduceOrNull() and handle null.'
+      - value: 'kotlin.sequences.max'
+        reason: '[no-force-operations] max() throws on an empty collection. Use maxOrNull() and handle null.'
+      - value: 'kotlin.sequences.min'
+        reason: '[no-force-operations] min() throws on an empty collection. Use minOrNull() and handle null.'
+      - value: 'kotlin.sequences.maxBy'
+        reason: '[no-force-operations] maxBy() throws on an empty collection. Use maxByOrNull() and handle null.'
+      - value: 'kotlin.sequences.minBy'
+        reason: '[no-force-operations] minBy() throws on an empty collection. Use minByOrNull() and handle null.'
+      - value: 'kotlin.sequences.maxOf'
+        reason: '[no-force-operations] maxOf() throws on an empty collection. Use maxOfOrNull() and handle null.'
+      - value: 'kotlin.sequences.minOf'
+        reason: '[no-force-operations] minOf() throws on an empty collection. Use minOfOrNull() and handle null.'
+      - value: 'kotlin.sequences.elementAt'
+        reason: '[no-force-operations] elementAt() throws on an empty collection. Use elementAtOrNull() and handle null.'
+      - value: 'kotlin.text.random'
+        reason: '[no-force-operations] random() throws on empty text. Use randomOrNull() and handle null.'
+      - value: 'kotlin.ranges.random'
+        reason: '[no-force-operations] random() throws on an empty range. Use randomOrNull() and handle null.'
+      - value: 'kotlin.text.reduce'
+        reason: '[no-force-operations] reduce() throws on empty text. Use reduceOrNull() and handle null.'
+      - value: 'kotlin.text.max'
+        reason: '[no-force-operations] max() throws on empty text. Use maxOrNull() and handle null.'
+      - value: 'kotlin.text.min'
+        reason: '[no-force-operations] min() throws on empty text. Use minOrNull() and handle null.'
+      - value: 'kotlin.text.maxBy'
+        reason: '[no-force-operations] maxBy() throws on empty text. Use maxByOrNull() and handle null.'
+      - value: 'kotlin.text.minBy'
+        reason: '[no-force-operations] minBy() throws on empty text. Use minByOrNull() and handle null.'
+      - value: 'kotlin.text.maxOf'
+        reason: '[no-force-operations] maxOf() throws on empty text. Use maxOfOrNull() and handle null.'
+      - value: 'kotlin.text.minOf'
+        reason: '[no-force-operations] minOf() throws on empty text. Use minOfOrNull() and handle null.'
+      - value: 'kotlin.text.elementAt'
+        reason: '[no-force-operations] elementAt() throws on empty text. Use elementAtOrNull() and handle null.'
+      - value: 'kotlin.text.toBooleanStrict'
+        reason: '[no-force-operations] toBooleanStrict() throws on anything but true or false. Use toBooleanStrictOrNull() and handle null.'
+      - value: 'kotlin.collections.removeFirst'
+        reason: '[no-force-operations] removeFirst() throws on an empty list. Use removeFirstOrNull() and handle null.'
+      - value: 'kotlin.collections.removeLast'
+        reason: '[no-force-operations] removeLast() throws on an empty list. Use removeLastOrNull() and handle null.'
+      - value: 'kotlin.text.toUInt'
+        reason: '[no-force-operations] toUInt() throws on text that isn''t a number. Use toUIntOrNull() and handle null.'
+      - value: 'kotlin.text.toULong'
+        reason: '[no-force-operations] toULong() throws on text that isn''t a number. Use toULongOrNull() and handle null.'
+      - value: 'kotlin.text.toUShort'
+        reason: '[no-force-operations] toUShort() throws on text that isn''t a number. Use toUShortOrNull() and handle null.'
+      - value: 'kotlin.text.toUByte'
+        reason: '[no-force-operations] toUByte() throws on text that isn''t a number. Use toUByteOrNull() and handle null.'
+      - value: 'kotlin.collections.reduceIndexed'
+        reason: '[no-force-operations] reduceIndexed() throws on an empty collection. Use reduceIndexedOrNull() and handle null.'
+      - value: 'kotlin.collections.maxWith'
+        reason: '[no-force-operations] maxWith() throws on an empty collection. Use maxWithOrNull() and handle null.'
+      - value: 'kotlin.collections.minWith'
+        reason: '[no-force-operations] minWith() throws on an empty collection. Use minWithOrNull() and handle null.'
+      - value: 'kotlin.sequences.reduceIndexed'
+        reason: '[no-force-operations] reduceIndexed() throws on an empty collection. Use reduceIndexedOrNull() and handle null.'
+      - value: 'kotlin.sequences.maxWith'
+        reason: '[no-force-operations] maxWith() throws on an empty collection. Use maxWithOrNull() and handle null.'
+      - value: 'kotlin.sequences.minWith'
+        reason: '[no-force-operations] minWith() throws on an empty collection. Use minWithOrNull() and handle null.'
+      - value: 'kotlin.collections.MutableList.removeFirst'
+        reason: '[no-force-operations] removeFirst() throws on an empty list (and on Android the JDK member it resolves to needs API 35). Use removeFirstOrNull() and handle null.'
+      - value: 'kotlin.collections.MutableList.removeLast'
+        reason: '[no-force-operations] removeLast() throws on an empty list (and on Android the JDK member it resolves to needs API 35). Use removeLastOrNull() and handle null.'
+      - value: 'kotlin.text.reduceIndexed'
+        reason: '[no-force-operations] reduceIndexed() throws on empty text. Use reduceIndexedOrNull() and handle null.'
+      - value: 'kotlin.text.maxWith'
+        reason: '[no-force-operations] maxWith() throws on empty text. Use maxWithOrNull() and handle null.'
+      - value: 'kotlin.text.minWith'
+        reason: '[no-force-operations] minWith() throws on empty text. Use minWithOrNull() and handle null.'
+      - value: 'kotlin.collections.ArrayDeque.removeFirst'
+        reason: '[no-force-operations] removeFirst() throws on an empty deque. Use removeFirstOrNull() and handle null.'
+      - value: 'kotlin.collections.ArrayDeque.removeLast'
+        reason: '[no-force-operations] removeLast() throws on an empty deque. Use removeLastOrNull() and handle null.'
+      - value: 'kotlin.collections.ArrayDeque.first'
+        reason: '[no-force-operations] first() throws on an empty deque. Use firstOrNull() and handle null.'
+      - value: 'kotlin.collections.ArrayDeque.last'
+        reason: '[no-force-operations] last() throws on an empty deque. Use lastOrNull() and handle null.'
+      - value: 'java.lang.Thread.<init>'
+        reason: '[no-concurrency-escapes] a Thread outlives everything and can''t be cancelled. Launch in the scope you were given.'
+      - value: 'kotlin.concurrent.thread'
+        reason: '[no-concurrency-escapes] a thread outlives everything and can''t be cancelled. Launch in the scope you were given.'
+      - value: 'kotlin.synchronized'
+        reason: '[no-concurrency-escapes] synchronized blocks a thread. Share state through one owner or a Mutex.'
+      - value: 'kotlinx.coroutines.newSingleThreadContext'
+        reason: '[no-concurrency-escapes] a new thread pool nobody closes. Use the dispatcher you were given.'
+      - value: 'kotlinx.coroutines.newFixedThreadPoolContext'
+        reason: '[no-concurrency-escapes] a new thread pool nobody closes. Use the dispatcher you were given.'
+      - value: 'kotlin.properties.Delegates.notNull'
+        reason: '[no-force-operations] Delegates.notNull() throws if read before it is set, like lateinit. Take the value in the constructor, or make it nullable.'
+      - value: 'kotlinx.coroutines.runBlocking'
+        reason: '[no-concurrency-escapes] runBlocking blocks the thread. Make the caller suspend, or launch in the scope you were given.'
+      - value: 'java.lang.Thread.sleep'
+        reason: '[retired-apis] Thread.sleep blocks the thread. Use delay() in a coroutine, which can be cancelled and tested on virtual time.'
+  ForbiddenImport:
+    active: true
+    forbiddenImports:
+      - value: 'kotlinx.coroutines.GlobalScope'
+        reason: '[no-concurrency-escapes] GlobalScope work outlives everything. Launch in the scope you were given.'
+
+bstack:
+  NoForceCast:
+    active: true
+    excludes: ['**/commonTest/**', '**/src/test/**']
+  NoThrow:
+    active: true
+    excludes: ['**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
+
+console-reports:
+  exclude: ['ProjectStatisticsReport', 'ComplexityReport', 'NotificationReport', 'FindingsReport']

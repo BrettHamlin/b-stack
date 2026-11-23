@@ -14,3 +14,8 @@ tuist = "inspect dependencies --only redundant: a declared but unused dependency
 arch = "scripts/arch.py: packages/fixtures is a dev_only role in arch/shape.json: it may be only a devDependency, and only of the roles whose dev_may_use names it (the desktop app, for its journeys). A shipped role listing it, in either section, fails."
 lint = "bstack/module-boundaries: the desktop app's own code (src/) may import only its dependencies, so it can't import @app/fixtures even though its journeys can; the main bundle (vp pack) is built from src/ only (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
 message = "Only journeys and tests use fixtures (packages/fixtures, a devDependency). Compose real services in the app; if a fixture seems needed there, stop and report."
+
+[android]
+layer = "1"
+compiler = "build-logic lets only app-verify (a separate application, with its own id) use the fixtures module; any other module.toml naming it fails the build with this rule's message, and without the link an import of fixtures is `Unresolved reference` (Kotlin 2.4.21, AGP 9.5.2)."
+message = "Only the test-mode app (app-verify) uses fixtures. Compose real services in app; if a fixture seems needed there, stop and report."

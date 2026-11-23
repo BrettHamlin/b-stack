@@ -17,3 +17,8 @@ clippy = "clippy.toml disallowed-methods (deny) for std and third-party APIs, ea
 [typescript]
 layer = "2"
 lint = "typescript/no-deprecated (type-aware): calling an owned API marked `/** @deprecated Use <replacement>, which <why>. */` fails, and the message carries the note (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). Third-party APIs: eslint/no-restricted-imports and no-restricted-globals in vite.config.ts, each with the replacement."
+
+[android]
+layer = "1+2"
+compiler = "`@Deprecated(\"Use <replacement>, which <why>\", level = DeprecationLevel.ERROR)` on owned APIs: a call fails to compile and the error carries the message (Kotlin 2.4.21, AGP 9.5.2). `@Suppress(\"DEPRECATION_ERROR\")` would compile, so the arch gate bans it (no-suppressions). Deprecated Android, androidx and JDK APIs fail too: their deprecation warning is an error with warnings as errors, and `@Suppress(\"DEPRECATION\")` is banned (case fail-deprecated-platform-api: `Handler()`)."
+detekt = "ForbiddenMethodCall (detekt 2.0.0-alpha.6, type-resolved) for platform and library APIs, each with the replacement in its reason; Thread.sleep is banned to start."

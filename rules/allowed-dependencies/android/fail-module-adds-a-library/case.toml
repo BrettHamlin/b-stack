@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "[allowed-dependencies] features/probe/logic/module.toml: a module can't add libraries (compose-ui)"
+uses_example = false
+adds_targets = ["probe"]

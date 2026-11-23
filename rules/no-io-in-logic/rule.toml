@@ -20,3 +20,10 @@ layer = "1+2"
 compiler = "Contracts and feature packages compile with lib ES2024 only and no types: Node.js modules, fetch, timers, process, console and the DOM don't exist there, so any use is a type error (TypeScript 7.0.2 (effect-tsgo 0.67.1))."
 lint = "bstack/module-boundaries allows logic only the effect modules listed in arch/shape.json (no FileSystem, Path, HTTP or processes, and no `effect` barrel); bstack/no-ambient-declarations bans `declare`, typescript/triple-slash-reference bans `/// <reference types>`, and bstack/no-io-globals bans `globalThis` in logic, the ways to reach a global the compiler would refuse (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
 arch = "scripts/arch.py: no .js or .d.ts files in packages, so every file is TypeScript checked against its role."
+
+[android]
+layer = "1+2"
+compiler = "Core, a feature's api and logic, and the journeys are Kotlin Multiplatform modules with a JVM and a JS target, compiled as common code (compileCommonMainKotlinMetadata): java.io, java.net, Thread, System and android.* don't exist there, so any use is `Unresolved reference`. With the JVM target alone the same code compiles, which is why the second target exists (Kotlin 2.4.21, AGP 9.5.2)."
+konsist = "ArchitectureTest.noIoInLogic (Konsist 0.18.1): no println/print/readln, Clock.System, TimeSource.Monotonic, measureTime or unseeded randomness (Random.Default, and random()/randomOrNull()/shuffled()/shuffle() without a seeded Random) in a feature's logic (they're in Kotlin's common library)."
+arch = "scripts/arch.py: common modules have only commonMain and commonTest, so no jvmMain can see the JDK."
+message = "No I/O in a feature's logic: it's common code. Define what you need as an interface in the feature's api module, implement it in a platform module, and pass it in from the app."

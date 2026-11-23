@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[no-force-operations] single() throws unless exactly one matches"
+uses_example = false
+adds_targets = ["probe"]

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "journey `probeHidden` in verify/journeys isn't declared as a plain top-level `fun Journey.probeHidden()`"
+uses_example = false

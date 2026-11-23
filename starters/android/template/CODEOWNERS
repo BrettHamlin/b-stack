@@ -1,0 +1,37 @@
+# Enforcement surface: changes need a human code owner.
+# Pair with branch protection: "Require review from Code Owners".
+# Replace @OWNER with a real GitHub user or team.
+
+/CODEOWNERS               @OWNER
+/.github/                 @OWNER
+/AGENTS.md                @OWNER
+/CLAUDE.md                @OWNER
+/.claude/                 @OWNER
+/.agents/                 @OWNER
+/.githooks/               @OWNER
+
+# Build settings, tools, libraries and their checksums
+/settings.gradle.kts      @OWNER
+/build.gradle.kts         @OWNER
+/gradle.properties        @OWNER
+/gradle/                  @OWNER
+/build-logic/             @OWNER
+/tools.toml               @OWNER
+
+# Module shape, detekt config and rules, Konsist tests; gates
+/arch/                    @OWNER
+/scripts/                 @OWNER
+
+# Typed UI identifiers: who may declare them, and how views tag elements
+/core/src/commonMain/kotlin/core/UiId.kt  @OWNER
+/core-ui/                 @OWNER
+
+# Verification: journeys, what they prove, the driver and the test-mode setups
+/feature-map/             @OWNER
+/verify/journeykit/       @OWNER
+/verify/journeys/         @OWNER
+/verify/runner/           @OWNER
+/fixtures/                @OWNER
+# The composition roots: which real services each app wires in
+/app/                     @OWNER
+/app-verify/              @OWNER

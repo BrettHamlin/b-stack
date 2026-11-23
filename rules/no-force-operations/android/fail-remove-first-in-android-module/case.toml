@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[no-force-operations] removeFirst() throws on an empty list"
+uses_example = false

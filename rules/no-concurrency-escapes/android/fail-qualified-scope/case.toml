@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[no-concurrency-escapes] `CoroutineScope(` makes a scope nobody cancels"
+uses_example = false

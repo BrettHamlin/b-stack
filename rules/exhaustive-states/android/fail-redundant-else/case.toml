@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "'when' is exhaustive so 'else' is redundant here"
+uses_example = false
+adds_targets = ["probe"]

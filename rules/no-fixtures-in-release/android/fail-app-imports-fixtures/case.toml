@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Unresolved reference 'fixtures'"
+uses_example = false

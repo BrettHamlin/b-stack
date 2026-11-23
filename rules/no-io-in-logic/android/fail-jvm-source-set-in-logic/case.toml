@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "[module-boundaries] features/probe/logic/src/jvmMain/kotlin"
+uses_example = false
+adds_targets = ["probe"]

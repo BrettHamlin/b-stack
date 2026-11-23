@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "journey `badNameIsRefused` failed"
+uses_example = "changes a tally journey to expect what the app doesn't show"

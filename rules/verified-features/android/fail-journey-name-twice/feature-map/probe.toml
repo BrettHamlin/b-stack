@@ -1,0 +1,7 @@
+id = "probe"
+summary = "A probe."
+modules = ["probe"]
+
+[[journeys]]
+name = "tallyIsSavedAcrossRuns"
+proves = "Twice."

@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[exhaustive-tests] read the model's state only through state.test { } (Turbine), not `state.let`"
+uses_example = false
+adds_targets = ["probe"]
