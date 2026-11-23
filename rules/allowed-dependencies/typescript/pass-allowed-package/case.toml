@@ -1,0 +1,3 @@
+expect = "pass"
+enforced_by = "deps"
+uses_example = false

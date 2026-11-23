@@ -3,7 +3,7 @@ layer = "1"
 summary = "Dependencies are passed in through initializers; no singletons or global service access."
 problem = "Singletons hide coupling from the compiler, can't be swapped for fixtures, and let any code reach any service. They're the shortest path, so agents use them."
 message = "Global service access isn't allowed. Accept this dependency as an initializer parameter; it's wired up in the composition root."
-escape_hatches = ["static let shared / global state: Harmonize rule.", "Service locators: add a Harmonize rule if one appears.", "TypeScript: an exported `const` object or Map whose contents change at runtime: review (lint catches `let`, `var` and mutable statics only)."]
+escape_hatches = ["static let shared / global state: Harmonize rule.", "Service locators: add a Harmonize rule if one appears.", "TypeScript: a module-level `const` holding mutable state another way (a class instance, a closure over a local): review (lint catches `let`, `var`, mutable statics and literal or Map/Set/Array containers)."]
 origin = "Design discussion, Nov 2026. Also needed by verification (launching in a known state)."
 
 [ios]
@@ -16,5 +16,5 @@ compiler = "Parameters and traits; the app crate is the only composition root. `
 arch = "arch/checker: no `static` items at all (use const for constants) and no thread_local! or lazy_static!, anywhere in the workspace's crates."
 
 [typescript]
-compiler = "Dependencies are Effect services (Context.Service) provided by Layers in the composition roots (apps/desktop/src/main.ts, apps/web/src/main.tsx). Running an Effect whose services aren't all provided is a type error (the requirement isn't assignable to never), and the Effect language service rejects leaking requirements (TypeScript 7.0.2 (effect-tsgo 0.67.1))."
-lint = "bstack/no-module-state: no module-level `let` or `var`, no mutable `static` fields or static blocks (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+compiler = "Dependencies are Effect services (Context.Service) provided by Layers in the composition roots (apps/desktop/src/main.ts, apps/web/src/main.tsx). Running an Effect whose services aren't all provided is a type error (the requirement isn't assignable to never) (TypeScript 7.0.2 (effect-tsgo 0.67.1))."
+lint = "bstack/no-module-state: no module-level `let` or `var`, no module-level `const` holding a container (new Map, Set, WeakMap, WeakSet or Array, an array literal, or an object literal not frozen with `as const`), no mutable `static` fields or static blocks (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."

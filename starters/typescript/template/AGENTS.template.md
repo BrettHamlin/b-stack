@@ -11,7 +11,7 @@
 
 ```sh
 python3 scripts/check.py        # compiler, lint, deps, arch, settings, tests, verify: all must PASS
-python3 scripts/package.py      # the macOS app, with every journey run against it (CI packages every platform)
+python3 scripts/package.py      # the macOS installers, with every journey run against the app (CI builds and installs every platform's)
 ```
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.

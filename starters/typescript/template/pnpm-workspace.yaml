@@ -14,7 +14,7 @@ publicHoistPattern: []
 # No package runs install scripts. Electron's binary is downloaded by scripts/tools.py, which runs its install.js.
 # pnpm 12 fails an install whose packages have scripts it wasn't told about, so each is listed, as false.
 allowBuilds:
-  # electron-builder's Windows installer tool; this starter packages for macOS only.
+  # electron-builder's Squirrel.Windows tool; this starter's Windows installer is NSIS, which needs no install script.
   electron-winstaller: false
 # One Vite (vite-plus's), as in T3 Code, so @effect/vitest and vp test share one Vitest.
 overrides:

@@ -62,7 +62,8 @@
       "external": [
         "effect",
         "@effect/platform-node",
-        "electron"
+        "electron",
+        "electron-updater"
       ],
       "dev_external": [
         "@effect/vitest",

@@ -377,12 +377,13 @@
  },
  "lint": {
   "ignorePatterns": [
-   "node_modules",
-   "dist",
-   ".build",
-   ".tools",
-   "arch/lint",
-   "scripts"
+   "**/node_modules",
+   "/dist",
+   "/.build",
+   "/.tools",
+   "/arch/lint",
+   "/scripts",
+   "apps/*/dist"
   ],
   "plugins": [
    "eslint",
@@ -500,6 +501,9 @@
    "eslint/no-new-func": "error",
    "typescript/no-implied-eval": "error",
    "bstack/typed-ui-identifiers": "error",
+   "bstack/typed-identifiers": "error",
+   "bstack/no-io-globals": "error",
+   "bstack/no-unchecked-narrowing": "error",
    "vitest/no-restricted-matchers": [
     "error",
     {
@@ -656,6 +660,8 @@
   "/apps/desktop/journeys/",
   "/packages/fixtures/",
   "/.githooks/",
-  "/.agents/"
+  "/.agents/",
+  "/apps/desktop/src/",
+  "/apps/web/src/main.tsx"
  ]
 }

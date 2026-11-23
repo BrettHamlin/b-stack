@@ -159,6 +159,8 @@ const noAmbientDeclarations = defineRule({
   },
 });
 
+const CONTAINERS = new Set(["Map", "Set", "WeakMap", "WeakSet", "Array"]);
+
 const noModuleState = defineRule({
   meta: { type: "problem", docs: { description: "No mutable module-level or static state." } },
   create(context) {
@@ -169,6 +171,16 @@ const noModuleState = defineRule({
           const declaration = statement.type === "ExportNamedDeclaration" ? statement.declaration : statement;
           if (declaration?.type === "VariableDeclaration" && declaration.kind !== "const") {
             context.report({ node: declaration, message });
+          } else if (declaration?.type === "VariableDeclaration") {
+            // A const can still hold mutable state: a Map, Set or array, or an object literal not frozen with `as const`.
+            for (const declarator of declaration.declarations) {
+              const value = declarator.init;
+              const container =
+                (value?.type === "NewExpression" && value.callee.type === "Identifier" && CONTAINERS.has(value.callee.name)) ||
+                value?.type === "ArrayExpression" ||
+                value?.type === "ObjectExpression";
+              if (container) context.report({ node: declarator, message });
+            }
           }
         }
       },
@@ -218,7 +230,7 @@ const noSkippedTests = defineRule({
 });
 
 const UI_MESSAGE =
-  "Use a typed identifier from contracts (e.g. TallyUi.add). Views set data-testid only to one, and journeys find elements only through the Screen in journeys/support, which takes UiIds; never by text, role or selector. Add the identifier to the screen's *Ui object in packages/contracts; if the Screen lacks what you need, stop and report.";
+  "Use a typed identifier from contracts (e.g. TallyUi.add). Views set data-testid only from one (TallyUi.add.value), and journeys find elements only through the Screen in journeys/support, which takes UiIds; never by text, role or selector. Add the identifier to the screen's *Ui object in packages/contracts; if the Screen lacks what you need, stop and report.";
 
 const typedUiIdentifiers = defineRule({
   meta: { type: "problem", docs: { description: "Elements are found only by typed identifiers from contracts." } },
@@ -228,7 +240,10 @@ const typedUiIdentifiers = defineRule({
     // Every journey file except the code-owned support layer, which wraps Playwright in the typed Screen.
     const isJourney = relative.startsWith("apps/desktop/journeys/") && !relative.startsWith("apps/desktop/journeys/support/");
     // The identifier must be bound by an import from @app/contracts (not a local object, and not shadowed).
-    const isContractsUi = (node: ESTree.Node): boolean => {
+    const isContractsUi = (expression: ESTree.Node): boolean => {
+      // <Screen>Ui.<thing>.value: the string a UiId carries.
+      if (expression.type !== "MemberExpression" || expression.computed || memberName(expression.property) !== "value") return false;
+      const node = expression.object;
       if (node.type !== "MemberExpression" || node.computed || node.object.type !== "Identifier" || !/Ui$/.test(node.object.name)) {
         return false;
       }
@@ -265,13 +280,136 @@ const typedUiIdentifiers = defineRule({
         const name = callee.type === "Identifier" ? callee.name : callee.type === "MemberExpression" && callee.property.type === "Identifier" ? callee.property.name : "";
         if (name === "uiId" && !inContracts) context.report({ node, message: `Only contracts make UiIds. ${UI_MESSAGE}` });
       },
+      JSXSpreadAttribute(node: ESTree.JSXSpreadAttribute) {
+        // A spread ({...props}) can carry any data-testid unchecked: pass attributes one by one.
+        context.report({ node, message: `No spread attributes in JSX: pass each attribute explicitly, so data-testid can be checked. ${UI_MESSAGE}` });
+      },
       JSXAttribute(node: ESTree.JSXAttribute) {
         if (node.name.type !== "JSXIdentifier" || node.name.name !== "data-testid") return;
         const value = node.value;
         if (!(value?.type === "JSXExpressionContainer" && isContractsUi(value.expression))) {
-          context.report({ node, message: `data-testid must be a contracts identifier, a *Ui object imported from @app/contracts. ${UI_MESSAGE}` });
+          context.report({ node, message: `data-testid must be a contracts identifier, a *Ui object imported from @app/contracts (data-testid={TallyUi.add.value}). ${UI_MESSAGE}` });
         }
       },
+    };
+  },
+});
+
+const roleOf = (filename: string): string | undefined => packageOf(filename)?.role;
+
+const typedIdentifiers = defineRule({
+  meta: { type: "problem", docs: { description: "Only contracts make branded values." } },
+  create(context) {
+    if (roleOf(context.filename) === "contracts") return {};
+    const message =
+      "Only packages/contracts makes branded types and values: decode with the contracts' schema (it checks the value), never mint one here. If contracts lacks the type, add it there.";
+    // Whether an identifier is bound to effect's Schema module (import * as Schema from "effect/Schema", or
+    // import { Schema } from "effect"): then `.brand` on it mints a brand.
+    const isSchemaModule = (identifier: ESTree.Node): boolean => {
+      if (identifier.type !== "Identifier") return false;
+      let variable: Variable | null | undefined;
+      for (let scope: Scope | null = context.sourceCode.getScope(identifier); scope && variable === undefined; scope = scope.upper) {
+        variable = scope.references.find((reference) => reference.identifier === identifier)?.resolved;
+      }
+      return (variable?.defs ?? []).some((definition) => {
+        const parent = definition.parent;
+        if (definition.type !== "ImportBinding" || parent?.type !== "ImportDeclaration") return false;
+        const source = String(parent.source.value);
+        const node = definition.node;
+        return (source === "effect/Schema" && node.type === "ImportNamespaceSpecifier") ||
+          (source === "effect" && node.type === "ImportSpecifier" && memberName(node.imported) === "Schema");
+      });
+    };
+    return {
+      ImportDeclaration(node) {
+        const source = String(node.source.value);
+        const runtime = node.importKind !== "type" &&
+          (node.specifiers.length === 0 || node.specifiers.some((s) => s.type !== "ImportSpecifier" || s.importKind !== "type"));
+        if (source === "effect/Brand" && runtime) context.report({ node, message });
+        // import { brand } from "effect/Schema"
+        for (const specifier of node.specifiers) {
+          if (source === "effect/Schema" && specifier.type === "ImportSpecifier" && specifier.importKind !== "type" &&
+            memberName(specifier.imported) === "brand") {
+            context.report({ node: specifier, message });
+          }
+        }
+      },
+      MemberExpression(node) {
+        if (memberName(node.property) === "brand" && isSchemaModule(node.object)) context.report({ node, message });
+      },
+      VariableDeclarator(node) {
+        // const { brand } = Schema
+        if (node.id.type === "ObjectPattern" && node.init && isSchemaModule(node.init) &&
+          node.id.properties.some((p) => p.type === "Property" && memberName(p.key) === "brand")) {
+          context.report({ node, message });
+        }
+      },
+    };
+  },
+});
+
+// Globals that reach the outside world without the compiler seeing an import.
+const LOGIC_GLOBALS = new Set(["globalThis"]);
+const RENDERER_GLOBALS = new Set([
+  "globalThis", "localStorage", "sessionStorage", "indexedDB", "caches", "WebSocket", "XMLHttpRequest", "EventSource",
+  "BroadcastChannel", "Worker", "SharedWorker", "fetch", "open",
+]);
+
+const noIoGlobals = defineRule({
+  meta: { type: "problem", docs: { description: "Logic and the renderer reach the outside only through services." } },
+  create(context) {
+    const role = roleOf(context.filename);
+    const banned = role === "contracts" || role === "feature" ? LOGIC_GLOBALS : role === "web" ? RENDERER_GLOBALS : undefined;
+    if (!banned) return {};
+    const message =
+      role === "web"
+        ? "The renderer reaches the outside world only through the preload's bridge (typed in packages/contracts/src/ipc.ts): add what you need to the bridge and the main process, never storage, sockets or requests here."
+        : "Logic does no I/O, and globalThis is how code reaches globals the compiler would refuse. Declare an Effect service for what you need and implement it in a platform package.";
+    const isGlobal = (identifier: ESTree.Node): boolean => {
+      if (identifier.type !== "Identifier") return false;
+      let variable: Variable | null | undefined;
+      for (let scope: Scope | null = context.sourceCode.getScope(identifier); scope && variable === undefined; scope = scope.upper) {
+        variable = scope.references.find((reference) => reference.identifier === identifier)?.resolved;
+      }
+      return !variable || variable.scope.type === "global";
+    };
+    return {
+      // window.localStorage, self.fetch: the same globals, reached through the global object.
+      MemberExpression(node: ESTree.MemberExpression) {
+        if (role !== "web" || node.object.type !== "Identifier" || !["window", "self", "globalThis"].includes(node.object.name)) return;
+        if (banned.has(memberName(node.property)) && isGlobal(node.object)) context.report({ node, message });
+      },
+      "Program:exit"(program: ESTree.Program) {
+        const global = context.sourceCode.getScope(program);
+        // A global is either declared by a lib (a variable of the global scope) or not (a reference passing through).
+        const references = [
+          ...global.through,
+          ...[...banned].flatMap((name) => global.set.get(name)?.references ?? []),
+        ];
+        const seen = new Set<ESTree.Node>();
+        for (const reference of references) {
+          if (banned.has(reference.identifier.name) && !seen.has(reference.identifier)) {
+            seen.add(reference.identifier);
+            context.report({ node: reference.identifier, message });
+          }
+        }
+      },
+    };
+  },
+});
+
+const noUncheckedNarrowing = defineRule({
+  meta: { type: "problem", docs: { description: "Types narrow only through checks the compiler or a schema makes." } },
+  create(context) {
+    if (roleOf(context.filename) === "contracts") return {};
+    const message =
+      "Hand-written narrowing isn't allowed: a type predicate (`x is T`, `asserts x is T`) or an overload signature claims a type without checking it, a cast in disguise. Decode with an Effect Schema (Schema.is, Schema.decodeUnknown*), or put the guard in packages/contracts.";
+    return {
+      TSTypePredicate: (node) => context.report({ node, message }),
+      MethodDefinition(node) {
+        if (node.value.type === "TSEmptyBodyFunctionExpression") context.report({ node, message });
+      },
+      TSDeclareFunction: (node) => context.report({ node, message }),
     };
   },
 });
@@ -284,5 +422,8 @@ export default definePlugin({
     "no-module-state": noModuleState,
     "no-skipped-tests": noSkippedTests,
     "typed-ui-identifiers": typedUiIdentifiers,
+    "typed-identifiers": typedIdentifiers,
+    "no-io-globals": noIoGlobals,
+    "no-unchecked-narrowing": noUncheckedNarrowing,
   },
 });

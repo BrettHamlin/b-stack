@@ -1,7 +1,16 @@
-// Identifiers the renderer puts on elements and journeys find them by. A UiId is a distinct type, so a journey can't
-// pass a raw string, and only contracts make one (lint: bstack/typed-ui-identifiers).
-import * as Brand from "effect/Brand";
+// Identifiers the renderer puts on elements (data-testid={TallyUi.add.value}) and journeys find them by. A UiId can be
+// made only here: its constructor needs a token that never leaves this file, and its private field means no other
+// object passes for one. So a view or journey can't make one, or pass a string where one is expected.
+const token: unique symbol = Symbol("UiId");
 
-export type UiId = string & Brand.Brand<"UiId">;
+export class UiId {
+  readonly value: string;
+  private readonly made: typeof token;
 
-export const uiId = Brand.nominal<UiId>();
+  constructor(made: typeof token, value: string) {
+    this.made = made;
+    this.value = value;
+  }
+}
+
+export const uiId = (value: string): UiId => new UiId(token, value);

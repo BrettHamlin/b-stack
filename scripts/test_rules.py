@@ -115,8 +115,16 @@ FEATURE_NAME = re.compile(r'Feature\("([A-Z][A-Za-z0-9]*)"')  # a declaration's 
 if platform.name == 'rust':
     SKIP.add('target')  # Cargo's default build folder, if someone built without scripts/tools.py's settings
 SKIP.update(platform.installed)  # each worker installs its own (into its own cache folder)
-# Copies leave out what the package manager installed, at any depth (TypeScript: each package's node_modules).
-NOT_COPIED = shutil.ignore_patterns(*platform.installed) if platform.installed else None
+
+
+def NOT_COPIED(folder: str, names: list[str]) -> set[str]:
+    """Copies leave out what the package manager installed and the apps' build output (TypeScript: node_modules at
+    any depth, apps/<app>/dist), but nothing else: a folder named dist in a package's source is code to check."""
+    if not platform.installed:
+        return set()
+    parent = Path(folder)
+    return {n for n in names if n == 'node_modules' and n in platform.installed
+            or n in platform.installed and parent.parent.name == 'apps'}
 
 cache = cache_root()
 # One folder per project checkout, so runs from two checkouts never share files; a lock stops two runs of one.
@@ -167,7 +175,7 @@ class Worker:
                 shutil.copytree(project / folder, self.work / folder, symlinks=True, ignore=NOT_COPIED)
             for source in sources:
                 if (source / folder).is_dir():
-                    shutil.copytree(source / folder, self.work / folder, dirs_exist_ok=True, ignore=NOT_COPIED)
+                    shutil.copytree(source / folder, self.work / folder, dirs_exist_ok=True)  # a case's files, all of them
         for name in EDITABLE:
             if (project / name).is_file():
                 shutil.copy2(project / name, self.work / name)

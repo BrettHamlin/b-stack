@@ -40,19 +40,19 @@ export function TallyView({ initial, store }: TallyViewProps) {
   return (
     <main>
       <input
-        data-testid={TallyUi.name}
+        data-testid={TallyUi.name.value}
         value={name}
         onChange={(event) => setName(event.target.value)}
         disabled={saving}
         aria-label="Item name"
       />
-      <button type="button" data-testid={TallyUi.add} onClick={add} disabled={saving}>
+      <button type="button" data-testid={TallyUi.add.value} onClick={add} disabled={saving}>
         Add
       </button>
-      <p data-testid={TallyUi.error} role="alert">
+      <p data-testid={TallyUi.error.value} role="alert">
         {error}
       </p>
-      <ul data-testid={TallyUi.items}>
+      <ul data-testid={TallyUi.items.value}>
         {items.length === 0 ? <li>(empty)</li> : items.map(([item, count]) => <li key={item}>{`${item} ${count}`}</li>)}
       </ul>
     </main>
