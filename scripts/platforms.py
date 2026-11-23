@@ -63,7 +63,7 @@ PLATFORMS = {
         targets='packages',
         case_files=('packages/**/*.ts', 'packages/**/*.tsx', 'packages/**/*.json', 'apps/**/*.ts', 'apps/**/*.tsx',
                     'apps/**/*.json', 'feature-map/*.toml'),
-        example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|Count)[\w.-]*'), example_name='tally',
+        example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|Count|ItemName|StorageFailed|InvalidName)[\w.-]*'), example_name='tally',
         simulator_kinds=frozenset(),
         cost={'untouched': 0.5, 'pass': 0.2, 'verify': 0.3, 'compiler': 0.1, 'lint': 0.1, 'tests': 0.1, 'deps': 0.1,
               'arch': 0.05, 'settings': 0.05},

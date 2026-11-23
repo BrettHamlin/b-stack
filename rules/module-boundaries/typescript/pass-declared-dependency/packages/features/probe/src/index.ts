@@ -1,3 +1,3 @@
-import { StorageFailed } from "@app/contracts";
+import type { UiId } from "@app/contracts";
 
-export const failure = (): StorageFailed => new StorageFailed();
+export const label = (id: UiId): string => id.value;
