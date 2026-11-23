@@ -7,7 +7,7 @@ This repo is a toolkit agents use to create new apps with enforcement built in. 
 - `skills/`: procedures (`SKILL.md`), plus principles for judgment calls in `skills/README.md`
 - `rules/<id>/`: `rule.toml` + `<platform>/<case>/` test cases (`ios/`, `rust/`, `typescript/`). Format in `rules/README.md`.
 - `starters/ios/`, `starters/rust/`, `starters/typescript/`: the templates a new project is copied from. Each `README.md` lists what's built.
-- `scripts/`: `test_rules.py` (runs every case through its platform's starter `scripts/check.py`), `check_repo.py`, `test_starter_scripts.py` (the starters' helpers outside the gates), `platforms.py` (what differs per platform), `verify_artifacts.py`
+- `scripts/`: `test_rules.py` (runs every case through its platform's starter `scripts/check.py`), `check_repo.py`, `test_starter_scripts.py` (the starters' helpers outside the gates, and the skills' tools), `platforms.py` (what differs per platform), `verify_artifacts.py`
 - `DECISIONS.md`: the human owner's summary. Update it when a decision is made or a finding changes.
 - `research/lauren-tan-video/`: source material. Keep the raw transcript unchanged.
 

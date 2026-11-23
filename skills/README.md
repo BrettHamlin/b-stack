@@ -6,6 +6,7 @@ Procedures for agents, as plain `SKILL.md` folders (usable from Claude Code, Cod
 |---|---|
 | [new-project](new-project/SKILL.md) | Asked to start, create or scaffold a new app |
 | [correction-loop](correction-loop/SKILL.md) | The user corrects you, or the same review comment comes up twice |
+| [art-eval](art-eval/SKILL.md) | A project needs graphics (sprites, icons, 3D models, animation, characters, backgrounds), or you're choosing a model or method to make them |
 
 ## Principles for judgment calls
 

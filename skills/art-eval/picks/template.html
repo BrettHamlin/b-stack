@@ -1,0 +1,279 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one pair at a time, two big tiles side by side, lane tabs on top, keyboard 1/2/3.
+   Built by build.py, which fills in __TITLE__, __INTRO__ and the lanes (DATA). */
+:root {
+  --bg: #eef0f3; --surface: #ffffff; --fg: #1a1d24; --muted: #5d6573; --line: #d5d9e0;
+  --accent: #2b59c3; --accent-soft: #dbe4f7; --done: #2f7d5b; --tile: #ffffff; --stage: #2a2e36;
+  --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14171c; --surface: #1d2128; --fg: #e8eaee; --muted: #9aa2b0; --line: #313742;
+  --accent: #7fa2f0; --accent-soft: #24304a; --done: #5cc296; --tile: #f4f5f7; --stage: #2a2e36; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #14171c; --surface: #1d2128; --fg: #e8eaee; --muted: #9aa2b0; --line: #313742;
+  --accent: #7fa2f0; --accent-soft: #24304a; --done: #5cc296; --tile: #f4f5f7; --stage: #2a2e36; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px; }
+header { display: grid; gap: 4px; }
+h1 { font: 600 26px/1.15 var(--display); margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 0; max-width: 68ch; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { font: 500 14px var(--body); color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.tab[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.tab .n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.tab.complete .n { color: var(--done); }
+.tab:disabled { cursor: default; opacity: 0.55; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 14px; }
+.q { font: 600 18px/1.3 var(--display); margin: 0; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ptitle { font-weight: 600; }
+.note { color: var(--muted); margin: 0; max-width: 70ch; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+.pair.stack { grid-template-columns: 1fr; }
+.pair.stack .stage { background: transparent; }
+.pick { all: unset; cursor: pointer; display: grid; gap: 8px; border: 2px solid var(--line); border-radius: 10px; padding: 8px; background: var(--surface); }
+.pick:hover { border-color: var(--accent); }
+.pick:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pick.chosen { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.stage { background: var(--stage); border-radius: 6px; display: grid; place-items: center; min-height: 220px; overflow: hidden; }
+.stage img { display: block; max-width: 100%; height: auto; }
+.stage.sized { background: var(--tile); min-height: 200px; display: flex; gap: 28px; justify-content: center; align-items: center; }
+.stage.sized img { height: auto; }
+.stage canvas.anim { display: block; image-rendering: pixelated; }
+.pair.stack .stage { overflow-x: auto; }
+.frameno { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; align-self: center; }
+.media { display: flex; gap: 8px; justify-content: center; }
+.key { text-align: center; color: var(--muted); font-size: 13px; }
+.key b { color: var(--fg); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.btn { font: 500 14px var(--body); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.on { background: var(--accent-soft); border-color: var(--accent); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.status { color: var(--muted); font-size: 13px; }
+.status.warn { color: #b4541f; }
+.empty { color: var(--muted); padding: 32px 0; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .progress i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>__TITLE__</h1>
+    <p class="sub">__INTRO__ Two candidates at a time. Pick the better one by your own taste. Sides are shuffled and nothing is labelled, so you won't know which agent or method made which. Keys: <b>1</b> left, <b>2</b> right, <b>3</b> can't tell, arrows to move.</p>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Lanes"></nav>
+  <section class="panel" id="panel" aria-live="polite"></section>
+  <p class="status" id="status">Connecting to saved picks...</p>
+</div>
+
+<script>
+const LANES = /*DATA*/[];
+const answers = {};            // "lane__id" -> {choice, left}
+let db = null, laneIdx = 0, pairIdx = 0;
+const LS = "art-picks-local:" + document.title;
+try { Object.assign(answers, JSON.parse(localStorage.getItem(LS) || "{}")); } catch (e) {}
+
+const $ = (id) => document.getElementById(id);
+const keyOf = (lane, p) => lane.key + "__" + p.id;
+const doneIn = (lane) => lane.pairs.filter((p) => answers[keyOf(lane, p)]).length;
+
+function firstOpenLane() {
+  const i = LANES.findIndex((l) => l.pairs.length && doneIn(l) < l.pairs.length);
+  return i >= 0 ? i : Math.max(0, LANES.findIndex((l) => l.pairs.length));
+}
+function firstOpenPair(lane) {
+  const i = lane.pairs.findIndex((p) => !answers[keyOf(lane, p)]);
+  return i >= 0 ? i : 0;
+}
+
+function renderTabs() {
+  const tabs = $("tabs");
+  tabs.textContent = "";
+  LANES.forEach((l, i) => {
+    const b = document.createElement("button");
+    b.className = "tab" + (l.pairs.length && doneIn(l) === l.pairs.length ? " complete" : "");
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(i === laneIdx));
+    b.disabled = !l.pairs.length;
+    const name = document.createElement("span"); name.textContent = l.name;
+    const n = document.createElement("span"); n.className = "n";
+    n.textContent = l.pairs.length ? doneIn(l) + " / " + l.pairs.length : "coming";
+    b.append(name, n);
+    b.onclick = () => { laneIdx = i; pairIdx = firstOpenPair(l); render(); };
+    tabs.append(b);
+  });
+}
+
+const player = { list: [], playing: true, speed: 1, zoom: 2, timer: null, frame: 0 };
+function stopPlayer() { if (player.timer) clearInterval(player.timer); player.timer = null; player.list = []; player.frame = 0; }
+function drawAll() {
+  for (const p of player.list) {
+    if (!p.img.complete) continue;
+    const f = player.frame % p.a.frames;
+    p.ctx.clearRect(0, 0, p.a.w, p.a.h);
+    p.ctx.drawImage(p.img, f * p.a.w, 0, p.a.w, p.a.h, 0, 0, p.a.w, p.a.h);
+  }
+  const fn = document.getElementById("frameno");
+  if (fn && player.list.length) fn.textContent = (player.playing ? "Playing" : "Paused") + " \u00b7 frame " + (player.frame % player.list[0].a.frames + 1) + " of " + player.list[0].a.frames;
+}
+function startPlayer() {
+  if (player.timer) clearInterval(player.timer);
+  if (!player.list.length) return;
+  const ms = player.list[0].a.ms / player.speed;
+  drawAll();
+  if (player.playing) player.timer = setInterval(() => { player.frame++; drawAll(); }, ms);
+}
+function tile(lane, src, slot, anim) {
+  const btn = document.createElement("button");
+  btn.className = "pick"; btn.id = "pick-" + slot;
+  const stage = document.createElement("div");
+  const sized = !anim && lane.sizes && lane.sizes.length;
+  stage.className = "stage" + (sized ? " sized" : "");
+  if (sized) {
+    for (const w of lane.sizes) { const im = new Image(); im.src = src; im.style.width = w + "px"; im.alt = ""; stage.append(im); }
+  } else if (anim) {
+    const c = document.createElement("canvas"); c.width = anim.w; c.height = anim.h; c.className = "anim"; c.style.width = (anim.w * player.zoom) + "px";
+    const img = new Image(); img.src = src; img.onload = drawAll;
+    player.list.push({ ctx: c.getContext("2d"), img, a: anim });
+    stage.append(c);
+  } else {
+    const im = new Image(); im.src = src; im.alt = ""; stage.append(im);
+  }
+  const key = document.createElement("div"); key.className = "key";
+  key.innerHTML = "Press <b>" + (slot === "left" ? 1 : 2) + "</b>";
+  btn.append(stage, key);
+  return btn;
+}
+
+function render() {
+  renderTabs();
+  const panel = $("panel");
+  panel.textContent = "";
+  const lane = LANES[laneIdx];
+  if (!lane || !lane.pairs.length) {
+    const e = document.createElement("p"); e.className = "empty";
+    e.textContent = "No pairs are ready yet. Each lane adds its pairs here when its runs finish.";
+    panel.append(e); return;
+  }
+  const p = lane.pairs[pairIdx];
+  const k = keyOf(lane, p);
+  const leftSrc = p.left === "x" ? p.x : p.y, rightSrc = p.left === "x" ? p.y : p.x;
+  const leftKey = p.left, rightKey = p.left === "x" ? "y" : "x";
+  const chosen = answers[k] && answers[k].choice;
+
+  const own = (p.title || "").trim().endsWith("?");
+  const q = document.createElement("h2"); q.className = "q"; q.textContent = own ? p.title : lane.question;
+  const meta = document.createElement("div"); meta.className = "meta";
+  const t = document.createElement("span"); t.className = "ptitle"; t.textContent = own ? "" : (p.title || "");
+  const c = document.createElement("span"); c.className = "count";
+  c.textContent = "Pair " + (pairIdx + 1) + " of " + lane.pairs.length + " · " + doneIn(lane) + " answered";
+  meta.append(t, c);
+  const bar = document.createElement("div"); bar.className = "progress";
+  const fill = document.createElement("i"); fill.style.width = (100 * doneIn(lane) / lane.pairs.length) + "%"; bar.append(fill);
+  panel.append(q);
+  if (lane.how) { const h = document.createElement("p"); h.className = "note how"; h.textContent = lane.how; panel.append(h); }
+  panel.append(meta);
+  if (p.note) { const n = document.createElement("p"); n.className = "note"; n.textContent = p.note; panel.append(n); }
+  panel.append(bar);
+
+  const pair = document.createElement("div"); pair.className = "pair" + (lane.layout === "stack" ? " stack" : "");
+  stopPlayer();
+  const anim = p.anim || null;
+  const rightKey0 = p.left === "x" ? "y" : "x";
+  const L = tile(lane, leftSrc, "left", anim && anim[p.left]), R = tile(lane, rightSrc, "right", anim && anim[rightKey0]);
+  if (chosen === leftKey) L.classList.add("chosen");
+  if (chosen === rightKey) R.classList.add("chosen");
+  L.onclick = () => choose(leftKey); R.onclick = () => choose(rightKey);
+  pair.append(L, R);
+
+  const controls = document.createElement("div"); controls.className = "controls";
+  const prev = document.createElement("button"); prev.className = "btn"; prev.id = "prev"; prev.textContent = "Previous";
+  prev.onclick = () => move(-1);
+  const tie = document.createElement("button"); tie.className = "btn" + (chosen === "tie" ? " on" : ""); tie.id = "tie";
+  tie.textContent = "Can't tell (3)"; tie.onclick = () => choose("tie");
+  const next = document.createElement("button"); next.className = "btn"; next.id = "next"; next.textContent = "Next";
+  next.onclick = () => move(1);
+  controls.append(prev, tie, next);
+  if (anim) {
+    const play = document.createElement("button"); play.className = "btn"; play.id = "play";
+    play.textContent = player.playing ? "Pause (space)" : "Play (space)";
+    play.onclick = () => { player.playing = !player.playing; render(); };
+    const slow = document.createElement("button"); slow.className = "btn" + (player.speed < 1 ? " on" : ""); slow.id = "slow";
+    slow.textContent = "Half speed"; slow.onclick = () => { player.speed = player.speed < 1 ? 1 : 0.5; render(); };
+    const zs = [1, 2, 3].map((z) => { const b = document.createElement("button"); b.className = "btn" + (player.zoom === z ? " on" : ""); b.id = "zoom" + z; b.textContent = z + "x"; b.onclick = () => { player.zoom = z; render(); }; return b; });
+    const fn = document.createElement("span"); fn.className = "frameno"; fn.id = "frameno";
+    const media = document.createElement("div"); media.className = "media"; media.append(play, slow, ...zs, fn);
+    panel.append(media);
+  }
+  panel.append(pair, controls);
+  startPlayer();
+}
+
+function move(d) {
+  const lane = LANES[laneIdx];
+  pairIdx = (pairIdx + d + lane.pairs.length) % lane.pairs.length;
+  render();
+}
+
+async function choose(choice) {
+  const lane = LANES[laneIdx], p = lane.pairs[pairIdx], k = keyOf(lane, p);
+  answers[k] = { choice, left: p.left };
+  try { localStorage.setItem(LS, JSON.stringify(answers)); } catch (e) {}
+  const nextOpen = lane.pairs.findIndex((q, i) => i > pairIdx && !answers[keyOf(lane, q)]);
+  pairIdx = nextOpen >= 0 ? nextOpen : Math.min(pairIdx + 1, lane.pairs.length - 1);
+  render();
+  if (db) {
+    try {
+      await db.doc("picks/" + k).set({ lane: lane.key, pair: p.id, choice, left: p.left, at: new Date().toISOString() });
+      setStatus("Saved.", false);
+    } catch (e) {
+      setStatus("That pick didn't save (" + (e && e.code || "error") + "). It's kept in this browser; pick it again later to retry.", true);
+    }
+  }
+}
+
+function setStatus(text, warn) { const s = $("status"); s.textContent = text; s.classList.toggle("warn", !!warn); }
+
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const lane = LANES[laneIdx]; if (!lane || !lane.pairs.length) return;
+  const p = lane.pairs[pairIdx];
+  if (e.key === "1") choose(p.left);
+  else if (e.key === "2") choose(p.left === "x" ? "y" : "x");
+  else if (e.key === "3") choose("tie");
+  else if (e.key === "ArrowRight") move(1);
+  else if (e.key === "ArrowLeft") move(-1);
+  else if (e.key === " " && p.anim) { e.preventDefault(); player.playing = !player.playing; render(); }
+});
+
+laneIdx = firstOpenLane();
+pairIdx = LANES[laneIdx] ? firstOpenPair(LANES[laneIdx]) : 0;
+render();
+
+(async () => {
+  const timer = setTimeout(() => setStatus("Saved picks didn't load. Picks you make are kept in this browser only.", true), 10000);
+  try {
+    db = window.claude && await window.claude.use("db");
+  } catch (e) { db = null; }
+  if (!db) { clearTimeout(timer); setStatus("Saving isn't available in this view, so picks stay in this browser only. Open the page on claude.ai, signed in, to save them.", true); return; }
+  db.collection("picks").onSnapshot((snap) => {
+    clearTimeout(timer);
+    for (const d of snap.docs) { const v = d.data(); if (v && v.choice) answers[d.id] = { choice: v.choice, left: v.left }; }
+    setStatus("Picks save as you go. You can stop and come back any time.", false);
+    render();
+  }, (e) => { clearTimeout(timer); setStatus("Saved picks didn't load (" + (e && e.code || "error") + "). Picks you make are kept in this browser only.", true); });
+})();
+</script>

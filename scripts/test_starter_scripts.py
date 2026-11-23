@@ -1,7 +1,8 @@
 """Tests for the starter's Python helpers that rule cases can't reach (they run outside check.py's gates).
 
 Covers every starter: the iOS one's check record and simulator lock, the Rust one's tool and toolchain setup, and the
-TypeScript one's tool setup (Node.js, pnpm and where installed packages go).
+TypeScript one's tool setup (Node.js, pnpm and where installed packages go). Also the skills' tools: art-eval's pick
+page builder, its answer export and its planted-flaw ranking.
 
 Usage: python3 scripts/test_starter_scripts.py
 """
@@ -28,6 +29,12 @@ import handback  # noqa: E402
 import paths  # noqa: E402
 import simulator  # noqa: E402
 import tools  # noqa: E402
+ART_EVAL = ROOT / 'skills/art-eval'
+sys.path.insert(0, str(ART_EVAL / 'picks'))
+sys.path.insert(0, str(ART_EVAL / 'flaws'))
+import build as pick_build  # noqa: E402
+import export as pick_export  # noqa: E402
+import rank as flaw_rank  # noqa: E402
 
 ENV = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@example.invalid',
        'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@example.invalid'}
@@ -698,6 +705,189 @@ class CheckoutBundleIdTests(unittest.TestCase):
         self.assertEqual(a['App'], 'dev.bstack.starter')
         self.assertEqual(b['App'], 'dev.bstack.starter')
         self.assertEqual(self.bundle_ids(first), a)  # the same checkout keeps its IDs
+
+
+try:
+    from PIL import Image
+except ImportError:  # only the animation strips need Pillow
+    Image = None
+
+
+class PickPageTests(unittest.TestCase):
+    """art-eval's blind pick page: pairs in, page and images out, sides fixed per pair."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        (self.root / 'sprites').mkdir()
+        for name in ('a.png', 'b.png', 'c.svg'):
+            (self.root / 'sprites' / name).write_bytes(f'image {name}'.encode())
+
+    def config(self, extra: str = '', key: str = 'sprites') -> Path:
+        path = self.root / 'picks.toml'
+        path.write_text(f'title = "Hexfleet Picks"\n\n[[lane]]\nkey = "{key}"\nname = "Ship sprites"\n'
+                        f'question = "Which sprite?"\npairs = "sprites/pairs.json"\n{extra}')
+        return path
+
+    def pairs(self, pairs: list[dict]) -> None:
+        (self.root / 'sprites/pairs.json').write_text(json.dumps(pairs))
+
+    def build(self, config: Path | None = None) -> list[dict]:
+        out = self.root / 'out'
+        pick_build.build(config or self.config(), out)
+        page = (out / 'index.html').read_text()
+        return json.loads(page.split('const LANES = ', 1)[1].split(';\n', 1)[0])
+
+    def test_pairs_become_a_page_with_copied_images(self) -> None:
+        self.pairs([{'id': 'p1', 'title': 'Interceptor', 'note': 'design', 'x': 'a.png',
+                     'y': str(self.root / 'sprites/c.svg')}])
+        lanes = self.build()
+        page = (self.root / 'out/index.html').read_text()
+        self.assertIn('<title>Hexfleet Picks</title>', page)
+        self.assertNotIn('__TITLE__', page)
+        [lane] = lanes
+        self.assertEqual((lane['key'], lane['name'], lane['question']), ('sprites', 'Ship sprites', 'Which sprite?'))
+        [pair] = lane['pairs']
+        self.assertEqual((pair['id'], pair['title'], pair['note']), ('p1', 'Interceptor', 'design'))
+        self.assertIn(pair['left'], ('x', 'y'))
+        self.assertEqual((self.root / 'out' / pair['x']).read_bytes(), b'image a.png')
+        self.assertEqual((self.root / 'out' / pair['y']).read_bytes(), b'image c.svg')
+        self.assertTrue(pair['y'].startswith('img/sprites-') and pair['y'].endswith('.svg'))
+
+    def test_sides_are_fixed_per_pair_and_mixed_across_pairs(self) -> None:
+        ids = [f'p{i}' for i in range(40)]
+        self.pairs([{'id': i, 'x': 'a.png', 'y': 'b.png'} for i in ids])
+        first = {p['id']: p['left'] for p in self.build()[0]['pairs']}
+        self.pairs([{'id': i, 'x': 'a.png', 'y': 'b.png'} for i in reversed(ids)])
+        again = {p['id']: p['left'] for p in self.build()[0]['pairs']}
+        self.assertEqual(first, again)
+        self.assertEqual(first, {i: pick_build.side('sprites', i) for i in ids})
+        self.assertTrue(10 <= list(first.values()).count('x') <= 30, first)
+        other = {i: pick_build.side('icons', i) for i in ids}
+        self.assertNotEqual(first, other)  # the lane is part of the hash
+
+    def test_skip_leaves_out_pairs_by_id_prefix(self) -> None:
+        self.pairs([{'id': i, 'x': 'a.png', 'y': 'b.png'} for i in ('old-1', 'old-2', 'new-1')])
+        lanes = self.build(self.config('skip = ["old-"]\n'))
+        self.assertEqual([p['id'] for p in lanes[0]['pairs']], ['new-1'])
+
+    def test_lane_options_reach_the_page_and_paths_do_not(self) -> None:
+        self.pairs([])
+        [lane] = self.build(self.config('layout = "stack"\nsizes = [96, 24]\nhow = "At 24 px."\n'))
+        self.assertEqual((lane['layout'], lane['sizes'], lane['how']), ('stack', [96, 24], 'At 24 px.'))
+        self.assertNotIn('pairs.json', json.dumps(lane))
+
+    def test_lane_without_a_pairs_file_has_no_pairs(self) -> None:
+        self.assertEqual(self.build()[0]['pairs'], [])
+
+    def test_text_cannot_close_the_script(self) -> None:
+        self.pairs([{'id': 'p1', 'note': '</script><b>', 'x': 'a.png', 'y': 'b.png'}])
+        self.assertEqual(self.build()[0]['pairs'][0]['note'], '</script><b>')
+        self.assertEqual((self.root / 'out/index.html').read_text().count('</script>'), 1)
+
+    def test_bad_input_is_refused(self) -> None:
+        cases = {
+            'pair id': [{'id': 'a/b', 'x': 'a.png', 'y': 'b.png'}],
+            'used twice': [{'id': 'p', 'x': 'a.png', 'y': 'b.png'}, {'id': 'p', 'x': 'a.png', 'y': 'b.png'}],
+            'not an image file': [{'id': 'p', 'x': 'a.png', 'y': 'missing.png'}],
+            'has no "y"': [{'id': 'p', 'x': 'a.png'}],
+        }
+        for message, pairs in cases.items():
+            self.pairs(pairs)
+            with self.subTest(message), self.assertRaisesRegex(pick_build.ConfigError, message):
+                self.build()
+        with self.assertRaisesRegex(pick_build.ConfigError, 'lane key'):
+            self.build(self.config(key='my__lane'))
+
+    @unittest.skipIf(Image is None, 'needs Pillow')
+    def test_animations_become_frame_strips(self) -> None:
+        frames = [Image.new('RGBA', (8, 6), (40 * i, 0, 0, 255)) for i in range(3)]
+        frames[0].save(self.root / 'sprites/anim.gif', save_all=True, append_images=frames[1:], duration=100, loop=0)
+        frames[0].save(self.root / 'sprites/still.gif')
+        self.pairs([{'id': 'p1', 'x': 'anim.gif', 'y': 'still.gif'}])
+        [pair] = self.build()[0]['pairs']
+        self.assertEqual(pair['anim'], {'x': {'frames': 3, 'w': 8, 'h': 6, 'ms': 100}})
+        self.assertTrue(pair['x'].endswith('-strip.png'))
+        with Image.open(self.root / 'out' / pair['x']) as strip:
+            self.assertEqual(strip.size, (24, 6))
+            self.assertEqual(strip.getpixel((16, 0)), (80, 0, 0, 255))
+        self.assertTrue(pair['y'].endswith('.gif'))  # one frame: copied as is
+
+
+class PickExportTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        self.config = self.root / 'picks.toml'
+        self.config.write_text('[[lane]]\nkey = "icons"\nname = "Icons"\nquestion = "Which?"\npairs = "icons/pairs.json"\n'
+                               '\n[[lane]]\nkey = "anim"\nname = "Anim"\nquestion = "Which?"\npairs = "anim/pairs.json"\n'
+                               'answers = "out/anim-answers.json"\n')
+
+    def export(self, dump) -> dict[str, int]:
+        path = self.root / 'dump.json'
+        path.write_text(json.dumps(dump))
+        return pick_export.export(self.config, path)
+
+    def test_writes_each_lanes_answers_latest_pick_wins(self) -> None:
+        pick = lambda lane, pair, choice, at: {'lane': lane, 'pair': pair, 'choice': choice, 'left': 'x', 'at': at}
+        dump = {'documents': [
+            {'id': 'icons__i2', 'data': pick('icons', 'i2', 'x', '2026-11-23T10:00:00Z')},
+            {'id': 'icons__i1', 'data': pick('icons', 'i1', 'tie', '2026-11-23T09:00:00Z')},
+            {'id': 'icons__i2', 'data': pick('icons', 'i2', 'y', '2026-11-23T11:00:00Z')},
+            {'id': 'old__o1', 'data': pick('old', 'o1', 'x', '2026-11-23T11:00:00Z')},
+        ], 'next': None}
+        self.assertEqual(self.export(dump), {'icons': 2, 'anim': 0})
+        self.assertEqual(json.loads((self.root / 'icons/answers.json').read_text()), {'i1': 'tie', 'i2': 'y'})
+        self.assertEqual(json.loads((self.root / 'out/anim-answers.json').read_text()), {})
+
+    def test_bad_choice_is_refused(self) -> None:
+        with self.assertRaisesRegex(ValueError, 'choice'):
+            self.export([{'lane': 'icons', 'pair': 'i1', 'choice': 'left'}])
+
+
+class FlawRankTests(unittest.TestCase):
+    """art-eval's planted-flaw check: a metric passes a flaw type when it orders sizes on enough items."""
+
+    def row(self, item: int, scores: tuple, metric: str = 'dreamsim', flaw: str = 'bite') -> dict:
+        return dict(zip(('item', 'flaw', 'metric', *flaw_rank.SIZES), (str(item), flaw, metric, *scores)))
+
+    def test_order_follows_the_metrics_worse_direction(self) -> None:
+        self.assertTrue(flaw_rank.ordered(self.row(1, (0, 0.1, 0.2, 0.3))))
+        self.assertFalse(flaw_rank.ordered(self.row(1, (0, 0.2, 0.1, 0.3))))
+        self.assertFalse(flaw_rank.ordered(self.row(1, (0, 0.1, 0.1, 0.3))))  # a tie is not ordered
+        self.assertTrue(flaw_rank.ordered(self.row(1, (1, 0.9, 0.8, 0.7)), lower_is_worse=True))
+        self.assertFalse(flaw_rank.ordered(self.row(1, (1, 0.9, 0.8, 0.7))))
+
+    def test_threshold_and_resolution(self) -> None:
+        good = [self.row(i, (0, 0.002 + i / 1000, 0.05, 0.1)) for i in range(9)]
+        bad = [self.row(9, (0, 0.06, 0.05, 0.1))]
+        iou = [self.row(i, (1, 0.9, 0.8, 0.7), 'iou') for i in range(10)]
+        results = {(r['metric'], r['flaw']): r for r in flaw_rank.evaluate(good + bad + iou, 0.9, frozenset({'iou'}))}
+        self.assertEqual((results['dreamsim', 'bite']['ordered'], results['dreamsim', 'bite']['passed']), (9, True))
+        self.assertEqual(results['dreamsim', 'bite']['missed'], ['9'])
+        self.assertTrue(results['iou', 'bite']['passed'])
+        strict = flaw_rank.evaluate(good + bad, 0.95)
+        self.assertFalse(strict[0]['passed'])
+        res = flaw_rank.resolution(flaw_rank.evaluate(good + bad + iou, 0.9, frozenset({'iou'})))
+        self.assertAlmostEqual(res['dreamsim'], 0.002)
+        self.assertAlmostEqual(res['iou'], 0.1)
+        self.assertEqual(flaw_rank.resolution(strict), {})  # no passing flaw type, no resolution
+
+    def test_command_line_reads_csv(self) -> None:
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        rows = ['item,flaw,metric,clean,small,medium,large'] + [f'{i},wing,lpips,0,0.1,0.2,0.3' for i in range(10)]
+        (root / 'scores.csv').write_text('\n'.join(rows) + '\n')
+        proc = subprocess.run([sys.executable, str(ART_EVAL / 'flaws/rank.py'), str(root / 'scores.csv'), '--json'],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout)
+        self.assertEqual([(r['metric'], r['flaw'], r['passed']) for r in out['results']], [('lpips', 'wing', True)])
+        (root / 'scores.csv').write_text('item,flaw,metric,clean,small\n1,wing,lpips,0,0.1\n')
+        proc = subprocess.run([sys.executable, str(ART_EVAL / 'flaws/rank.py'), str(root / 'scores.csv')],
+                              capture_output=True, text=True)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn('missing medium, large', proc.stderr)
 
 
 if __name__ == '__main__':
