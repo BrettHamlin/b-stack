@@ -127,25 +127,8 @@ const closeWindows = () => {
   return exited();
 };
 const closing = process.platform === "win32" ? closeWindows() : first.app.close();
-// Diagnosis (Windows CI): which processes hold the installed app's files while the update's installer replaces them.
-// Runs alongside the close (asynchronously, so the close goes ahead) for 60 seconds.
-const watching = (async () => {
-  if (!process.env.BSTACK_HANDLE_EXE) return;
-  let before = new Set();
-  for (const end = Date.now() + 60_000; Date.now() < end; ) {
-    const out = await new Promise((resolve) =>
-      NodeChild.execFile(process.env.BSTACK_HANDLE_EXE, ["-accepteula", "-nobanner", NodePath.dirname(NodePath.resolve(executable))],
-        { encoding: "utf8" }, (_error, stdout) => resolve(`${stdout}`)));
-    const now = new Set(out.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.includes("pid:")));
-    for (const line of now) if (!before.has(line)) log(`handle opened: ${line}`);
-    for (const line of before) if (!now.has(line)) log(`handle closed: ${line}`);
-    before = now;
-  }
-  log(`handle: ${before.size} open after 60s`);
-})();
 await within(closing, 60_000, "closing the app").catch((error) => log(String(error)));
-log(`closed\n${processes()}`);
-await watching;
+log("closed");
 
 // The update installs after the app quits (on Windows the installer runs on, on macOS Squirrel stages it): reopen
 // until the new version runs, for up to 3 minutes.

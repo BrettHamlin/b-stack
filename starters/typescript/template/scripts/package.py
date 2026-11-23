@@ -41,6 +41,10 @@ import verify  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '.build/package'
+# The app's icon. Built on a Mac, a Windows uninstaller only passes NSIS's integrity check when it has the installer's
+# icon: electron-builder writes it without running Windows, and doesn't swap the icon in. With this icon both use one
+# file; without it NSIS's two default icons differ, and every update and reinstall stops on "Failed to uninstall".
+ICON = ROOT / 'apps/desktop/resources/icon.png'
 # target: (electron-builder platform flag, arch flag, Electron release name, unpacked folder, executable in it)
 TARGETS = {
     'mac-arm64': ('--mac', '--arm64', None, 'mac-arm64', '{name}.app/Contents/MacOS/{name}'),
@@ -89,7 +93,8 @@ def config(name: str, target: str, env: dict) -> dict:
         'artifactName': '${productName}-${version}-' + target + '.${ext}',
         'electronVersion': json.loads((electron / 'package.json').read_text())['version'],
         'electronDist': str(electron_dist(release) if release else electron / 'dist'),
-        'npmRebuild': False, 'files': ['dist/**/*', 'package.json'], 'directories': {'output': str(OUT / 'out')},
+        'npmRebuild': False, 'files': ['dist/**/*', 'package.json'],
+        'directories': {'output': str(OUT / 'out'), 'buildResources': str(ICON.parent)},
         'mac': mac,
         'win': {'target': ['nsis'], 'signAndEditExecutable': has(env, WIN_SIGNING)},
         'nsis': {'oneClick': True, 'perMachine': False},
@@ -129,6 +134,9 @@ def check_signed(target: str, output: str, unpacked: Path, installers: list[Path
 
 
 def package(env: dict, targets: list[str], version: str) -> dict[str, Path]:
+    if not ICON.is_file():
+        sys.exit(f'{ICON.relative_to(ROOT)} is missing. The app needs an icon (512x512 PNG): without one, the Windows '
+                 f'uninstaller fails its integrity check and every update stops on "Failed to uninstall".')
     failed = build(env)
     if failed:
         sys.exit(failed)
