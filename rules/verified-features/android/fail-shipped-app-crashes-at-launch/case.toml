@@ -1,4 +1,4 @@
 expect = "fail"
 enforced_by = "verify"
-diagnostic = "[verified-features] the shipped app (app, dev.bstack.starter) didn't start and stay up on a fresh install"
+diagnostic = "[verified-features] the shipped app (app debug, dev.bstack.starter) didn't start and stay up on a fresh install"
 uses_example = "replaces the starter's app manifest (its activity renamed to a class that doesn't exist)"
