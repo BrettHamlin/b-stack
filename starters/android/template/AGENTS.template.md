@@ -12,7 +12,7 @@
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, detekt, lint, konsist, arch, deps, settings, tests, verify: all must PASS
+python3 scripts/check.py        # compiler, detekt, lint, konsist, arch, deps, settings, tests, verify, release: all must PASS
 python3 scripts/package.py      # the release app bundle and APK (R8, signed), and the release build's launch
 ```
 

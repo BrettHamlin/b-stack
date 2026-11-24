@@ -16,6 +16,8 @@ Gates:
             in arch/settings.json, and CODEOWNERS covers every enforcement path (settings.py)
   tests     every unit and property test in every module; a module whose tests didn't run, or a skipped test, fails
   verify    the feature map is complete, and every journey passes in app-verify on the emulator (verify.py)
+  release   every journey passes against app-verify's release build (R8, as the shipped app is built), and the
+            shipped app's release build starts (verify.py release)
 
 Each gate's output is printed when it fails, followed by its result and time; a summary in gate order comes last.
 Every run is recorded against the git tree of the files it saw (scripts/handback.py, observe mode: it never blocks).
@@ -36,7 +38,7 @@ from handback import record_check, snapshot  # noqa: E402
 from tools import android_env, gradle_command  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify']
+GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify', 'release']
 RESULTS = ROOT / '.build/gradle'
 
 
@@ -136,7 +138,8 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
         return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
     if name == 'tests':
         return tests(env)
-    proc = subprocess.run([sys.executable, str(ROOT / 'scripts/verify.py'), 'run'], cwd=ROOT, env=env,
+    proc = subprocess.run([sys.executable, str(ROOT / 'scripts/verify.py'), 'release' if name == 'release' else 'run'],
+                          cwd=ROOT, env=env,
                           capture_output=True, text=True)
     return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
 

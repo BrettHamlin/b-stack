@@ -80,7 +80,7 @@ jobs:
             echo "attempt $attempt failed; retrying in $((attempt * 60)) s"; sleep $((attempt * 60))
           done
           exit 1
-      - name: The starter's own gates (check.py), journeys and the shipped app's launch on the emulator
+      - name: The starter's own gates (check.py), journeys (debug and release builds) and the shipped app's launch on the emulator
         working-directory: starters/android/template
         run: python3 scripts/check.py
       - name: The release app bundle and APK (test-signed) and the release build's launch, as the starter's workflow runs them

@@ -15,10 +15,17 @@ installed with no data and launched from its launcher entry; it must still be ru
 seconds later, with nothing in the crash log. Its screenshot is evidence too (shipped-app/launched.png).
 Evidence (screenshots per journey, and evidence.md listing them) goes to .build/evidence/latest/.
 
-Usage: python3 scripts/verify.py [map|run]     (default: run, which does the map check first)
+Release (the release gate): the same journeys against app-verify built as release (R8 shrinking and obfuscation, as
+the shipped app is built), then the smoke launch of the shipped app's release build (signed with a throwaway key).
+Evidence goes to .build/evidence/release/.
+
+Usage: python3 scripts/verify.py [map|run|release]     (default: run, which does the map check first)
        python3 scripts/verify.py adapters      write verify/runner's adapters for the journeys in verify/journeys
 """
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
+from typing import Iterator
+import fcntl
 import json
 import re
 import shutil
@@ -29,10 +36,12 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator import adb, boot, in_use  # noqa: E402
+from paths import link_build_dirs  # noqa: E402
 from tools import android_env, gradle_command  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / '.build/evidence/latest'
+RELEASE_EVIDENCE = ROOT / '.build/evidence/release'
 JOURNEYS = ROOT / 'verify/journeys/src/commonMain/kotlin'
 RUNNER = ROOT / 'verify/runner/src/main/kotlin/runner'
 ADAPTERS = RUNNER / 'Journeys.kt'
@@ -195,13 +204,14 @@ def parse_instrumentation(output: str) -> dict[str, tuple[str, str]]:
     return results
 
 
-def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENCE / 'shipped-app') -> list[str]:
-    """Launches the shipped app's build (debug here; package.py passes release) as a user would on a fresh install:
-    it must start and stay up. The app is uninstalled before and after, since its builds are signed with different
-    keys."""
-    shipped = app_id('app', variant)
+def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENCE / 'shipped-app',
+          built: tuple[Path, str] | None = None) -> list[str]:
+    """Launches the shipped app's build (debug for verify, release for the release gate; package.py passes its own
+    copy of the APK and its id as `built`) as a user would on a fresh install: it must start and stay up. The app is
+    uninstalled before and after, since its builds are signed with different keys."""
+    path, shipped = built or (apk('app', variant), app_id('app', variant))
     adb(env, 'uninstall', shipped, serial=serial)
-    out = adb(env, 'install', str(apk('app', variant)), serial=serial, timeout=300)
+    out = adb(env, 'install', str(path), serial=serial, timeout=300)
     if 'Success' not in out:
         return [f'[verified-features] installing the shipped app (app, {variant}) failed:\n{out[-2000:]}']
     try:
@@ -236,32 +246,65 @@ def launched(env: dict, serial: str, shipped: str, variant: str, folder: Path) -
             f'{started.strip()[-1500:]}\n{crash[-3000:] or ("not running" if not alive else "its window isn\'t shown")}']
 
 
-def run(features: list[dict]) -> list[str]:
+KEYS = ('BSTACK_UPLOAD_KEYSTORE', 'BSTACK_UPLOAD_KEYSTORE_PASSWORD', 'BSTACK_UPLOAD_KEY_ALIAS', 'BSTACK_UPLOAD_KEY_PASSWORD')
+
+
+def throwaway_key(env: dict) -> dict:
+    """A key for test builds only (the release gate, and package.py without an upload key), made once per checkout."""
+    store = ROOT / '.build/package/test-upload.jks'
+    if not store.is_file():
+        store.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run([str(Path(env['JAVA_HOME']) / 'bin/keytool'), '-genkeypair', '-keystore', str(store),
+                        '-storepass', 'test-only', '-keypass', 'test-only', '-alias', 'test', '-keyalg', 'RSA',
+                        '-keysize', '2048', '-validity', '3650', '-dname', 'CN=Test build not for upload', '-noprompt'],
+                       check=True, capture_output=True)
+    return dict(zip(KEYS, (str(store), 'test-only', 'test', 'test-only')))
+
+
+@contextmanager
+def release_outputs() -> Iterator[None]:
+    """This checkout's release build outputs, held by whoever builds them until it has read them (the release gate,
+    package.py), so one never reads the other's build."""
+    lock = ROOT / '.build/package/release-build.lock'
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with lock.open('w') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+
+
+def run(features: list[dict], variant: str = 'debug', evidence: Path = EVIDENCE) -> list[str]:
+    """Builds app-verify, the runner and the shipped app as `variant` (release: R8, as shipped), runs every journey
+    against app-verify, then smoke-launches the shipped app."""
+    with release_outputs() if variant == 'release' else nullcontext():
+        return built_and_run(features, variant, evidence)
+
+
+def built_and_run(features: list[dict], variant: str, evidence: Path) -> list[str]:
     env = android_env()
-    build = subprocess.run(gradle_command('-q', ':app-verify:assembleDebug', ':verify:runner:assembleDebug',
-                                          ':app:assembleDebug'), env=env,
-                           capture_output=True, text=True)
+    tasks = [f':app-verify:assemble{variant.title()}', ':verify:runner:assembleDebug', f':app:assemble{variant.title()}']
+    signing = throwaway_key(env) if variant == 'release' else {}
+    build = subprocess.run(gradle_command('-q', *tasks), env={**env, **signing}, capture_output=True, text=True)
     if build.returncode != 0:
         return [f'[verified-features] the app didn\'t build, so it can\'t run:\n{(build.stdout + build.stderr)[-4000:]}']
-    target, runner = app_id('app-verify'), app_id('verify/runner')
+    target, runner = app_id('app-verify', variant), app_id('verify/runner')
     device_evidence = f'/sdcard/Android/media/{runner}/evidence'
     with in_use(f'verify.py in {ROOT}'):
         serial = boot(env)
-        for module in ('app-verify', 'verify/runner'):
-            out = adb(env, 'install', '-r', '-t', str(apk(module)), serial=serial, timeout=300)
+        for module, built in (('app-verify', variant), ('verify/runner', 'debug')):
+            out = adb(env, 'install', '-r', '-t', str(apk(module, built)), serial=serial, timeout=300)
             if 'Success' not in out:
                 return [f'[verified-features] installing {module} failed:\n{out[-2000:]}']
         adb(env, 'shell', 'rm', '-rf', device_evidence, serial=serial)
         output = adb(env, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'bstack.app', target, '-e', 'bstack.evidence',
                      device_evidence, f'{runner}/androidx.test.runner.AndroidJUnitRunner', serial=serial, timeout=1800)
-        adb(env, 'pull', device_evidence + '/.', str(EVIDENCE), serial=serial, timeout=300)
-        smoke_errors = smoke(env, serial)
-    (EVIDENCE / 'instrumentation.txt').write_text(output)
+        adb(env, 'pull', device_evidence + '/.', str(evidence), serial=serial, timeout=300)
+        smoke_errors = smoke(env, serial, variant, evidence / 'shipped-app')
+    (evidence / 'instrumentation.txt').write_text(output)
     results = parse_instrumentation(output)
     errors: list[str] = list(smoke_errors)
     mapped = {j['name']: f['file'] for f in features for j in f.get('journeys', []) if j.get('name')}
     errors += [f'[verified-features] {mapped[n]}: journey `{n}` didn\'t run.' for n in mapped if n not in results]
-    lines = ['# Verify evidence', '']
+    lines = [f'# Verify evidence ({variant} build)', '']
     for feature in features:
         lines += [f'## {feature.get("id")}: {feature.get("summary", "")}', '']
         for journey in feature.get('journeys', []):
@@ -269,16 +312,16 @@ def run(features: list[dict]) -> list[str]:
             if name not in results:
                 continue
             status, stack = results[name]
-            shots = sorted((EVIDENCE / name).glob('*.png')) if (EVIDENCE / name).is_dir() else []
+            shots = sorted((evidence / name).glob('*.png')) if (evidence / name).is_dir() else []
             if status != 'ok':
-                errors.append(f'[verified-features] journey `{name}` {status} ({feature["file"]}). Fix the app, or if '
+                errors.append(f'[verified-features] journey `{name}` {status} in the {variant} build ({feature["file"]}). Fix the app, or if '
                               f'the journey is wrong, say why; never weaken it.\n{stack[-3000:]}')
             elif not shots:
                 errors.append(f'[verified-features] journey `{name}` saved no screenshot. Call checkpoint() where it '
                               'shows the feature working: screenshots are the evidence.')
             lines += [f'### {name}: {"PASS" if status == "ok" and shots else "FAIL"}', '', journey.get('proves', ''), '']
             lines += [f'- ![{shot.stem}]({name}/{shot.name})' for shot in shots] + ['']
-    (EVIDENCE / 'evidence.md').write_text('\n'.join(lines))
+    (evidence / 'evidence.md').write_text('\n'.join(lines))
     if not results and not errors:
         errors.append(f'[verified-features] the journeys didn\'t run:\n{output[-3000:]}')
     return errors
@@ -290,16 +333,20 @@ if __name__ == '__main__':
         ADAPTERS.write_text(adapters_text(journeys_in_code()))
         print(f'wrote {ADAPTERS.relative_to(ROOT)}')
         sys.exit(0)
-    if mode not in ('map', 'run'):
+    if mode not in ('map', 'run', 'release'):
         sys.exit(__doc__)
-    if mode == 'run':
-        shutil.rmtree(EVIDENCE, ignore_errors=True)  # never leave an earlier run's evidence as the latest
+    folder = RELEASE_EVIDENCE if mode == 'release' else EVIDENCE
+    if mode != 'map':
+        link_build_dirs(ROOT)  # .build/ points into the cache folder before anything (evidence, locks) is made there
+        shutil.rmtree(folder, ignore_errors=True)  # never leave an earlier run's evidence as the latest
     features, errors = load_map()
     errors += map_errors(features)
-    if mode == 'run' and not errors:
-        EVIDENCE.mkdir(parents=True)
-        errors += run(features)
-    done = (f'verify: every feature mapped; every journey passed. Evidence: {EVIDENCE / "evidence.md"}' if mode == 'run'
-            else 'verify map: every feature mapped (journeys not run)')
+    if mode != 'map' and not errors:
+        folder.mkdir(parents=True)
+        errors += run(features, 'release' if mode == 'release' else 'debug', folder)
+    done = {'run': f'verify: every feature mapped; every journey passed. Evidence: {EVIDENCE / "evidence.md"}',
+            'release': 'verify release: every journey passed against app-verify\'s release build (R8), and the shipped '
+                       f'app\'s release build started. Evidence: {RELEASE_EVIDENCE / "evidence.md"}',
+            'map': 'verify map: every feature mapped (journeys not run)'}[mode]
     print('\n'.join(errors) if errors else done)
     sys.exit(1 if errors else 0)

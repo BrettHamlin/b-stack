@@ -130,7 +130,7 @@ class ModulePlugin : Plugin<Project> {
                 }
                 compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
                 lint { lint(this) }
-                if (!role.testMode) release(project, this)
+                release(project, this, role.testMode)
             }
         } else {
             project.pluginManager.apply("com.android.library")
@@ -152,13 +152,15 @@ class ModulePlugin : Plugin<Project> {
         }
     }
 
-    /** The shipped app's release build (scripts/package.py): R8 shrinks and obfuscates code and drops unused
-     * resources, and it is signed with the upload key named by the BSTACK_UPLOAD_* environment variables. Without
-     * them the release build is unsigned, and package.py refuses to call it done. */
-    private fun release(project: Project, android: ApplicationExtension) {
+    /** Both apps' release builds: R8 shrinks and obfuscates code and drops unused resources, the same for each, so
+     * the journeys can run against what R8 makes of the code (the release gate). The shipped app is signed with the
+     * upload key named by the BSTACK_UPLOAD_* environment variables (scripts/package.py; unsigned without them);
+     * app-verify, a test app that is never shipped, with the debug key. */
+    private fun release(project: Project, android: ApplicationExtension, testMode: Boolean) {
         val env = { name: String -> project.providers.environmentVariable(name).orNull }
         val keystore = env("BSTACK_UPLOAD_KEYSTORE")
-        val upload = if (keystore == null) null else android.signingConfigs.create("upload") {
+        val upload = if (testMode) android.signingConfigs.getByName("debug")
+        else if (keystore == null) null else android.signingConfigs.create("upload") {
             storeFile = project.file(keystore)
             storePassword = env("BSTACK_UPLOAD_KEYSTORE_PASSWORD")
             keyAlias = env("BSTACK_UPLOAD_KEY_ALIAS")

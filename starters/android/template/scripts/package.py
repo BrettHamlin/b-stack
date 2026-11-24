@@ -11,7 +11,7 @@
   3. The release APK is installed on the emulator with no data and launched from its icon's intent (verify.py's smoke
      launch): code R8 broke usually crashes here, and nowhere else before users see it.
 Outputs in .build/package/out/, named starter-<versionName>-<versionCode>: .aab (for Play), .apk, -mapping.txt (to
-read obfuscated crash reports; keep it with each upload). Evidence: .build/evidence/release/launched.png.
+read obfuscated crash reports; keep it with each upload). Evidence: .build/evidence/package/launched.png.
 
 Usage: python3 scripts/package.py [--version-name 0.2.0 --version-code 2]
 """
@@ -22,29 +22,15 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator import boot, in_use  # noqa: E402
 from tools import android_env, gradle_command, sdk_packages  # noqa: E402
-from verify import EVIDENCE, app_id, smoke  # noqa: E402
+from verify import EVIDENCE, KEYS, release_outputs, smoke, throwaway_key  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '.build/package/out'
-KEYS = ('BSTACK_UPLOAD_KEYSTORE', 'BSTACK_UPLOAD_KEYSTORE_PASSWORD', 'BSTACK_UPLOAD_KEY_ALIAS', 'BSTACK_UPLOAD_KEY_PASSWORD')
-
-
-def throwaway_key(env: dict) -> dict:
-    """A key for test builds only, made once per checkout."""
-    store = ROOT / '.build/package/test-upload.jks'
-    if not store.is_file():
-        store.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run([str(Path(env['JAVA_HOME']) / 'bin/keytool'), '-genkeypair', '-keystore', str(store),
-                        '-storepass', 'test-only', '-keypass', 'test-only', '-alias', 'test', '-keyalg', 'RSA',
-                        '-keysize', '2048', '-validity', '3650', '-dname', 'CN=Test build not for upload', '-noprompt'],
-                       check=True, capture_output=True)
-    return dict(zip(KEYS, (str(store), 'test-only', 'test', 'test-only')))
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--version-name')
@@ -62,41 +48,57 @@ def main() -> int:
     signing['BSTACK_UPLOAD_KEYSTORE'] = str(Path(signing['BSTACK_UPLOAD_KEYSTORE']).resolve())
     props = ([f'-Pbstack.versionName={args.version_name}'] if args.version_name else []) + \
             ([f'-Pbstack.versionCode={args.version_code}'] if args.version_code else [])
-    # Only Gradle sees the key's passwords; the emulator package.py may boot doesn't.
-    build = subprocess.run(gradle_command('-q', *props, ':app:bundleRelease', ':app:assembleRelease'), cwd=ROOT,
-                           env={**env, **signing}, capture_output=True, text=True)
-    if build.returncode != 0:
-        print((build.stdout + build.stderr)[-4000:])
-        return 1
+    # Staged, checked and launched in a folder of its own, then moved to .build/package/out/ only if every check
+    # passes, so nothing unchecked is ever left there.
+    (ROOT / '.build').mkdir(exist_ok=True)  # android_env() linked it into the cache folder, if one is configured
+    staging = Path(tempfile.mkdtemp(dir=ROOT / '.build', prefix='package-'))
+    try:
+        return build_check_and_keep(env, props, signing, test_signed, staging)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def build_check_and_keep(env: dict, props: list[str], signing: dict, test_signed: bool, staging: Path) -> int:
     outputs = ROOT / '.build/gradle/app/outputs'
-    apk, aab = outputs / 'apk/release/app-release.apk', outputs / 'bundle/release/app-release.aab'
+    # The release gate builds the same outputs (with the throwaway key): the lock keeps it out until they're copied.
+    with release_outputs():
+        # Only Gradle sees the key's passwords; the emulator package.py may boot doesn't.
+        build = subprocess.run(gradle_command('-q', *props, ':app:bundleRelease', ':app:assembleRelease'), cwd=ROOT,
+                               env={**env, **signing}, capture_output=True, text=True)
+        if build.returncode != 0:
+            print((build.stdout + build.stderr)[-4000:])
+            return 1
+        built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())
+        version = f'{built["elements"][0]["versionName"]}-{built["elements"][0]["versionCode"]}'
+        name = f'starter-{version}' + ('-test-signed' if test_signed else '')
+        staged = {staging / f'{name}.apk': outputs / 'apk/release/app-release.apk',
+                  staging / f'{name}.aab': outputs / 'bundle/release/app-release.aab',
+                  staging / f'{name}-mapping.txt': outputs / 'mapping/release/mapping.txt'}
+        for target, source in staged.items():
+            shutil.copy(source, target)
+    apk, aab = staging / f'{name}.apk', staging / f'{name}.aab'
     build_tools = next(p.split(';')[1] for p in sdk_packages() if p.startswith('build-tools;'))
     apksigner = Path(env['ANDROID_HOME']) / 'build-tools' / build_tools / 'apksigner'
     problems = []
-    if not apk.is_file() or subprocess.run([str(apksigner), 'verify', str(apk)], env=env, capture_output=True).returncode:
+    if subprocess.run([str(apksigner), 'verify', str(apk)], env=env, capture_output=True).returncode:
         problems.append(f'{apk.name} isn\'t signed (apksigner verify failed).')
     jarsigner = subprocess.run([str(Path(env['JAVA_HOME']) / 'bin/jarsigner'), '-verify', str(aab)], env=env,
                                capture_output=True, text=True)
-    if not aab.is_file() or 'jar verified' not in jarsigner.stdout:
+    if 'jar verified' not in jarsigner.stdout:
         problems.append(f'{aab.name} isn\'t signed (jarsigner -verify: {jarsigner.stdout.strip()[-300:]}).')
+    if not problems:
+        folder = EVIDENCE.parent / 'package'
+        shutil.rmtree(folder, ignore_errors=True)
+        with in_use(f'package.py in {ROOT}'):
+            problems = [p.replace('[verified-features] ', '[release] ') for p in
+                        smoke(env, boot(env), 'release', folder, (apk, built['applicationId']))]
     if problems:
         print('\n'.join(problems))
         return 1
-    folder = EVIDENCE.parent / 'release'
-    shutil.rmtree(folder, ignore_errors=True)
-    with in_use(f'package.py in {ROOT}'):
-        failed = smoke(env, boot(env), 'release', folder)
-    if failed:
-        print('\n'.join(failed).replace('[verified-features] ', '[release] '))
-        return 1
-    built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())['elements'][0]
-    version = f'{built["versionName"]}-{built["versionCode"]}'
-    name = f'starter-{version}' + ('-test-signed' if test_signed else '')
     OUT.mkdir(parents=True, exist_ok=True)
-    shutil.copy(aab, OUT / f'{name}.aab')
-    shutil.copy(apk, OUT / f'{name}.apk')
-    shutil.copy(outputs / 'mapping/release/mapping.txt', OUT / f'{name}-mapping.txt')
-    print(f'package: {app_id("app", "release")} {version}, signed{" with a throwaway test key (not for upload)" if test_signed else ""}; '
+    for target in staged:
+        shutil.move(target, OUT / target.name)
+    print(f'package: {built["applicationId"]} {version}, signed{" with a throwaway test key (not for upload)" if test_signed else ""}; '
           f'the release build started and stayed up on the emulator. Outputs: {OUT}')
     return 0
 
