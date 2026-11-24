@@ -44,10 +44,17 @@ def run(cmd: list[str], env: dict) -> tuple[bool, str]:
     return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
 
 
+def has_code(package: Path) -> bool:
+    return any(p.suffix in ('.ts', '.tsx') and not {'node_modules', 'dist'} & set(p.relative_to(package).parts)
+               for p in package.rglob('*'))
+
+
 def tsconfigs() -> list[Path]:
-    """Every package's tsconfig.json, plus the journeys'."""
+    """Every package's tsconfig.json, plus the journeys'. A package with no code yet (an app's fixtures before its
+    first fixture) has nothing to compile, and the compiler fails on a project with no inputs, so it's left out."""
     shape = json.loads((ROOT / 'arch/shape.json').read_text())
-    found = [p for role in shape['roles'].values() for folder in role['folders'] for p in ROOT.glob(f'{folder}/tsconfig.json')]
+    found = [p for role in shape['roles'].values() for folder in role['folders'] for p in ROOT.glob(f'{folder}/tsconfig.json')
+             if has_code(p.parent)]
     return sorted(found + [p for p in [ROOT / 'apps/desktop/journeys/tsconfig.json'] if p.is_file()])
 
 

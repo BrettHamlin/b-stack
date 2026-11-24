@@ -1,0 +1,7 @@
+id = "greeting"
+summary = "Show the greeting screen."
+modules = ["greeting"]
+
+[[journeys]]
+name = "greetingWorks"
+proves = "The greeting screen shows its title, and still does after the device turns and after the process ends in the background."

@@ -1345,15 +1345,61 @@ class RustWorkflowTests(unittest.TestCase):
             self.assertIn(command, job)
 
 
-class AndroidAgentsTemplateTests(unittest.TestCase):
-    """The new-project skill has the agent delete the tally example, so the AGENTS.md it leaves behind (and the verify
-    skill it points at) must not send the agent to tally's files as the pattern to follow."""
+class AgentsTemplateTests(unittest.TestCase):
+    """The new-project skill has the agent delete the example, so the AGENTS.md it leaves behind, the verify skill it
+    points at and the stubs new_feature.py writes must not send the agent to the example's files as the pattern to
+    follow (Hexfleet's AGENTS.md pointed at the tally the setup had deleted)."""
+
+    EXAMPLE = {
+        TEMPLATE: r'Targets/Settings|NotificationSettings|SettingsLogic|save-fails',
+        RUST_TEMPLATE: r'tally|Tally|platform/files|FileTallyStore',
+        TS_TEMPLATE: r'tally|Tally|platform/files|fileTallyStore',
+        ANDROID_TEMPLATE: r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files',
+    }
 
     def test_agent_guidance_names_no_example_files(self) -> None:
-        example = re.compile(r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files')
-        for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md'):
-            found = example.findall((ANDROID_TEMPLATE / path).read_text())
-            self.assertEqual(found, [], f'{path} names the example the new project deletes')
+        for template, pattern in self.EXAMPLE.items():
+            for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md', 'scripts/new_feature.py'):
+                if not (template / path).is_file():
+                    continue
+                with self.subTest(starter=template.parent.name, path=path):
+                    found = re.findall(pattern, (template / path).read_text())
+                    self.assertEqual(found, [], f'{path} names the example the new project deletes')
+
+
+class GateGuidanceTests(unittest.TestCase):
+    """Gate messages that tell the agent where to put something say what the guidance they point to says. Hexfleet's
+    builder followed verify's process-death message ("keep input in the model's Saved") into serializing a whole turn,
+    while core/Saved.kt said data goes to a store. Each entry: the same instruction, found in the gate's message and in
+    the guidance (AGENTS.template.md, or the code comment the message relies on). Change one, change the other."""
+
+    PINS = [
+        # (starter, gate file, guidance files, the instruction both state)
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'),
+         "the screen's session that isn't stored anywhere else"),
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'journeys in verify/journeys'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt', ('AGENTS.template.md',),
+         'platform module'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt', ('AGENTS.template.md',),
+         'holds declarations only'),
+        (RUST_TEMPLATE, 'scripts/arch.py', ('AGENTS.template.md',), 'module shape (arch/shape.toml'),
+        (RUST_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'journeys in crates/app/tests/journeys.rs'),
+        (TS_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'apps/desktop/journeys'),
+        (TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'in Targets/AppVerifyJourneys'),
+    ]
+
+    @staticmethod
+    def plain(text: str) -> str:
+        """Text without source punctuation: string literals joined across lines, comment stars, escapes, backticks."""
+        text = re.sub(r"""['"]\s*\+?\s*\n\s*\+?\s*['"]""", '', text)  # 'a ' \n 'b' and "a " +\n "b"
+        text = re.sub(r'\n\s*\*\s?', ' ', text).replace("\\'", "'").replace('`', '')
+        return re.sub(r'\s+', ' ', text)
+
+    def test_gate_messages_say_what_the_guidance_says(self) -> None:
+        for template, gate, guides, instruction in self.PINS:
+            for path in (gate, *guides):
+                with self.subTest(starter=template.parent.name, file=path, instruction=instruction):
+                    self.assertIn(instruction, self.plain((template / path).read_text()))
 
 
 class AndroidReviewTests(unittest.TestCase):

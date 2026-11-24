@@ -10,7 +10,7 @@ description: Run this app in test mode on the iOS Simulator and prove a feature 
 ## Test mode
 
 The `AppVerify` target is the app composed with `Targets/Fixtures` instead of real services. It reads:
-- `BSTACK_FIXTURE`: a `Fixture` case (`standard`, `save-fails`, ...). Add a case when a journey needs a new starting state.
+- `BSTACK_FIXTURE`: a `Fixture` case (`standard`, ...). Add a case when a journey needs a new starting state.
 - `BSTACK_RESET=1`: restore the fixture's starting data. Launch without it to check that something survived a relaunch.
 
 Only `AppVerify` may import `Fixtures`; the shipped `App` can't (rule `no-fixtures-in-release`).

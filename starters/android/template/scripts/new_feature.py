@@ -101,7 +101,7 @@ import kotlin.test.fail
 class {Name}ModelTest {{
     @Test
     fun {name}Works() {{
-        fail("Write this test: the {name} model's behaviour, every state asserted whole with Turbine (see the tally's tests).")
+        fail("Write this test: the {name} model's behaviour, every state asserted whole with Turbine.")
     }}
 }}
 ''',
