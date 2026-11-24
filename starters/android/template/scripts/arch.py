@@ -1,6 +1,7 @@
 """The arch gate: what the build itself can't see. A text check, so no annotation or comment in a file can switch it off.
 
-  - no-suppressions: no @Suppress, @SuppressWarnings, @SuppressLint or @OptIn (with any use-site target or
+  - no-suppressions: no @Suppress, @SuppressWarnings, @SuppressLint, @TargetApi (which switches off Lint's NewApi) or
+    @OptIn (with any use-site target or
     qualifier), no import of them, no tools:ignore, and no -opt-in or -Xsuppress flag, in any project file outside
     build-logic/ and arch/ (a text match, so the words in a string fail too). Kotlin lets @Suppress switch off
     compiler errors such as DEPRECATION_ERROR and OPT_IN_USAGE_ERROR, and detekt and Konsist both honor it, so none
@@ -25,8 +26,8 @@ OWN = {'.build', '.tools', '.git', '.github', '.githooks', '.claude', '.agents',
 OWN_FILES = {'settings.gradle.kts', 'build.gradle.kts', 'gradle.properties', 'tools.toml', 'CODEOWNERS', 'AGENTS.md',
              'AGENTS.template.md', 'CLAUDE.md', 'README.md', '.gitignore', 'local.properties'}
 SUPPRESSION = re.compile(
-    r'@\s*(?:[a-zA-Z]+\s*:\s*)?(?:\[\s*)?(?:[\w.]+\.)?(Suppress|SuppressWarnings|SuppressLint|OptIn)\b'
-    r'|\bimport\s+[\w.]*\b(Suppress|SuppressWarnings|SuppressLint|OptIn)\b'
+    r'@\s*(?:[a-zA-Z]+\s*:\s*)?(?:\[\s*)?(?:[\w.]+\.)?(Suppress|SuppressWarnings|SuppressLint|TargetApi|OptIn)\b'
+    r'|\bimport\s+[\w.]*\b(Suppress|SuppressWarnings|SuppressLint|TargetApi|OptIn)\b'
     r'|\btools:ignore\b|-X?opt-in\b|-Xsuppress|\bkotlin\.OptIn\b|\bkotlin\.Suppress\b'
     # Annotating a declaration with an opt-in marker passes the requirement on instead of opting in.
     r'|@\s*(?:[\w.]+\.)?(?:Experimental\w*Api|Delicate\w*Api|Internal\w*Api|\w+Preview\w*Api)\b')

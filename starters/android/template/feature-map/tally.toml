@@ -23,5 +23,9 @@ name = "tallySurvivesRotation"
 proves = "Turning the device recreates the screen without losing the tally or the name being typed."
 
 [[journeys]]
+name = "tallySurvivesProcessDeath"
+proves = "When the system ends the app in the background and the user returns, the tally and the name being typed are still there."
+
+[[journeys]]
 name = "unreadableTallyIsNeverOverwritten"
 proves = "When the saved tally can't be read (the Unreadable fixture), the app says so and Add stays off, so the file isn't overwritten; it's still unreadable after a relaunch."

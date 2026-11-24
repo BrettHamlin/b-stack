@@ -57,6 +57,18 @@ fun Journey.tallySurvivesRotation() {
     screen.checkpoint("after-rotation")
 }
 
+fun Journey.tallySurvivesProcessDeath() {
+    val screen = launch()
+    screen.find(TallyUi.name).type("fig")
+    screen.find(TallyUi.add).tap()
+    screen.find(TallyUi.items).shows("fig 1")
+    screen.find(TallyUi.name).type("pear")
+    screen.returnAfterProcessDeath()
+    screen.find(TallyUi.items).shows("fig 1")
+    screen.find(TallyUi.name).shows("pear")
+    screen.checkpoint("after-process-death")
+}
+
 fun Journey.unreadableTallyIsNeverOverwritten() {
     val screen = launch("Unreadable")
     screen.find(TallyUi.error).shows("The saved tally couldn't be read.")

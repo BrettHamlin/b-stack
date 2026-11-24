@@ -1,6 +1,7 @@
 package tally.logic
 
 import app.cash.turbine.test
+import core.SavedInMemory
 import kotlinx.coroutines.test.runTest
 import tally.api.ItemName
 import tally.api.Tally
@@ -18,7 +19,7 @@ class TallyPropertyTest {
         repeat(200) { seed ->
             val random = Random(seed)
             val store = MemoryStore()
-            val model = TallyModel(store, backgroundScope)
+            val model = TallyModel(store, backgroundScope, SavedInMemory())
             var expected = TallyState(loading = false)
             model.state.test {
                 assertEquals(TallyState(), awaitItem())

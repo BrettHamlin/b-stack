@@ -8,6 +8,8 @@
     (app's release runtime classpath) may use only permissive licenses; build and test tools may also use the weak
     copyleft licenses below (JUnit's EPL, and the MPL and EPL parts of the Android Gradle Plugin's own tools). An unknown or missing license fails: add it to the table here
     (a code-owned change) once someone has read it.
+  - Manifest: the shipped app's merged release manifest (its own and every library's) requests only the permissions,
+    and exports only the components, listed in arch/manifest.toml, each exported one guarded by its listed permission.
 
 Usage: python3 scripts/deps.py
 """
@@ -15,6 +17,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tomllib
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -79,6 +82,47 @@ def shipped(env: dict) -> set[str]:
     return {m.group(1) for m in re.finditer(r'--- ([\w.-]+:[\w.-]+):', proc.stdout)}
 
 
+ANDROID = '{http://schemas.android.com/apk/res/android}'
+MERGED = ROOT / '.build/gradle/app/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml'
+
+
+def manifest(env: dict) -> list[str]:
+    """The shipped app's merged manifest against the owner's list in arch/manifest.toml."""
+    proc = subprocess.run(gradle_command('-q', ':app:processReleaseMainManifest'), cwd=ROOT, env=env,
+                          capture_output=True, text=True)
+    if proc.returncode != 0 or not MERGED.is_file():
+        return [f'[listed-permissions] Couldn\'t merge the app\'s manifest:\n{(proc.stdout + proc.stderr)[-3000:]}']
+    root = ET.parse(MERGED).getroot()
+    app_id = root.get('package', '')
+    listed = tomllib.loads((ROOT / 'arch/manifest.toml').read_text())
+    allowed = {p.replace('{app}', app_id) for p in listed.get('permissions', [])}
+    exported = {name: permission.replace('{app}', app_id) for name, permission in listed.get('exported', {}).items()}
+    found = []
+    tell = ('Remove it, or if the app needs it, stop and report: the owner adds it to arch/manifest.toml after '
+            'reading what it gives the app (or other apps). A library that brought it can be dropped, or its entry '
+            'removed with tools:node="remove" in app\'s manifest, which also needs the owner.')
+    for tag in ('uses-permission', 'uses-permission-sdk-23'):
+        for element in root.iter(tag):
+            name = element.get(ANDROID + 'name', '')
+            if name not in allowed:
+                found.append(f'[listed-permissions] the shipped app requests {name} (merged manifest, {tag}), which '
+                             f'isn\'t in arch/manifest.toml. {tell}')
+    for tag in ('activity', 'activity-alias', 'service', 'receiver', 'provider'):
+        for element in root.iter(tag):
+            if element.get(ANDROID + 'exported') != 'true':
+                continue
+            name, guard = element.get(ANDROID + 'name', ''), element.get(ANDROID + 'permission', '')
+            if name not in exported:
+                found.append(f'[listed-permissions] the shipped app exports {tag} {name} to other apps (merged '
+                             f'manifest), which isn\'t in arch/manifest.toml. Set android:exported="false" unless other '
+                             f'apps must start it; if they must, stop and report. {tell}')
+            elif exported[name] != guard:
+                found.append(f'[listed-permissions] the shipped app exports {tag} {name} guarded by '
+                             f'{guard or "no permission"}; arch/manifest.toml lists it with {exported[name] or "none"}. '
+                             f'{tell}')
+    return found
+
+
 def findings() -> list[str]:
     found = []
     for settings in ('settings.gradle.kts', 'build-logic/settings.gradle.kts'):
@@ -99,6 +143,7 @@ def findings() -> list[str]:
         found.append('[allowed-dependencies] gradle/verification-metadata.xml must verify every artifact '
                      '(verify-metadata true) and trust none without a checksum.')
     env = android_env()
+    found += manifest(env)
     home, in_app = gradle_home(), shipped(env)
     components = [(c.get('group'), c.get('name'), c.get('version')) for c in metadata.findall('v:components/v:component', NS)]
     if any(pom(home, *c) is None for c in components):

@@ -20,6 +20,10 @@ class Driver(private val journey: String) : Journey {
     private val arguments: Bundle = InstrumentationRegistry.getArguments()
     private val app: String = arguments.getString("bstack.app") ?: throw IllegalStateException("no bstack.app argument")
     private val device: UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    private val activity: String by lazy {
+        device.executeShellCommand("cmd package resolve-activity --brief -c android.intent.category.LAUNCHER $app")
+            .trim().lines().last()
+    }
 
     override fun launch(fixture: String): Screen {
         start(fixture, reset = true)
@@ -31,9 +35,6 @@ class Driver(private val journey: String) : Journey {
         device.setOrientationNatural()
         device.unfreezeRotation()
         device.executeShellCommand("am force-stop $app")
-        val activity = device.executeShellCommand(
-            "cmd package resolve-activity --brief -c android.intent.category.LAUNCHER $app",
-        ).trim().lines().last()
         val output = device.executeShellCommand(
             "am start -W -n $activity --es bstack.fixture $fixture --ez bstack.reset $reset",
         )
@@ -61,6 +62,23 @@ class Driver(private val journey: String) : Journey {
                 device.waitForIdle()
                 device.unfreezeRotation()
             }
+        }
+
+        override fun returnAfterProcessDeath() {
+            device.pressHome()
+            device.wait(Until.gone(By.pkg(app).depth(0)), WAIT_MS)
+            // `am kill` ends only a process in the background, as the system does when it needs memory; the task and
+            // its saved state stay (force-stop would discard them).
+            val deadline = System.currentTimeMillis() + WAIT_MS
+            while (device.executeShellCommand("pidof $app").isNotBlank()) {
+                if (System.currentTimeMillis() > deadline) throw AssertionError("[verify] $app is still running")
+                device.executeShellCommand("am kill $app")
+                Thread.sleep(200)
+            }
+            // The same intent as the task's first activity, so the system brings the task back, restoring it.
+            val output = device.executeShellCommand("am start -W -n $activity")
+            if ("Status: ok" !in output) throw AssertionError("[verify] couldn't return to $activity:\n$output")
+            device.wait(Until.hasObject(By.pkg(app).depth(0)), WAIT_MS)
         }
 
         override fun checkpoint(name: String) {
@@ -107,6 +125,7 @@ class Driver(private val journey: String) : Journey {
     private fun texts(node: UiObject2): List<String> {
         val own = node.text?.takeIf { it.isNotEmpty() }
         if (node.className == "android.widget.EditText") return listOfNotNull(own)
-        return listOfNotNull(own) + node.children.flatMap { texts(it) }
+        val children: List<UiObject2>? = node.children
+        return listOfNotNull(own) + children.orEmpty().flatMap { texts(it) }
     }
 }

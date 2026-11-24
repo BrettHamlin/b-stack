@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         val services = application as? StarterApp ?: return finish()
         setContent {
             MaterialTheme {
-                Surface { TallyRoute(rememberModel("tally") { scope -> TallyModel(services.tallyStore, scope) }) }
+                Surface { TallyRoute(rememberModel("tally") { scope, saved -> TallyModel(services.tallyStore, scope, saved) }) }
             }
         }
     }

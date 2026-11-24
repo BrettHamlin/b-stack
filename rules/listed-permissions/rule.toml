@@ -1,0 +1,11 @@
+id = "listed-permissions"
+layer = "2"
+summary = "The shipped app asks only for the permissions, and opens to other apps only the components, its owner listed."
+problem = "A permission or an exported component is a promise to users and an opening for other apps. Agents add a permission to make a call work, export a component to get rid of a build error, and libraries add both to the merged manifest without anyone reading it."
+message = "The shipped app asks for a permission or exports a component the owner hasn't listed. Remove it, or set it private; if the app needs it, stop and report so the owner can add it to the list."
+escape_hatches = ["Android: a permission or component the owner adds to arch/manifest.toml without reading it: the file is code-owned (CODEOWNERS), so that change needs review.", "Android: tools:node=\"remove\" on a library's entry in app's manifest: tools:ignore is banned, tools:node isn't (removing an entry only narrows what ships).", "Android: app-verify (test mode, never shipped) isn't checked.", "Android: runtime behavior a permission doesn't cover (a dynamic receiver registered as exported in code): review."]
+origin = "Fable 5.2 review of the Android starter, 2026-11-23: libraries' permissions and exported components were merged into the shipped app unread."
+
+[android]
+deps = "scripts/deps.py: app's merged release manifest (processReleaseMainManifest, AGP 9.5.2) against arch/manifest.toml: every uses-permission and uses-permission-sdk-23 must be listed, and every activity, activity-alias, service, receiver and provider with android:exported=\"true\" must be listed with the permission that guards it (exactly). Only app modules may have a manifest at all (arch)."
+message = "The shipped app requests a permission or exports a component that isn't in arch/manifest.toml. Remove it (or set android:exported=\"false\"); if the app needs it, stop and report: the owner adds it to arch/manifest.toml after reading what it gives the app or other apps."

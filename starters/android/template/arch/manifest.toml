@@ -1,0 +1,11 @@
+# What the shipped app may ask for and open to other apps (protected): the deps gate reads app's merged release manifest,
+# with everything libraries add, and fails on a permission or exported component not listed here. `{app}` is the
+# application id. Each exported component maps to the permission a caller needs ("" for none), which must match.
+
+permissions = [
+  "{app}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",  # androidx.core: keeps the app's own dynamic receivers private
+]
+
+[exported]
+"app.MainActivity" = ""  # the launcher entry
+"androidx.profileinstaller.ProfileInstallReceiver" = "android.permission.DUMP"  # only adb and the system can call it

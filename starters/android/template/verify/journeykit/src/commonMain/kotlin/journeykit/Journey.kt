@@ -20,6 +20,10 @@ interface Screen {
     /** Turns the device to landscape and back, as a user does; the activity is recreated each time. */
     fun rotate()
 
+    /** Leaves the app for the home screen, has the system end its process there (as it does to free memory), and
+     * returns to it: the screen comes back in a new process, from what it saved. */
+    fun returnAfterProcessDeath()
+
     /** Saves a screenshot named [name] as the journey's evidence. Each journey saves at least one. */
     fun checkpoint(name: String)
 }

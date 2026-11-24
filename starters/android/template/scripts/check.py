@@ -5,6 +5,8 @@ Gates:
             settings (build-logic/, arch/shape.json); common modules also compile as real common code (no JDK)
   detekt    detekt with type resolution (arch/detekt.yml, plus our rules in arch/detekt-rules): no !!, as, catch-all
             else, throwing lookups, hard-coded dispatchers, GlobalScope or runBlocking
+  lint      Android Lint's NewApi on every Android module: no call to an API newer than minSdk 29 without a version
+            check (build-logic)
   konsist   the architecture tests in arch/konsist: imports by role, no singletons or service locators, no ad-hoc
             scopes or threads, typed UI identifiers, no I/O in logic, exhaustive tests, no skipped tests
   arch      module folders, source sets and files against the module shape; no suppressions or opt-ins (arch.py)
@@ -32,7 +34,7 @@ from handback import record_check, snapshot  # noqa: E402
 from tools import android_env, gradle_command  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'detekt', 'konsist', 'arch', 'deps', 'tests', 'verify']
+GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'tests', 'verify']
 RESULTS = ROOT / '.build/gradle'
 
 
@@ -74,6 +76,22 @@ def konsist(env: dict) -> tuple[bool, str]:
     return ok, output
 
 
+def lint(env: dict) -> tuple[bool, str]:
+    reports = lambda: sorted(RESULTS.glob('**/reports/lint-results-debug.txt'))  # noqa: E731
+    for report in reports():
+        report.unlink()
+    ok, output = gradle(env, 'lintDebug')
+    if not ok:
+        found = [r.read_text().strip() for r in reports()]
+        output = '\n'.join([output, *(f for f in found if f and not f.startswith('No issues found'))])
+    if not ok and '[NewApi]' in output:
+        output += ('\n[minimum-os-apis] A call above minSdk 29 compiles, but crashes on the older devices the app '
+                   'supports. Check the version first (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { ... } with '
+                   'a path for older versions), or use the AndroidX compat helper (ContextCompat and the like). Never '
+                   'raise minSdk or silence Lint; if neither works, stop and report.')
+    return ok, output
+
+
 def tests(env: dict) -> tuple[bool, str]:
     """Every module's tests run and pass. A module with test sources and no results fails, and so does a skipped test,
     however it was skipped (Konsist bans @Ignore; this catches the rest)."""
@@ -101,6 +119,8 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
                       'compileDebugUnitTestKotlin', 'testClasses')
     if name == 'detekt':
         return gradle(env, 'detektMainJvm', 'detektTestJvm', 'detektMain', 'detektTest')
+    if name == 'lint':
+        return lint(env)
     if name == 'konsist':
         return konsist(env)
     if name == 'arch':

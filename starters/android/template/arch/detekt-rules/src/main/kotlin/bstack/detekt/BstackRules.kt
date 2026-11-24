@@ -1,15 +1,21 @@
 package bstack.detekt
 
 import dev.detekt.api.Config
+import dev.detekt.api.RequiresAnalysisApi
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
 import dev.detekt.api.Rule
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
+import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
 import org.jetbrains.kotlin.psi.KtCatchClause
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtThrowExpression
 import java.net.URI
 
@@ -17,7 +23,7 @@ import java.net.URI
 class BstackRules : RuleSetProvider {
     override val ruleSetId = RuleSetId("bstack")
 
-    override fun instance(): RuleSet = RuleSet(ruleSetId, listOf(::NoForceCast, ::NoThrow))
+    override fun instance(): RuleSet = RuleSet(ruleSetId, listOf(::NoForceCast, ::NoThrow, ::NoPlatformTypeCall))
 }
 
 /** `x as T` throws when x isn't a T: a force cast. `as?` with a fallback is the safe form. */
@@ -68,4 +74,43 @@ private fun rethrowsItsCatch(expression: KtThrowExpression): Boolean {
         parent = parent.parent
     }
     return false
+}
+
+/** A Java result without nullability annotations has a platform type (`File!`): Kotlin lets `.` and `for` use it as
+ * if it can't be null, and a null crashes there, as `!!` would (`dir.listFiles().forEach { }`). */
+class NoPlatformTypeCall(config: Config) : Rule(
+    config,
+    "No member calls or loops on Java results of unknown nullability: give them a Kotlin type first.",
+    URI("https://github.com/BrettHamlin/b-stack/blob/main/rules/no-force-operations/rule.toml"),
+), RequiresAnalysisApi {
+    override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+        super.visitDotQualifiedExpression(expression)
+        if (isPlatformType(expression.receiverExpression)) {
+            report(expression.receiverExpression, "`${expression.receiverExpression.text}.`")
+        }
+    }
+
+    override fun visitForExpression(expression: KtForExpression) {
+        super.visitForExpression(expression)
+        val range = expression.loopRange ?: return
+        if (isPlatformType(range)) report(range, "`for (... in ${range.text})`")
+    }
+
+    /** A flexible type Kotlin treats as non-null (`File!`); after `?.` its lower bound is nullable, which the
+     * compiler already makes code handle. */
+    private fun isPlatformType(expression: KtExpression): Boolean = analyze(expression) {
+        val type = expression.expressionType
+        type is KaFlexibleType && !type.lowerBound.isMarkedNullable
+    }
+
+    private fun report(expression: KtExpression, use: String) {
+        report(
+            Finding(
+                Entity.from(expression),
+                "[no-force-operations] $use uses a Java result whose nullability Kotlin doesn't know (a platform type), " +
+                    "as if it can't be null; if it is, this crashes, as `!!` would. Give it a type first: " +
+                    "`val files: Array<File>? = dir.listFiles()`, then handle null (`?.`, `?:`, `orEmpty()`).",
+            ),
+        )
+    }
 }

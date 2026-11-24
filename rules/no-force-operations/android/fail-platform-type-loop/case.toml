@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[no-force-operations] `for (... in System.getProperties().stringPropertyNames())` uses a Java result whose nullability Kotlin doesn't know"
+uses_example = false

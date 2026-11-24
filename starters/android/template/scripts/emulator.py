@@ -24,7 +24,7 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tools import android_env, pins, sdk_root, tool_path  # noqa: E402
+from tools import android_env, sdk_packages, sdk_root, tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 AVD = 'bstack-api37'
@@ -32,7 +32,7 @@ HELD = 'BSTACK_EMULATOR_LOCK'  # set for children of the lock's holder, so they 
 
 
 def image() -> str:
-    return next(p for p in pins()['android-sdk']['packages'] if p.startswith('system-images;'))
+    return next(p for p in sdk_packages() if p.startswith('system-images;'))
 
 
 def adb(env: dict, *args: str, serial: str | None = None, timeout: float = 120) -> str:

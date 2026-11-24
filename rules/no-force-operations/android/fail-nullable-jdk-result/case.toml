@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'Array<(out) File!>?'"
+uses_example = false

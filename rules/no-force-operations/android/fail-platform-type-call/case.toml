@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[no-force-operations] `activity.intent.` uses a Java result whose nullability Kotlin doesn't know (a platform type)"
+uses_example = false

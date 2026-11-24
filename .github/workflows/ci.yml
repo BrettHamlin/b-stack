@@ -1,5 +1,6 @@
 # b-stack's own checks. iOS cases need Xcode 27.2 and an iOS 27.2 simulator, which hosted runners don't have; run
-# `python3 scripts/test_rules.py --platform ios` on a Mac that does before merging changes that touch iOS.
+# `python3 scripts/test_rules.py --platform ios` on a Mac that does before merging changes that touch iOS. Android runs
+# on Linux, where the emulator gets KVM.
 name: ci
 
 on:
@@ -45,6 +46,40 @@ jobs:
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
       - name: Every Rust rule case through the Rust starter's gates
         run: python3 scripts/test_rules.py --platform rust
+
+  android:
+    # Linux, not macOS: GitHub's Linux runners give the emulator KVM, and its macOS runners can't run it. The starter
+    # pins an x86_64 system image and Linux tools for this (tools.toml, linux-x64).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Cache folder for tools and build output (on /mnt, the runner's larger disk)
+        run: |
+          sudo mkdir -p /mnt/bstack-cache && sudo chown "$USER" /mnt/bstack-cache
+          echo "BSTACK_CACHE_DIR=/mnt/bstack-cache" >> "$GITHUB_ENV"
+      - name: The starter's own gates (check.py), journeys and the shipped app's launch on the emulator
+        working-directory: starters/android/template
+        run: python3 scripts/check.py
+      - name: Every Android rule case through the starter's gates
+        run: python3 scripts/test_rules.py --platform android
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: android-evidence
+          path: |
+            starters/android/template/.build/evidence/
+            starters/android/template/.build/emulator.log
+          if-no-files-found: ignore
 
   typescript:
     runs-on: macos-15

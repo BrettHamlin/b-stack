@@ -2,13 +2,17 @@
 
 Map check (feature-map/*.toml):
   - every feature folder (features/<name>) is in exactly one feature's `modules`, and every module named is one
-  - each feature has a journey that turns the device (Screen.rotate), so its state must survive recreation
+  - each feature has a journey that turns the device (Screen.rotate), so its state must survive recreation, and one
+    that has the app's process end in the background (Screen.returnAfterProcessDeath), so it must survive that too
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
   - the journeys in verify/journeys (top-level `fun Journey.<name>()`) are exactly the mapped ones
   - verify/runner holds only Driver.kt and the generated adapters (Journeys.kt), which match what `adapters` writes
 Run: app-verify and the runner are built, then the journeys run on the emulator (scripts/emulator.py, holding its
 lock): the runner drives app-verify through UiAutomator, one JUnit test per journey.
   - every mapped journey runs once and passes, and saves at least one screenshot (Screen.checkpoint)
+Smoke: the shipped app (app, a debug build: its own manifest and composition root, which journeys never run) is
+installed with no data and launched from its launcher entry; it must still be running and showing its window a few
+seconds later, with nothing in the crash log. Its screenshot is evidence too (shipped-app/launched.png).
 Evidence (screenshots per journey, and evidence.md listing them) goes to .build/evidence/latest/.
 
 Usage: python3 scripts/verify.py [map|run]     (default: run, which does the map check first)
@@ -20,6 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -60,17 +65,18 @@ def journey_bodies() -> dict[str, str]:
     return bodies
 
 
-def rotates(body: str) -> bool:
-    """Whether a journey body turns the device, directly or through a helper in verify/journeys that does."""
+def takes(step: str, body: str) -> bool:
+    """Whether a journey body takes a Screen step (`rotate`), directly or through a helper in verify/journeys that does."""
+    call = re.compile(rf'\b{step}\s*\(\s*\)')
     helpers = set()
     for path in sorted(JOURNEYS.rglob('*.kt')):
         text = path.read_text()
         starts = list(re.finditer(r'^(?:[\w@]+[ \t]+)*fun\s+(?:[\w.<>]+\.)?(\w+)\s*\(', text, re.MULTILINE))
         for i, m in enumerate(starts):
             end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-            if re.search(r'\brotate\s*\(\s*\)', text[m.end():end]):
+            if call.search(text[m.end():end]):
                 helpers.add(m.group(1))
-    return bool(re.search(r'\brotate\s*\(\s*\)', body)) or any(re.search(rf'\b{h}\s*\(', body) for h in helpers)
+    return bool(call.search(body)) or any(re.search(rf'\b{h}\s*\(', body) for h in helpers)
 
 
 def journeys_in_code() -> list[str]:
@@ -126,10 +132,14 @@ def map_errors(features: list[dict]) -> list[str]:
     bodies = journey_bodies()
     for feature in features:
         names = [j.get('name') for j in feature.get('journeys', [])]
-        if names and all(n in bodies for n in names) and not any(rotates(bodies[n]) for n in names):
+        if names and all(n in bodies for n in names) and not any(takes('rotate', bodies[n]) for n in names):
             errors.append(f'[verified-features] {feature["file"]}: none of its journeys turns the device (screen.rotate()). '
                           'Each feature has one that does, checking its state and half-done input survive the screen '
                           'being recreated.')
+        if names and all(n in bodies for n in names) and not any(takes('returnAfterProcessDeath', bodies[n]) for n in names):
+            errors.append(f'[verified-features] {feature["file"]}: none of its journeys has the app\'s process end in the '
+                          'background (screen.returnAfterProcessDeath()). Each feature has one that does, checking its '
+                          'state and half-done input come back in a new process (keep input in the model\'s Saved).')
     other = sorted({m.group(1) for path in sorted(JOURNEYS.rglob('*.kt')) for m in ANY_JOURNEY.finditer(path.read_text())} - set(code))
     errors += [f'[verified-features] journey `{n}` in verify/journeys isn\'t declared as a plain top-level '
                f'`fun Journey.{n}()`, so it never runs (a helper for journeys: make it private).' for n in other]
@@ -181,9 +191,43 @@ def parse_instrumentation(output: str) -> dict[str, tuple[str, str]]:
     return results
 
 
+def smoke(env: dict, serial: str) -> list[str]:
+    """Launches the shipped app as a user would on a fresh install; it must start and stay up."""
+    shipped = app_id('app')
+    out = adb(env, 'install', '-r', str(apk('app')), serial=serial, timeout=300)
+    if 'Success' not in out:
+        return [f'[verified-features] installing the shipped app (app) failed:\n{out[-2000:]}']
+    adb(env, 'shell', 'pm', 'clear', shipped, serial=serial)
+    adb(env, 'logcat', '-b', 'crash', '-c', serial=serial)
+    activity = adb(env, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-c', 'android.intent.category.LAUNCHER',
+                   shipped, serial=serial).strip().splitlines()[-1:]
+    if not activity or '/' not in activity[0]:
+        return [f'[verified-features] the shipped app ({shipped}) has no launcher activity, so users can\'t open it. Its '
+                'manifest (app/src/main/AndroidManifest.xml) needs one activity with MAIN and LAUNCHER.']
+    started = adb(env, 'shell', 'am', 'start', '-W', '-n', activity[0], serial=serial, timeout=60)
+    time.sleep(3)  # a crash in the first frames, or in work started at launch
+    crash = adb(env, 'logcat', '-b', 'crash', '-d', serial=serial).strip()
+    alive = adb(env, 'shell', 'pidof', shipped, serial=serial).strip()
+    focus = adb(env, 'shell', 'dumpsys', 'window', 'displays', serial=serial)
+    shown = any(shipped in line for line in focus.splitlines() if 'mCurrentFocus' in line or 'mFocusedApp' in line)
+    folder = EVIDENCE / 'shipped-app'
+    folder.mkdir(parents=True, exist_ok=True)
+    with (folder / 'launched.png').open('wb') as png:
+        subprocess.run([str(Path(env['ANDROID_HOME']) / 'platform-tools/adb'), '-s', serial, 'exec-out', 'screencap', '-p'],
+                       env=env, stdout=png, timeout=60)
+    adb(env, 'shell', 'am', 'force-stop', shipped, serial=serial)
+    if 'Status: ok' in started and alive and shown and not crash:
+        return []
+    return [f'[verified-features] the shipped app (app, {shipped}) didn\'t start and stay up on a fresh install: '
+            'journeys run app-verify, so this is the only run of app\'s own manifest and composition root '
+            '(StarterApp, MainActivity). Fix the app.\n'
+            f'{started.strip()[-1500:]}\n{crash[-3000:] or ("not running" if not alive else "its window isn\'t shown")}']
+
+
 def run(features: list[dict]) -> list[str]:
     env = android_env()
-    build = subprocess.run(gradle_command('-q', ':app-verify:assembleDebug', ':verify:runner:assembleDebug'), env=env,
+    build = subprocess.run(gradle_command('-q', ':app-verify:assembleDebug', ':verify:runner:assembleDebug',
+                                          ':app:assembleDebug'), env=env,
                            capture_output=True, text=True)
     if build.returncode != 0:
         return [f'[verified-features] the app didn\'t build, so it can\'t run:\n{(build.stdout + build.stderr)[-4000:]}']
@@ -199,9 +243,10 @@ def run(features: list[dict]) -> list[str]:
         output = adb(env, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'bstack.app', target, '-e', 'bstack.evidence',
                      device_evidence, f'{runner}/androidx.test.runner.AndroidJUnitRunner', serial=serial, timeout=1800)
         adb(env, 'pull', device_evidence + '/.', str(EVIDENCE), serial=serial, timeout=300)
+        smoke_errors = smoke(env, serial)
     (EVIDENCE / 'instrumentation.txt').write_text(output)
     results = parse_instrumentation(output)
-    errors: list[str] = []
+    errors: list[str] = list(smoke_errors)
     mapped = {j['name']: f['file'] for f in features for j in f.get('journeys', []) if j.get('name')}
     errors += [f'[verified-features] {mapped[n]}: journey `{n}` didn\'t run.' for n in mapped if n not in results]
     lines = ['# Verify evidence', '']
