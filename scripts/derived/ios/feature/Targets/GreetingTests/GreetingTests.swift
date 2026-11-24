@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import GreetingInterface
 import GreetingLogic
 import Testing
 
@@ -7,6 +8,6 @@ import Testing
     @Test func greetsTheNameTypedIn() async {
         let store = TestStore(initialState: Greeter.State()) { Greeter() }
         await store.send(.nameChanged("Ada")) { $0.name = "Ada" }
-        await store.send(.greetTapped) { $0.shown = "Hello, Ada!" }
+        await store.send(.greet(PersonName("Ada"))) { $0.shown = "Hello, Ada!" }
     }
 }

@@ -1,4 +1,5 @@
 public import ComposableArchitecture
+public import GreetingInterface
 
 /// Greets the name typed in.
 @Reducer
@@ -16,7 +17,7 @@ public struct Greeter: Sendable {
 
     public enum Action: Equatable, Sendable {
         case nameChanged(String)
-        case greetTapped
+        case greet(PersonName)
     }
 
     public init() {}
@@ -27,8 +28,8 @@ public struct Greeter: Sendable {
             case let .nameChanged(name):
                 state.name = name
                 return .none
-            case .greetTapped:
-                state.shown = "Hello, \(state.name)!"
+            case let .greet(name):
+                state.shown = "Hello, \(name.text)!"
                 return .none
             }
         }

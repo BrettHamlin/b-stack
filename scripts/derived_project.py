@@ -44,7 +44,8 @@ class Plan:
     feature: str | None  # the feature new_feature.py adds (None: the starter has none)
     remove: tuple[str, ...]  # the example, as the new-project skill lists it
     fill: dict[str, tuple[tuple[str, str], ...]] = field(default_factory=dict)  # file: (find, replace), each once
-    settle: tuple[str, ...] = ()  # run before each commit, outside CI: brings lock files up to date, as a local run does
+    settle: tuple[str, ...] = ()  # run before the feature's commit, outside CI: brings lock files (and generated
+    # journey adapters) up to date, as an agent's local run does
 
 
 PLANS = {
@@ -137,7 +138,6 @@ def make(name: str, folder: Path) -> Path:
     overlay(here / 'skeleton', repo)
 
     git(repo, 'init', '-q', '-b', 'main')
-    settle(plan, repo)
     git(repo, 'config', 'core.hooksPath', '.githooks')
     git(repo, 'add', '-A')
     git(repo, 'commit', '-q', '--no-verify', '-m', 'Set up from the b-stack starter, example removed')

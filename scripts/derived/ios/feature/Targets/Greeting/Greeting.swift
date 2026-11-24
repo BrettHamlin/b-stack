@@ -15,7 +15,7 @@ public struct GreeterView: View {
         VStack {
             TextField("Name", text: $store.name.sending(\.nameChanged))
                 .accessibilityIdentifier(GreeterUIID.name.rawValue)
-            Button("Greet") { store.send(.greetTapped) }
+            Button("Greet") { store.send(.greet(PersonName(store.name))) }
                 .accessibilityIdentifier(GreeterUIID.greet.rawValue)
             Text(store.shown)
                 .accessibilityIdentifier(GreeterUIID.shown.rawValue)

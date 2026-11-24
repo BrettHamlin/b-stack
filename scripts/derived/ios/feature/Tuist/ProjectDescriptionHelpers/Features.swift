@@ -6,4 +6,4 @@ public let features: [Feature] = [
     Feature("Greeting", links: [.viewUsesCore]),
 ]
 
-public let sharedLinks: Set<SharedLink> = [.platformUsesCore, .fixturesUseCore, .fixturesUsePlatform, .appUsesPlatform]
+public let sharedLinks: Set<SharedLink> = []
