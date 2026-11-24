@@ -32,14 +32,18 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/bstack-cache"
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
-      - name: Every gate (check.py), journeys against the debug and release builds
-        run: python3 scripts/check.py
+      # First: its build is --locked, so it fails on a Cargo.lock the commit doesn't match, before check.py's cargo
+      # commands could update it.
       - name: The release binary, checked, and its smoke run
         run: python3 scripts/package.py
+      - name: Every gate (check.py), journeys against the debug and release builds
+        run: python3 scripts/check.py
+      - name: The binary and its checksum in one archive (an artifact's zip would drop the executable bit)
+        run: tar -czf "$RUNNER_TEMP/release.tar.gz" -C .build/package/out .
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: release
-          path: .build/package/out/
+          path: ${{ runner.temp }}/release.tar.gz
+          archive: false
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         if: always()

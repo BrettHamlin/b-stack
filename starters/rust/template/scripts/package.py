@@ -35,12 +35,13 @@ def smoke(binary: Path, scratch: Path) -> list[str]:
     data.mkdir()
     args = [a.replace('{data}', str(data)) for a in spec['args']]
     try:
-        proc = subprocess.run([str(binary), *args], cwd=scratch, capture_output=True, text=True, timeout=60)
+        proc = subprocess.run([str(binary), *args], cwd=scratch, capture_output=True, timeout=60)  # bytes: exact output
     except subprocess.TimeoutExpired:
         return [f'[release] the release build didn\'t finish its smoke run ({SMOKE.relative_to(ROOT)}) in 60 s.']
-    if proc.returncode != 0 or proc.stdout != spec['stdout']:
+    if proc.returncode != 0 or proc.stdout != spec['stdout'].encode():
         return [f'[release] the release build\'s smoke run ({SMOKE.relative_to(ROOT)}) exited {proc.returncode} '
-                f'printing {proc.stdout!r} (expected 0 and {spec["stdout"]!r}).\n{proc.stderr.strip()[-2000:]}']
+                f'printing {proc.stdout!r} (expected 0 and {spec["stdout"].encode()!r}).\n'
+                f'{proc.stderr.decode(errors="replace").strip()[-2000:]}']
     return []
 
 
