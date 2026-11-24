@@ -26,7 +26,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator import boot, in_use  # noqa: E402
 from tools import android_env, gradle_command, sdk_packages  # noqa: E402
-from verify import EVIDENCE, KEYS, app_id, smoke, throwaway_key  # noqa: E402
+from verify import EVIDENCE, KEYS, smoke, throwaway_key  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '.build/package/out'
@@ -53,35 +53,38 @@ def main() -> int:
     if build.returncode != 0:
         print((build.stdout + build.stderr)[-4000:])
         return 1
+    # Copied out at once, so a release gate run in this checkout meanwhile (which rebuilds the same outputs with the
+    # throwaway key) can't change what is checked, launched and kept.
     outputs = ROOT / '.build/gradle/app/outputs'
-    apk, aab = outputs / 'apk/release/app-release.apk', outputs / 'bundle/release/app-release.aab'
+    built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())
+    version = f'{built["elements"][0]["versionName"]}-{built["elements"][0]["versionCode"]}'
+    name = f'starter-{version}' + ('-test-signed' if test_signed else '')
+    OUT.mkdir(parents=True, exist_ok=True)
+    apk, aab, mapping = OUT / f'{name}.apk', OUT / f'{name}.aab', OUT / f'{name}-mapping.txt'
+    shutil.copy(outputs / 'apk/release/app-release.apk', apk)
+    shutil.copy(outputs / 'bundle/release/app-release.aab', aab)
+    shutil.copy(outputs / 'mapping/release/mapping.txt', mapping)
     build_tools = next(p.split(';')[1] for p in sdk_packages() if p.startswith('build-tools;'))
     apksigner = Path(env['ANDROID_HOME']) / 'build-tools' / build_tools / 'apksigner'
     problems = []
-    if not apk.is_file() or subprocess.run([str(apksigner), 'verify', str(apk)], env=env, capture_output=True).returncode:
+    if subprocess.run([str(apksigner), 'verify', str(apk)], env=env, capture_output=True).returncode:
         problems.append(f'{apk.name} isn\'t signed (apksigner verify failed).')
     jarsigner = subprocess.run([str(Path(env['JAVA_HOME']) / 'bin/jarsigner'), '-verify', str(aab)], env=env,
                                capture_output=True, text=True)
-    if not aab.is_file() or 'jar verified' not in jarsigner.stdout:
+    if 'jar verified' not in jarsigner.stdout:
         problems.append(f'{aab.name} isn\'t signed (jarsigner -verify: {jarsigner.stdout.strip()[-300:]}).')
+    if not problems:
+        folder = EVIDENCE.parent / 'package'
+        shutil.rmtree(folder, ignore_errors=True)
+        with in_use(f'package.py in {ROOT}'):
+            problems = [p.replace('[verified-features] ', '[release] ') for p in
+                        smoke(env, boot(env), 'release', folder, (apk, built['applicationId']))]
     if problems:
+        for path in (apk, aab, mapping):
+            path.unlink(missing_ok=True)  # never leave an output that failed a check
         print('\n'.join(problems))
         return 1
-    folder = EVIDENCE.parent / 'package'
-    shutil.rmtree(folder, ignore_errors=True)
-    with in_use(f'package.py in {ROOT}'):
-        failed = smoke(env, boot(env), 'release', folder)
-    if failed:
-        print('\n'.join(failed).replace('[verified-features] ', '[release] '))
-        return 1
-    built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())['elements'][0]
-    version = f'{built["versionName"]}-{built["versionCode"]}'
-    name = f'starter-{version}' + ('-test-signed' if test_signed else '')
-    OUT.mkdir(parents=True, exist_ok=True)
-    shutil.copy(aab, OUT / f'{name}.aab')
-    shutil.copy(apk, OUT / f'{name}.apk')
-    shutil.copy(outputs / 'mapping/release/mapping.txt', OUT / f'{name}-mapping.txt')
-    print(f'package: {app_id("app", "release")} {version}, signed{" with a throwaway test key (not for upload)" if test_signed else ""}; '
+    print(f'package: {built["applicationId"]} {version}, signed{" with a throwaway test key (not for upload)" if test_signed else ""}; '
           f'the release build started and stayed up on the emulator. Outputs: {OUT}')
     return 0
 

@@ -200,13 +200,14 @@ def parse_instrumentation(output: str) -> dict[str, tuple[str, str]]:
     return results
 
 
-def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENCE / 'shipped-app') -> list[str]:
-    """Launches the shipped app's build (debug here; package.py passes release) as a user would on a fresh install:
-    it must start and stay up. The app is uninstalled before and after, since its builds are signed with different
-    keys."""
-    shipped = app_id('app', variant)
+def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENCE / 'shipped-app',
+          built: tuple[Path, str] | None = None) -> list[str]:
+    """Launches the shipped app's build (debug for verify, release for the release gate; package.py passes its own
+    copy of the APK and its id as `built`) as a user would on a fresh install: it must start and stay up. The app is
+    uninstalled before and after, since its builds are signed with different keys."""
+    path, shipped = built or (apk('app', variant), app_id('app', variant))
     adb(env, 'uninstall', shipped, serial=serial)
-    out = adb(env, 'install', str(apk('app', variant)), serial=serial, timeout=300)
+    out = adb(env, 'install', str(path), serial=serial, timeout=300)
     if 'Success' not in out:
         return [f'[verified-features] installing the shipped app (app, {variant}) failed:\n{out[-2000:]}']
     try:
