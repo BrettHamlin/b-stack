@@ -22,7 +22,10 @@ Evidence goes to .build/evidence/release/.
 Usage: python3 scripts/verify.py [map|run|release]     (default: run, which does the map check first)
        python3 scripts/verify.py adapters      write verify/runner's adapters for the journeys in verify/journeys
 """
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
+from typing import Iterator
+import fcntl
 import json
 import re
 import shutil
@@ -257,9 +260,25 @@ def throwaway_key(env: dict) -> dict:
     return dict(zip(KEYS, (str(store), 'test-only', 'test', 'test-only')))
 
 
+@contextmanager
+def release_outputs() -> Iterator[None]:
+    """This checkout's release build outputs, held by whoever builds them until it has read them (the release gate,
+    package.py), so one never reads the other's build."""
+    lock = ROOT / '.build/package/release-build.lock'
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with lock.open('w') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+
+
 def run(features: list[dict], variant: str = 'debug', evidence: Path = EVIDENCE) -> list[str]:
     """Builds app-verify, the runner and the shipped app as `variant` (release: R8, as shipped), runs every journey
     against app-verify, then smoke-launches the shipped app."""
+    with release_outputs() if variant == 'release' else nullcontext():
+        return built_and_run(features, variant, evidence)
+
+
+def built_and_run(features: list[dict], variant: str, evidence: Path) -> list[str]:
     env = android_env()
     tasks = [f':app-verify:assemble{variant.title()}', ':verify:runner:assembleDebug', f':app:assemble{variant.title()}']
     signing = throwaway_key(env) if variant == 'release' else {}

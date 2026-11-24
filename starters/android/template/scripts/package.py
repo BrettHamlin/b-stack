@@ -22,11 +22,12 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator import boot, in_use  # noqa: E402
 from tools import android_env, gradle_command, sdk_packages  # noqa: E402
-from verify import EVIDENCE, KEYS, smoke, throwaway_key  # noqa: E402
+from verify import EVIDENCE, KEYS, release_outputs, smoke, throwaway_key  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '.build/package/out'
@@ -47,23 +48,34 @@ def main() -> int:
     signing['BSTACK_UPLOAD_KEYSTORE'] = str(Path(signing['BSTACK_UPLOAD_KEYSTORE']).resolve())
     props = ([f'-Pbstack.versionName={args.version_name}'] if args.version_name else []) + \
             ([f'-Pbstack.versionCode={args.version_code}'] if args.version_code else [])
-    # Only Gradle sees the key's passwords; the emulator package.py may boot doesn't.
-    build = subprocess.run(gradle_command('-q', *props, ':app:bundleRelease', ':app:assembleRelease'), cwd=ROOT,
-                           env={**env, **signing}, capture_output=True, text=True)
-    if build.returncode != 0:
-        print((build.stdout + build.stderr)[-4000:])
-        return 1
-    # Copied out at once, so a release gate run in this checkout meanwhile (which rebuilds the same outputs with the
-    # throwaway key) can't change what is checked, launched and kept.
+    # Staged, checked and launched in a folder of its own, then moved to .build/package/out/ only if every check
+    # passes, so nothing unchecked is ever left there.
+    staging = Path(tempfile.mkdtemp(dir=ROOT / '.build', prefix='package-'))
+    try:
+        return build_check_and_keep(env, props, signing, test_signed, staging)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def build_check_and_keep(env: dict, props: list[str], signing: dict, test_signed: bool, staging: Path) -> int:
     outputs = ROOT / '.build/gradle/app/outputs'
-    built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())
-    version = f'{built["elements"][0]["versionName"]}-{built["elements"][0]["versionCode"]}'
-    name = f'starter-{version}' + ('-test-signed' if test_signed else '')
-    OUT.mkdir(parents=True, exist_ok=True)
-    apk, aab, mapping = OUT / f'{name}.apk', OUT / f'{name}.aab', OUT / f'{name}-mapping.txt'
-    shutil.copy(outputs / 'apk/release/app-release.apk', apk)
-    shutil.copy(outputs / 'bundle/release/app-release.aab', aab)
-    shutil.copy(outputs / 'mapping/release/mapping.txt', mapping)
+    # The release gate builds the same outputs (with the throwaway key): the lock keeps it out until they're copied.
+    with release_outputs():
+        # Only Gradle sees the key's passwords; the emulator package.py may boot doesn't.
+        build = subprocess.run(gradle_command('-q', *props, ':app:bundleRelease', ':app:assembleRelease'), cwd=ROOT,
+                               env={**env, **signing}, capture_output=True, text=True)
+        if build.returncode != 0:
+            print((build.stdout + build.stderr)[-4000:])
+            return 1
+        built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())
+        version = f'{built["elements"][0]["versionName"]}-{built["elements"][0]["versionCode"]}'
+        name = f'starter-{version}' + ('-test-signed' if test_signed else '')
+        staged = {staging / f'{name}.apk': outputs / 'apk/release/app-release.apk',
+                  staging / f'{name}.aab': outputs / 'bundle/release/app-release.aab',
+                  staging / f'{name}-mapping.txt': outputs / 'mapping/release/mapping.txt'}
+        for target, source in staged.items():
+            shutil.copy(source, target)
+    apk, aab = staging / f'{name}.apk', staging / f'{name}.aab'
     build_tools = next(p.split(';')[1] for p in sdk_packages() if p.startswith('build-tools;'))
     apksigner = Path(env['ANDROID_HOME']) / 'build-tools' / build_tools / 'apksigner'
     problems = []
@@ -80,10 +92,11 @@ def main() -> int:
             problems = [p.replace('[verified-features] ', '[release] ') for p in
                         smoke(env, boot(env), 'release', folder, (apk, built['applicationId']))]
     if problems:
-        for path in (apk, aab, mapping):
-            path.unlink(missing_ok=True)  # never leave an output that failed a check
         print('\n'.join(problems))
         return 1
+    OUT.mkdir(parents=True, exist_ok=True)
+    for target in staged:
+        shutil.move(target, OUT / target.name)
     print(f'package: {built["applicationId"]} {version}, signed{" with a throwaway test key (not for upload)" if test_signed else ""}; '
           f'the release build started and stayed up on the emulator. Outputs: {OUT}')
     return 0
