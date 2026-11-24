@@ -1,0 +1,5 @@
+# A test that needs a feature nothing turns on is never compiled, so `cargo test --workspace --all-targets` skips it.
+expect = "fail"
+enforced_by = "settings"
+uses_example = false
+diagnostic = "[protected-enforcement] compiler arguments (dev profile): cargo never compiled crates/platform/probe/tests/gated.rs"

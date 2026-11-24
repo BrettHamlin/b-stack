@@ -827,6 +827,16 @@ class RustNewFeatureTests(unittest.TestCase):
         self.assertEqual(taken.returncode, 1)
         self.assertIn('a crate named `files` is already in the workspace', taken.stderr)
 
+    def test_writes_nothing_when_a_file_it_edits_is_read_only(self) -> None:
+        journeys = self.root / 'crates/app/tests/journeys.rs'
+        journeys.chmod(0o444)
+        self.addCleanup(journeys.chmod, 0o644)
+        result = self.run_new('notes')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("crates/app/tests/journeys.rs can't be written", result.stderr)
+        self.assertFalse((self.root / 'crates/features/notes').exists())
+        self.assertFalse((self.root / 'feature-map/notes.toml').exists())
+
     def test_writes_nothing_when_one_edit_cant_be_made(self) -> None:
         app = self.root / 'crates/app/Cargo.toml'
         app.write_text(app.read_text().replace('[dependencies]', '[dev-dependencies]'))
@@ -845,7 +855,8 @@ class RustWorkflowTests(unittest.TestCase):
         ours = (ROOT / '.github/workflows/ci.yml').read_text()
         job = ours[ours.index('\n  rust:'):]
         job = job[:re.search(r'\n  [a-z-]+:\n', job[1:]).start() + 1]
-        for command in ('runs-on: ubuntu-24.04', 'echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"',
+        for command in ('runs-on: ubuntu-24.04', 'mkdir -p "$RUNNER_TEMP/bstack-cache"\n',
+                        'echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"',
                         'run: python3 scripts/check.py\n'):
             self.assertIn(command, starter)
             self.assertIn(command, job)

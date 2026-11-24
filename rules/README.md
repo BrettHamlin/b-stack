@@ -79,7 +79,7 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [thin-app](thin-app/rule.toml) | 2 | Harmonize |  |  | Konsist | The shipped App only composes screens and services; no decisions, functions or tasks |
 | [views-hold-no-clients](views-hold-no-clients/rule.toml) | 1+2 | compiler, Harmonize |  |  | compiler, Konsist | A feature's view gets only its store; clients go into the reducer |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize |  | oxlint | Konsist | TCA tests stay exhaustive (no exhaustivity off or skips; TypeScript: whole-value assertions) |
-| [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch | tests, oxlint, arch | tests, Konsist, arch | Every test target runs in the tests gate |
+| [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch, settings | tests, oxlint, arch | tests, Konsist, arch | Every test target runs in the tests gate |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist |  | arch, oxlint | compiler | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |
 | [allowed-dependencies](allowed-dependencies/rule.toml) | 2 |  | arch, cargo-deny | arch, deps | compiler, deps | Third-party packages only from each role's list, the registry, allowed licenses |
 | [verified-features](verified-features/rule.toml) | 3 | verify | verify | verify (Playwright) | verify, release (UiAutomator) | Every feature is in the feature map and its journeys pass in the running app |

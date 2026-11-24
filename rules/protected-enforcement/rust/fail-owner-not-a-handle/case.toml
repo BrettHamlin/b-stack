@@ -1,0 +1,10 @@
+# GitHub reads only @user, @org/team or an email address as an owner; a bare word names no one.
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] CODEOWNERS: `/deny.toml` has no owner"
+uses_example = false
+
+[[edits]]
+file = "CODEOWNERS"
+find = "/deny.toml             @OWNER"
+replace = "/deny.toml             maintainer"

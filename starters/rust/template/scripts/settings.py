@@ -42,6 +42,7 @@ FIX = ('Restore it. If the change is meant, it needs the owner: they change the 
 VALUED = {'-C', '-L', '-l', '-D', '-A', '-W', '-F', '-Z', '-o', '--crate-name', '--crate-type', '--cfg', '--check-cfg',
           '--extern', '--out-dir', '--cap-lints', '--target', '--emit', '--json', '--error-format', '--edition',
           '--force-warn', '--sysroot', '--remap-path-prefix', '--print'}
+OWNER = re.compile(r'^@[A-Za-z0-9-]+(/[A-Za-z0-9._-]+)?$|^[^@\s]+@[^@\s]+\.[^@\s]+$')
 LEVELS = {'-D': '--deny', '-A': '--allow', '-W': '--warn', '-F': '--forbid', '--force-warn': '--force-warn'}
 # Where output goes, which build it is, how it links and how much debug info it keeps: none of it changes a check.
 IGNORED = re.compile(r'^(--crate-name|--crate-type|--error-format|--json|--emit|--out-dir|-L|-l|--extern|--check-cfg|'
@@ -88,8 +89,9 @@ def normalized(args: list[str]) -> tuple[list[str], str, str, bool]:
     return kept, source, crate_type, test
 
 
-def compiled() -> list[dict]:
-    """Every workspace target's compile, dev and release, as cargo runs it under check.py's environment."""
+def compiled() -> tuple[list[dict], list[str]]:
+    """Every workspace target's compile, dev and release, as cargo runs it under check.py's environment, and every
+    target cargo metadata lists (build scripts aside), by source file."""
     env = rust_env()
     WORK.mkdir(parents=True, exist_ok=True)
     wrapper, log = WORK / 'rustc-wrapper', WORK / 'compiles.jsonl'
@@ -102,7 +104,9 @@ def compiled() -> list[dict]:
                           capture_output=True, text=True)
     if meta.returncode != 0:
         sys.exit(f'[protected-enforcement] cargo metadata failed:\n{meta.stderr.strip()[-3000:]}')
-    members = [a for p in json.loads(meta.stdout)['packages'] for a in ('-p', p['name'])]
+    packages = json.loads(meta.stdout)['packages']
+    members = [a for p in packages for a in ('-p', p['name'])]
+    listed = sorted({relative(t['src_path']) for p in packages for t in p['targets'] if 'custom-build' not in t['kind']})
     for profile, flag in (('dev', []), ('release', ['--release'])):
         # Clean the workspace's own crates, so cargo compiles each one again and the wrapper sees it.
         subprocess.run(['cargo', 'clean', '--quiet', *flag, *members], cwd=ROOT, env=env, capture_output=True)
@@ -111,7 +115,7 @@ def compiled() -> list[dict]:
         if proc.returncode != 0:
             sys.exit(f'[protected-enforcement] Couldn\'t read the compiler settings ({profile} profile): the workspace '
                      f'doesn\'t check. Run the clippy gate.\n{proc.stderr.strip()[-3000:]}')
-    return [json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []
+    return ([json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []), listed
 
 
 def relative(path: str | None) -> str | None:
@@ -130,7 +134,8 @@ def effective() -> dict:
     """The settings in effect, in arch/settings.json's shape; compiler arguments are per target, not yet by kind."""
     env = rust_env()
     targets, clippy = [], []
-    for run in compiled():
+    runs, listed = compiled()
+    for run in runs:
         args, source, crate_type, test = normalized(run['argv'][2:] if Path(run['argv'][0]).name == 'clippy-driver'
                                                     else run['argv'][1:])
         where = relative(str(ROOT / source)) if source else relative(run['dir'])  # cargo runs rustc in the root
@@ -151,6 +156,7 @@ def effective() -> dict:
                                                                   text=True).stdout.splitlines() if ': ' in line)
     return {
         'targets': targets,
+        'listed': listed,
         'clippy': {'checks': [json.loads(c) for c in sorted({json.dumps(c, sort_keys=True) for c in clippy})],
                    'config': clippy_config},
         'rustdoc': {'RUSTDOCFLAGS': env.get('RUSTDOCFLAGS')},
@@ -212,17 +218,23 @@ def codeowners_rules() -> list[list[str]]:
 
 
 def codeowners_paths() -> list[str]:
-    return [rule[0] for rule in codeowners_rules() if len(rule) > 1]
+    return [rule[0] for rule in codeowners_rules() if owned(rule)]
+
+
+def owned(rule: list[str]) -> bool:
+    """GitHub owners are @user, @org/team or an email address; anything else names no one."""
+    return any(OWNER.match(owner) for owner in rule[1:])
 
 
 def codeowners_findings(expected: list[str]) -> list[str]:
     out = [f'[protected-enforcement] {other}: GitHub reads this CODEOWNERS before the root one. Keep code owners only in '
            f'/CODEOWNERS. {FIX}' for other in ('.github/CODEOWNERS', 'docs/CODEOWNERS') if (ROOT / other).exists()]
-    # A pattern with no owner removes ownership from what it matches, so every rule must name one.
+    # A pattern with no owner removes ownership from what it matches, so every rule must name one (an @ handle or an
+    # email address: GitHub ignores any other word).
     out += [f'[protected-enforcement] CODEOWNERS: `{rule[0]}` has no owner, which removes code-owner review from what '
-            f'it matches. {FIX}' for rule in codeowners_rules() if len(rule) < 2]
-    owned = set(codeowners_paths())
-    missing = [p for p in expected if p not in owned]
+            f'it matches. {FIX}' for rule in codeowners_rules() if not owned(rule)]
+    covered = set(codeowners_paths())
+    missing = [p for p in expected if p not in covered]
     if missing:
         out.append(f'[protected-enforcement] CODEOWNERS: no code owner for {", ".join(missing)}. Every enforcement '
                    f'path needs one. {FIX}')
@@ -233,6 +245,13 @@ def findings() -> list[str]:
     expected = json.loads(RECORD.read_text())
     found = effective()
     out = compiler_findings(expected['compiler'], found['targets'])
+    for profile in sorted(expected['compiler']):
+        seen = {t['where'] for t in found['targets'] if t['profile'] == profile}
+        missing = [where for where in found['listed'] if where not in seen]
+        if missing:
+            out.append(f'[protected-enforcement] compiler arguments ({profile} profile): cargo never compiled '
+                       f'{", ".join(missing)} (`required-features`, say), so no gate checks or tests it. Remove what '
+                       f'leaves it out. {FIX}')
     for section in ('clippy', 'rustdoc', 'cargo', 'deny', 'toolchain'):
         out += [f'[protected-enforcement] {section} {d}. {FIX}'
                 for d in differences(expected[section], found[section], '')]
