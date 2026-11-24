@@ -57,6 +57,20 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from platforms import PLATFORMS, platform_of  # noqa: E402
 import verify  # noqa: E402  (the iOS starter's fixture parser, pointed at the project below)
 SKIP = {'.build', '.tools', 'Derived'}
+PLACEHOLDER_OWNER = '@OWNER'
+
+
+def owned_by_project(edit: dict, text: str) -> dict:
+    """A case edit written against the starter's CODEOWNERS placeholder, aimed at a new app's CODEOWNERS instead: the
+    new-project skill replaces `@OWNER` with the owner's handle, so the edit uses that handle (the first owner in the
+    file) wherever it says `@OWNER`."""
+    if PLACEHOLDER_OWNER not in edit['find'] or PLACEHOLDER_OWNER in text:
+        return edit
+    owner = re.search(r'(?m)^[^#\s]\S*\s+(@\S+)', text)
+    if owner is None:
+        return edit
+    return {**edit, 'find': edit['find'].replace(PLACEHOLDER_OWNER, owner[1]),
+            'replace': edit['replace'].replace(PLACEHOLDER_OWNER, owner[1])}
 
 
 def default_jobs() -> int:
@@ -138,10 +152,13 @@ work_root = (cache / 'rule-tests' if cache else ROOT / '.build/rule-tests') / \
 class Worker:
     work: Path
     simulator: str | None
+    base: str | None = None  # the commit of the untouched project in this copy (platform.base_commit)
 
     def env(self) -> dict:
         # One simulator per worker, and verify inside a case runs on that one only (no clones).
         env = {**base_env, 'BSTACK_VERIFY_WORKERS': '1'}
+        if self.base:
+            env['BSTACK_BASE_REF'] = self.base  # a case's changes are a pull request against the untouched project
         if self.simulator:
             env['BSTACK_SIMULATOR_ID'] = self.simulator
             env.update(held_env)  # this run holds the simulator's lock: the case's check.py must not wait for it
@@ -153,12 +170,16 @@ class Worker:
             if item.name not in SKIP:
                 shutil.rmtree(item) if item.is_dir() else item.unlink()
         for item in project.iterdir():
+            if item.name == '.git' and item.is_file():
+                continue  # a linked worktree's pointer: commit_base would commit to the app's own branch
             if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
                 # Symlinks stay links: Rules/Sources/ModuleShape links to the helpers a case may overlay.
                 if item.is_dir():
                     shutil.copytree(item, self.work / item.name, symlinks=True, ignore=NOT_COPIED)
                 else:
                     shutil.copy2(item, self.work / item.name)
+        if platform.base_commit:
+            self.base = commit_base(self.work)
 
     def check(self, *gates: str) -> tuple[bool, str]:
         cmd = [sys.executable, 'scripts/check.py'] + [a for g in gates for a in ('--only', g)]
@@ -192,6 +213,7 @@ class Worker:
         for edit in case.get('edits', []):
             path = self.work / edit['file']
             text = path.read_text()
+            edit = owned_by_project(edit, text)
             if edit['file'] not in EDITABLE or text.count(edit['find']) != 1:
                 raise ValueError(f'edit of {edit["file"]}: "{edit["find"]}" must occur exactly once in an editable file')
             path.write_text(text.replace(edit['find'], edit['replace']))
@@ -209,6 +231,20 @@ class Worker:
                                   capture_output=True, text=True)
             if proc.returncode != 0:
                 raise ValueError(f'verify.py adapters failed: {(proc.stdout + proc.stderr).strip()[-500:]}')
+
+
+def commit_base(work: Path) -> str:
+    """Commits the copy as it is (the untouched project) and returns the commit: the base the verify gate compares a
+    case's feature map with, as CI compares a pull request with its base branch. A copied project's own .git folder (an
+    app's) gets the commit on top of its history; a linked worktree's .git file isn't copied, so the copy gets its own."""
+    def git(*cmd: str) -> str:
+        return subprocess.run(['git', *cmd], cwd=work, check=True, capture_output=True, text=True).stdout.strip()
+    if not (work / '.git').exists():
+        git('init', '-q')
+    git('add', '-A')
+    git('-c', 'user.name=test_rules', '-c', 'user.email=test_rules@localhost', '-c', 'commit.gpgsign=false',
+        'commit', '-q', '--allow-empty', '--no-verify', '-m', 'untouched project')
+    return git('rev-parse', 'HEAD')
 
 
 def declared_features(case: dict) -> list[str]:

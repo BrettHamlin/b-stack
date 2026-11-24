@@ -707,6 +707,25 @@ class AndroidToolsTests(unittest.TestCase):
         self.assertIn('held', second.stdout)
 
 
+def code_owned(template: Path, path: str) -> bool:
+    """Whether the template's CODEOWNERS owns `path` (relative to the project). Every rule there is anchored (/...) and
+    names an owner (the settings gate requires one), so any matching rule owns it."""
+    patterns = [re.sub(r'(^|\s)#.*$', '', line).split() for line in (template / 'CODEOWNERS').read_text().splitlines()]
+    return any(p[0].endswith('/') and f'/{path}'.startswith(p[0]) or f'/{path}' == p[0] for p in patterns if len(p) > 1)
+
+
+def files_in(root: Path) -> dict[str, bytes]:
+    return {str(f.relative_to(root)): f.read_bytes() for f in root.rglob('*')
+            if f.is_file() and f.relative_to(root).parts[0] != 'scripts'}
+
+
+def written(root: Path, run: callable) -> list[str]:
+    """The files under `root` (outside scripts/) that `run` added or changed."""
+    before = files_in(root)
+    run()
+    return sorted(path for path, data in files_in(root).items() if before.get(path) != data)
+
+
 class NewFeatureTests(unittest.TestCase):
     """The TypeScript starter's scripts/new_feature.py, in a copy of its scripts and module shape."""
 
@@ -735,6 +754,18 @@ class NewFeatureTests(unittest.TestCase):
         self.assertIn('expect.unreachable("Write this journey', journey)
         self.assertIn('expect.unreachable("Write this test',
                       (self.root / 'packages/features/daily-notes/tests/daily-notes.test.ts').read_text())
+
+    def test_nothing_a_feature_adds_is_code_owned(self) -> None:
+        # A feature's pull request waits for the owner only if it touches enforcement: not for what new_feature.py
+        # writes, the composition roots that show it, its fixtures or the lockfile entry its package adds.
+        made = written(self.root, lambda: self.assertEqual(self.run_new('notes').returncode, 0))
+        self.assertIn('feature-map/notes.toml', made)
+        for path in made + ['apps/desktop/src/main.ts', 'apps/web/src/main.tsx', 'packages/fixtures/src/index.ts',
+                            'pnpm-lock.yaml']:
+            self.assertFalse(code_owned(TS_TEMPLATE, path), path)
+        for path in ('apps/desktop/journeys/support/app.ts', 'apps/desktop/journeys/tsconfig.json', 'arch/retired.toml',
+                     'arch/shape.json', 'scripts/verify.py', '.github/workflows/check.yml', 'package.json'):
+            self.assertTrue(code_owned(TS_TEMPLATE, path), path)
 
     def test_refuses_a_bad_name_and_an_existing_feature(self) -> None:
         self.assertEqual(self.run_new('Notes').returncode, 2)
@@ -781,6 +812,19 @@ class AndroidNewFeatureTests(unittest.TestCase):
         for app in ('app', 'app-verify'):
             self.assertIn('"features/notes/api", "features/notes/logic", "features/notes/ui"]',
                           (self.root / app / 'module.toml').read_text())
+
+    def test_nothing_a_feature_adds_is_code_owned(self) -> None:
+        # What new_feature.py writes (modules, map entry, journey, regenerated adapters, links), the composition roots
+        # that show the feature and its fixtures are the feature's; the journey kit and driver stay the owner's.
+        made = written(self.root, lambda: self.assertEqual(self.run_new('notes').returncode, 0))
+        self.assertIn('verify/runner/src/main/kotlin/runner/Journeys.kt', made)
+        for path in made + ['app/src/main/kotlin/app/MainActivity.kt', 'app-verify/src/main/AndroidManifest.xml',
+                            'fixtures/src/main/kotlin/fixtures/Fixtures.kt']:
+            self.assertFalse(code_owned(ANDROID_TEMPLATE, path), path)
+        for path in ('verify/runner/src/main/kotlin/runner/Driver.kt', 'verify/journeykit/module.toml', 'core-ui/x.kt',
+                     'core/src/commonMain/kotlin/core/UiId.kt', 'arch/retired.toml', 'build-logic/x', 'scripts/verify.py',
+                     '.github/workflows/check.yml', 'gradle/libs.versions.toml'):
+            self.assertTrue(code_owned(ANDROID_TEMPLATE, path), path)
 
     def test_refuses_a_bad_name_and_an_existing_feature(self) -> None:
         for bad in ('Notes', 'daily-notes', 'two words', 'object', '1notes'):
@@ -872,6 +916,17 @@ class RustWorkflowTests(unittest.TestCase):
             self.assertIn(command, job)
 
 
+class AndroidAgentsTemplateTests(unittest.TestCase):
+    """The new-project skill has the agent delete the tally example, so the AGENTS.md it leaves behind (and the verify
+    skill it points at) must not send the agent to tally's files as the pattern to follow."""
+
+    def test_agent_guidance_names_no_example_files(self) -> None:
+        example = re.compile(r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files')
+        for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md'):
+            found = example.findall((ANDROID_TEMPLATE / path).read_text())
+            self.assertEqual(found, [], f'{path} names the example the new project deletes')
+
+
 class AndroidWorkflowTests(unittest.TestCase):
     """The Android starter's own CI workflow runs what b-stack's CI proves on the starter (its android job)."""
 
@@ -880,11 +935,182 @@ class AndroidWorkflowTests(unittest.TestCase):
         ours = (ROOT / '.github/workflows/ci.yml').read_text()
         job = ours[ours.index('\n  android:'):]
         job = job[:re.search(r'\n  [a-z-]+:\n', job[1:]).start() + 1]
-        for command in ('sudo udevadm trigger --name-match=kvm', 'BSTACK_CACHE_DIR=/mnt/bstack-cache',
+        for command in ('sudo udevadm trigger --name-match=kvm', 'echo "BSTACK_CACHE_DIR=$dir" >> "$GITHUB_ENV"',
+                        'sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup',
                         'python3 scripts/check.py --only compiler --only detekt --only lint --only konsist --only deps && exit 0',
                         'run: python3 scripts/check.py\n', 'python3 scripts/package.py\n', 'runs-on: ubuntu-24.04'):
             self.assertIn(command, starter)
             self.assertIn(command, job)
+
+
+class HistoryTests(unittest.TestCase):
+    """scripts/history.py (the verify gate's check against the base branch), in a git repo whose project is a
+    subfolder, as b-stack's starters are. The same file is in the Android and TypeScript starters."""
+
+    def setUp(self) -> None:
+        self.repo = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.repo)
+        self.root = self.repo / 'app'
+        self.feature('notes', ['notesWork', 'notesSurviveRotation'])
+        self.feature('clock', ['clockTicks'])
+        (self.root / 'arch').mkdir(parents=True)
+        shutil.copy2(ANDROID_TEMPLATE / 'arch/retired.toml', self.root / 'arch/retired.toml')
+        self.git('init', '-q')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'base')
+        self.base = self.git('rev-parse', 'HEAD')
+        sys.path.insert(0, str(ANDROID_TEMPLATE / 'scripts'))
+        self.addCleanup(sys.path.remove, str(ANDROID_TEMPLATE / 'scripts'))
+        import history
+        self.history = history
+
+    def git(self, *args: str) -> str:
+        return subprocess.run(['git', *args], cwd=self.repo, env=ENV, check=True, capture_output=True,
+                              text=True).stdout.strip()
+
+    def feature(self, name: str, journeys: list[str], fid: str | None = None) -> None:
+        (self.root / 'features' / name).mkdir(parents=True, exist_ok=True)
+        (self.root / 'feature-map').mkdir(parents=True, exist_ok=True)
+        (self.root / f'feature-map/{name}.toml').write_text(
+            f'id = "{fid or name}"\nmodules = ["{name}"]\n' +
+            ''.join(f'\n[[journeys]]\nname = "{j}"\nproves = "p"\n' for j in journeys))
+
+    def check(self, base: str | None = '') -> list[str]:
+        features = [{**__import__('tomllib').loads(p.read_text()), 'file': f'feature-map/{p.name}'}
+                    for p in sorted((self.root / 'feature-map').glob('*.toml'))]
+        env = {'BSTACK_BASE_REF': self.base if base == '' else base or ''}
+        with mock.patch.dict(os.environ, env), mock.patch('builtins.print'):
+            return self.history.removed(self.root, features, 'features')
+
+    def test_the_starters_share_one_file(self) -> None:
+        self.assertEqual((ANDROID_TEMPLATE / 'scripts/history.py').read_text(),
+                         (TS_TEMPLATE / 'scripts/history.py').read_text())
+        self.assertEqual((ANDROID_TEMPLATE / 'arch/retired.toml').read_text(),
+                         (TS_TEMPLATE / 'arch/retired.toml').read_text())
+
+    def test_unchanged_map_passes(self) -> None:
+        self.assertEqual(self.check(), [])
+
+    def test_a_deleted_or_renamed_journey_fails(self) -> None:
+        self.feature('notes', ['notesWork'])
+        found = self.check()
+        self.assertEqual(len(found), 1)
+        self.assertIn('journey `notesSurviveRotation` (feature-map/notes.toml on the base branch', found[0])
+        self.feature('notes', ['notesWork', 'notesSurviveTurning'])
+        self.assertIn('journey `notesSurviveRotation`', ''.join(self.check()))
+
+    def test_a_retired_journey_passes(self) -> None:
+        self.feature('notes', ['notesWork'])
+        (self.root / 'arch/retired.toml').write_text('journeys = ["notesSurviveRotation"]\nfeatures = []\n')
+        self.assertEqual(self.check(), [])
+
+    def test_a_journey_moved_to_another_feature_passes(self) -> None:
+        self.feature('notes', ['notesWork'])
+        self.feature('clock', ['clockTicks', 'notesSurviveRotation'])
+        self.assertEqual(self.check(), [])
+
+    def test_a_feature_removed_with_its_modules_passes(self) -> None:
+        shutil.rmtree(self.root / 'features/clock')
+        (self.root / 'feature-map/clock.toml').unlink()
+        self.assertEqual(self.check(), [])
+
+    def test_a_map_entry_gone_while_its_modules_stay_fails(self) -> None:
+        (self.root / 'feature-map/clock.toml').unlink()
+        self.feature('notes', ['notesWork', 'notesSurviveRotation', 'clockTicks'])  # the journey moved, the entry went
+        found = self.check()
+        self.assertEqual(len(found), 1)
+        self.assertIn('feature `clock` (feature-map/clock.toml on the base branch', found[0])
+        self.assertIn('its modules (clock) are still here', found[0])
+        (self.root / 'arch/retired.toml').write_text('journeys = []\nfeatures = ["clock"]\n')
+        self.assertEqual(self.check(), [])
+
+    def test_a_renamed_entry_whose_modules_stay_fails(self) -> None:
+        self.feature('clock', ['clockTicks'], fid='timer')
+        self.assertIn('feature `clock`', ''.join(self.check()))
+
+    def test_no_base_passes_and_a_missing_named_base_fails(self) -> None:
+        self.feature('notes', ['notesWork'])
+        self.assertEqual(self.check(base=None), [])  # no origin/main, no BSTACK_BASE_REF: nothing to compare
+        self.assertIn('BSTACK_BASE_REF is origin/gone', ''.join(self.check(base='origin/gone')))
+
+    def test_the_merge_base_is_the_base(self) -> None:
+        # The base branch moved on (a journey added) after this branch started: compared with its tip, this branch
+        # would lack that journey; compared with where it started, it lacks nothing.
+        self.git('checkout', '-q', '-b', 'base-branch')
+        self.feature('clock', ['clockTicks', 'clockAlarms'])
+        self.git('commit', '-qam', 'a journey on the base branch')
+        self.git('checkout', '-q', self.base)
+        self.assertEqual(self.check(base='base-branch'), [])
+        self.feature('notes', ['notesWork'])
+        self.assertIn('journey `notesSurviveRotation`', ''.join(self.check(base='base-branch')))
+
+
+class BranchRulesTests(unittest.TestCase):
+    """scripts/branch_rules.py: CI fails unless the default branch's rules require code-owner review and the checks.
+    The rules below are GET /repos/{owner}/{repo}/rules/branches/main for a repo set up as the new-project skill says
+    (read 2026-11-24)."""
+
+    RULES = [
+        {'type': 'pull_request', 'parameters': {
+            'required_approving_review_count': 0, 'dismiss_stale_reviews_on_push': True, 'required_reviewers': [],
+            'require_code_owner_review': True, 'require_last_push_approval': False,
+            'required_review_thread_resolution': False, 'require_extra_approval_for_unattributed_changes': True,
+            'allowed_merge_methods': ['merge', 'squash', 'rebase']},
+         'ruleset_source_type': 'Repository', 'ruleset_source': 'owner/app', 'ruleset_id': 1},
+        {'type': 'required_status_checks', 'parameters': {
+            'strict_required_status_checks_policy': False, 'do_not_enforce_on_create': False,
+            'required_status_checks': [{'context': 'check'}]},
+         'ruleset_source_type': 'Repository', 'ruleset_source': 'owner/app', 'ruleset_id': 1}]
+
+    def setUp(self) -> None:
+        sys.path.insert(0, str(ANDROID_TEMPLATE / 'scripts'))
+        self.addCleanup(sys.path.remove, str(ANDROID_TEMPLATE / 'scripts'))
+        import branch_rules
+        self.findings = branch_rules.findings
+
+    def test_the_starters_share_one_file(self) -> None:
+        self.assertEqual((ANDROID_TEMPLATE / 'scripts/branch_rules.py').read_text(),
+                         (TS_TEMPLATE / 'scripts/branch_rules.py').read_text())
+
+    def test_the_skills_ruleset_passes(self) -> None:
+        self.assertEqual(self.findings(self.RULES, ['check'], 'main'), [])
+
+    def test_no_rules_fails_twice(self) -> None:
+        found = self.findings([], ['check'], 'main')
+        self.assertEqual(len(found), 2)
+        self.assertIn('main doesn\'t require code-owner review', found[0])
+        self.assertIn('main doesn\'t require the status checks check', found[1])
+
+    def test_pull_requests_without_code_owner_review_fail(self) -> None:
+        rules = json.loads(json.dumps(self.RULES))
+        rules[0]['parameters']['require_code_owner_review'] = False
+        self.assertIn('code-owner review', ''.join(self.findings(rules, ['check'], 'main')))
+
+    def test_a_missing_check_fails(self) -> None:
+        found = self.findings(self.RULES, ['check', 'installers win-x64'], 'main')
+        self.assertEqual(len(found), 1)
+        self.assertIn('the status checks installers win-x64', found[0])
+
+
+class StarterWorkflowRulesTests(unittest.TestCase):
+    """The Android and TypeScript starters' workflows check the default branch's rules (b-stack's own CI doesn't: it
+    isn't a project made from a starter), and give the verify gate the pull request's base branch."""
+
+    def test_each_starter_checks_the_rules_the_skill_sets(self) -> None:
+        skill = (ROOT / 'skills/new-project/SKILL.md').read_text()
+        for template, checks in ((ANDROID_TEMPLATE, ['check']),
+                                 (TS_TEMPLATE, ['check', 'installers win-x64', 'installers win-arm64',
+                                                'installers linux-x64', 'installers linux-arm64'])):
+            workflow = (template / '.github/workflows/check.yml').read_text()
+            command = 'run: python3 scripts/branch_rules.py ' + ' '.join(shlex.quote(c) for c in checks) + '\n'
+            self.assertIn(command, workflow)
+            self.assertIn('fetch-depth: 0', workflow)
+            self.assertIn("BSTACK_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', "
+                          "github.base_ref) || '' }}", workflow)
+            for check in checks:
+                self.assertIn('{"context":"%s"}' % check, skill)
+        self.assertIn('name: installers ${{ matrix.target }}', (TS_TEMPLATE / '.github/workflows/check.yml').read_text())
+        self.assertNotIn('branch_rules.py', (ROOT / '.github/workflows/ci.yml').read_text())
 
 
 class HandUseTests(SimulatorProcesses):

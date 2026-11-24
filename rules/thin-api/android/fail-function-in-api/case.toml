@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[thin-api] fun neighbors has a body"
+uses_example = false
+adds_targets = ["probe"]

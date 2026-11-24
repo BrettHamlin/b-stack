@@ -2483,12 +2483,7 @@
   "/scripts/",
   "/core/src/commonMain/kotlin/core/UiId.kt",
   "/core-ui/",
-  "/feature-map/",
   "/verify/journeykit/",
-  "/verify/journeys/",
-  "/verify/runner/",
-  "/fixtures/",
-  "/app/",
-  "/app-verify/"
+  "/verify/runner/src/main/kotlin/runner/Driver.kt"
  ]
 }

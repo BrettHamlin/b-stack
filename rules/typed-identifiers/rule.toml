@@ -3,8 +3,8 @@ layer = "1"
 summary = "IDs, units and validated values are distinct types, not raw primitives."
 problem = "Raw String/Int IDs and units get mixed up (a message ID passed as a user ID, ms as seconds). The compiler can't tell them apart."
 message = "Use the distinct type (e.g. UserID), not a raw String. If no type exists for this value yet, add one in Domain."
-escape_hatches = ["Re-wrapping raw values freely: keep validating initializers private, expose a failable parse instead."]
-origin = "Design discussion, Nov 2026."
+escape_hatches = ["Android: an ID under another name (`ship: Int`, `key: String`) or a unit (`durationMs: Long`): no name pattern to match; review. Map keys and values (`Map<Int, Ship>`): review.", "Re-wrapping raw values freely: keep validating initializers private, expose a failable parse instead."]
+origin = "Design discussion, Nov 2026. Android ID names: Hexfleet for Android (Ship.id: Int, selectedShipId: Int?), 2026-11-24."
 
 [ios]
 compiler = "One struct per ID or unit (struct UserID: Hashable, Sendable). Validated types have a private init and a failable parse."
@@ -20,4 +20,4 @@ lint = "bstack/typed-identifiers: outside packages/contracts, no runtime import 
 [android]
 layer = "1+2"
 compiler = "One `@JvmInline value class` per ID or unit; validated types have a private constructor and a parse returning null. A raw Int where a PlayerId is expected is `Argument type mismatch`, and the private constructor is `Cannot access` (Kotlin 2.4.21, AGP 9.5.2)."
-konsist = "ArchitectureTest.typedIdentifiers (Konsist 0.18.1): no `typealias X = String` (or another primitive) in core or a feature's api module, which the compiler treats as the same type."
+konsist = "ArchitectureTest.typedIdentifiers (Konsist 0.18.1): no `typealias X = String` (or another primitive) in core or a feature's api module, which the compiler treats as the same type; and in core, api and logic main code, no property or parameter named `id`, `ids` or ending in `Id`, `ID`, `Ids` or `IDs` typed Int, Long, Short, Byte, their unsigned forms or String, nullable, in a List, Set, Collection, Iterable, Sequence or Array, or a primitive array (a value class's own field, `value class ShipId(val id: Int)`, is the exception; a text match on declarations). Units have no name to match: review."

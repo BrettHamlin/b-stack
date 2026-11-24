@@ -26,6 +26,7 @@ class Platform:
     marker: str  # a file only this platform's projects have
     restamp: bool = False  # give reset files the current time: the build tool rebuilds by mtime, and copies keep theirs
     installed: tuple[str, ...] = ()  # folder names the package manager creates in the project; never copied
+    base_commit: bool = False  # the verify gate compares the feature map with a base branch: each copy commits the project as one
 
 
 PLATFORMS = {
@@ -68,7 +69,7 @@ PLATFORMS = {
         simulator_kinds=frozenset(),
         cost={'untouched': 0.5, 'pass': 0.2, 'verify': 0.3, 'compiler': 0.1, 'lint': 0.1, 'tests': 0.1, 'deps': 0.1,
               'arch': 0.05, 'settings': 0.05},
-        tools=('node', 'pnpm'), marker='pnpm-workspace.yaml', installed=('node_modules', 'dist')),
+        tools=('node', 'pnpm'), marker='pnpm-workspace.yaml', installed=('node_modules', 'dist'), base_commit=True),
     'android': Platform(
         name='android', starter=ROOT / 'starters/android/template',
         gates=('compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify', 'release'),
@@ -83,7 +84,7 @@ PLATFORMS = {
         cost={'untouched': 2.5, 'verify': 1, 'release': 1.5, 'pass': 0.5, 'compiler': 0.2, 'detekt': 0.2, 'konsist': 0.2, 'lint': 0.2,
               'tests': 0.2, 'deps': 0.1, 'settings': 0.1, 'arch': 0.05},
         tools=('jdk', 'gradle', 'cmdline-tools', 'sdk'), marker='build-logic/settings.gradle.kts',
-        installed=('build', '.gradle', '.kotlin')),
+        installed=('build', '.gradle', '.kotlin'), base_commit=True),
 }
 
 

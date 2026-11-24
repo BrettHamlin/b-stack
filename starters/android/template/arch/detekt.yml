@@ -218,6 +218,10 @@ bstack:
   NoPlatformTypeCall:
     active: true
     excludes: ['**/commonTest/**', '**/src/test/**']
+  # Journeys read an element's text semantics as the text on screen (verified-features).
+  NoSemanticsText:
+    active: true
+    excludes: ['**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
 
 console-reports:
   exclude: ['ProjectStatisticsReport', 'ComplexityReport', 'NotificationReport', 'FindingsReport']

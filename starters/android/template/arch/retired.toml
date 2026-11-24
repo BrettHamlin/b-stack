@@ -1,0 +1,5 @@
+# Journeys and features removed on purpose (code-owned, so listing one needs the owner's review). The verify gate
+# fails when a journey or feature the base branch's feature map has is gone, unless it's listed here
+# (scripts/history.py). A renamed journey is a removed one.
+journeys = []
+features = []

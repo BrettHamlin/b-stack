@@ -1,6 +1,6 @@
 # Runs every gate on each pull request and on main, then builds the release app bundle and APK and proves the release
-# build starts. Make `check` a required status check in branch protection, with "Require review from Code Owners"
-# (CODEOWNERS covers this file).
+# build starts. The default branch's ruleset requires `check` and code-owner review (the new-project skill sets it; the
+# first step fails without it). CODEOWNERS covers this file.
 #
 # Linux, not macOS: GitHub's Linux runners give the emulator KVM; its macOS runners can't run it. tools.toml pins the
 # Linux tools and an x86_64 emulator image for this (linux-x64).
@@ -30,23 +30,45 @@ jobs:
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0  # the verify gate compares the feature map with the pull request's base branch
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
+      - name: The default branch requires code-owner review and this check (without that, CODEOWNERS protects nothing)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 scripts/branch_rules.py check
       - name: KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-      - name: Cache folder for tools and build output (on /mnt, the runner's larger disk)
+      - name: Cache folder for tools and build output (on the disk with the most room)
+        # Private repositories get smaller runners than public ones, with too little room on /mnt for the emulator. The
+        # runner's preinstalled Android SDK, .NET and Haskell go first (the pinned tools come from tools.toml), then the
+        # cache folder goes on whichever of / and /mnt has more space.
         run: |
-          sudo mkdir -p /mnt/bstack-cache && sudo chown "$USER" /mnt/bstack-cache
-          echo "BSTACK_CACHE_DIR=/mnt/bstack-cache" >> "$GITHUB_ENV"
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          df -h / /mnt
+          if [ "$(df --output=avail -k /mnt | tail -1)" -gt "$(df --output=avail -k / | tail -1)" ]; then
+            dir=/mnt/bstack-cache
+          else
+            dir="$HOME/bstack-cache"
+          fi
+          sudo mkdir -p "$dir" && sudo chown "$USER" "$dir"
+          echo "BSTACK_CACHE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Swap, so Gradle, R8 and the emulator fit a private repository's 8 GB runner
+        run: |
+          sudo fallocate -l 8G /swapfile-bstack && sudo chmod 600 /swapfile-bstack
+          sudo mkswap /swapfile-bstack && sudo swapon /swapfile-bstack
+          free -h
       - name: Gradle's downloads from earlier runs (keyed by the pinned checksums)
         uses: actions/cache@v6.1.0
         with:
-          path: /mnt/bstack-cache/tools/gradle-home/caches/modules-2
+          path: ${{ env.BSTACK_CACHE_DIR }}/tools/gradle-home/caches/modules-2
           key: android-gradle-${{ hashFiles('gradle/verification-metadata.xml') }}
       - name: Download every library, retried (Maven Central answers 429 to busy shared runners)
         run: |
@@ -56,6 +78,8 @@ jobs:
           done
           exit 1
       - name: Every gate (check.py), journeys (debug and release builds) and the shipped app's launch on the emulator
+        env:
+          BSTACK_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
         run: python3 scripts/check.py
       - name: The release app bundle and APK (signed with the upload key on main), and the release build's launch
         env:

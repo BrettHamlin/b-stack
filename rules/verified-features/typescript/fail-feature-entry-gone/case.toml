@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "feature `tally` (feature-map/tally.toml on the base branch"
+uses_example = "renames tally's feature-map entry"

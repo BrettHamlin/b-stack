@@ -18,6 +18,7 @@ from typing import Iterator
 import argparse
 import fcntl
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -28,6 +29,7 @@ from tools import android_env, sdk_packages, sdk_root, tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 AVD = 'bstack-api37'
+DATA_PARTITION = '4G'
 HELD = 'BSTACK_EMULATOR_LOCK'  # set for children of the lock's holder, so they don't wait for it
 
 
@@ -62,7 +64,11 @@ def create(env: dict) -> None:
     # avdmanager records the image relative to its own folder's parent (the tools folder), but the emulator reads it
     # relative to the SDK.
     config = Path(env['ANDROID_AVD_HOME']) / f'{AVD}.avd/config.ini'
-    config.write_text(config.read_text().replace(f'image.sysdir.1={sdk_root().name}/', 'image.sysdir.1='))
+    text = config.read_text().replace(f'image.sysdir.1={sdk_root().name}/', 'image.sysdir.1=')
+    # The image asks for a 12 GB data partition, and the emulator won't start without that much free disk: more than a
+    # private repository's CI runner has. The app and its journeys need a fraction of DATA_PARTITION.
+    text = re.sub(r'(?m)^disk\.dataPartition\.size=.*\n?', '', text) + f'disk.dataPartition.size={DATA_PARTITION}\n'
+    config.write_text(text)
 
 
 def boot(env: dict) -> str:
@@ -104,6 +110,9 @@ def booted(env: dict, proc: subprocess.Popen | None) -> str:
             sys.exit(f'The emulator exited during boot (status {proc.returncode}); see {log}.')
         serial = running(env)
         if serial and adb(env, 'shell', 'getprop', 'sys.boot_completed', serial=serial).strip() == '1':
+            # On a slow machine (a CI runner with two cores and software graphics) the launcher answers late, and its
+            # "isn't responding" dialog covers the app under test. The checks see crashes without the dialogs.
+            adb(env, 'shell', 'settings', 'put', 'global', 'hide_error_dialogs', '1', serial=serial)
             return serial
         time.sleep(2)
     pids = subprocess.run(['pgrep', '-f', '--', f'-avd {AVD}( |$)'], capture_output=True, text=True).stdout.split()

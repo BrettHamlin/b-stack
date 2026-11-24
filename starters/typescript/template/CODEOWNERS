@@ -1,5 +1,6 @@
 # Enforcement surface: changes need a human code owner.
-# Pair with branch protection: "Require review from Code Owners".
+# GitHub enforces this only with the default branch's ruleset requiring code-owner review (the new-project skill sets
+# it; CI fails without it, scripts/branch_rules.py). Agents act as a separate GitHub user, so the owner's approval counts.
 # Replace @OWNER with a real GitHub user or team.
 
 /CODEOWNERS               @OWNER
@@ -10,10 +11,9 @@
 /.agents/                 @OWNER
 /.githooks/               @OWNER
 
-# Workspace, tools and the dependency lock
+# Workspace and tools
 /package.json             @OWNER
 /pnpm-workspace.yaml      @OWNER
-/pnpm-lock.yaml           @OWNER
 /tools.toml               @OWNER
 
 # Compiler, lint and test settings
@@ -27,10 +27,12 @@
 /arch/                    @OWNER
 /scripts/                 @OWNER
 
-# Verification: journeys and what they prove
-/feature-map/             @OWNER
-/apps/desktop/journeys/   @OWNER
-/packages/fixtures/       @OWNER
-# The composition roots: which real services each process wires in
-/apps/desktop/src/        @OWNER
-/apps/web/src/main.tsx    @OWNER
+# Verification: what journeys can do, their compiler settings, and what the installer smoke tests check
+/apps/desktop/journeys/support/        @OWNER
+/apps/desktop/journeys/tsconfig.json   @OWNER
+/apps/desktop/journeys/smoke.json      @OWNER
+
+# Not owned, because every feature edits them: feature-map/, the journeys (apps/desktop/journeys/*.journey.ts),
+# packages/fixtures/, the composition roots (apps/desktop/src/, apps/web/src/main.tsx) and pnpm-lock.yaml (a new
+# package adds itself; the deps gate checks every package's source and license, the arch gate each role's packages).
+# The verify gate fails if a journey or feature the base branch has is gone, unless arch/retired.toml lists it.

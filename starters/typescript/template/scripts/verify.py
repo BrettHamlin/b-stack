@@ -3,6 +3,7 @@
 Map check (feature-map/*.toml):
   - every package in packages/features/ is in exactly one feature's `modules`, and every module named is such a package
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
+  - no journey or feature the base branch's map has is gone, unless arch/retired.toml lists it (scripts/history.py)
 Run: the renderer and the desktop app are built (vp build, vp pack), then the journeys run: the top-level tests in
 apps/desktop/journeys/*.journey.ts, each launching the built Electron app through Playwright.
   - every journey there is in the map, and every journey in the map is there (one that never runs fails)
@@ -26,6 +27,7 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build import build  # noqa: E402
+from history import removed  # noqa: E402
 from tools import install, node_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +50,7 @@ def load_map() -> tuple[list[dict], list[str]]:
 
 def verified_map() -> tuple[list[dict], list[str]]:
     features, errors = load_map()
-    return features, errors + map_errors(features)
+    return features, errors + map_errors(features) + removed(ROOT, features, 'packages/features')
 
 
 def map_errors(features: list[dict]) -> list[str]:

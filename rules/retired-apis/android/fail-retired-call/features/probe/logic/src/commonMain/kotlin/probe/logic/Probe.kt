@@ -1,5 +1,5 @@
 package probe.logic
 
-import probe.api.saveEach
+import probe.api.ItemStore
 
-fun store(items: List<String>): Int = saveEach(items)
+suspend fun store(items: List<String>, store: ItemStore): Int = store.saveEach(items)
