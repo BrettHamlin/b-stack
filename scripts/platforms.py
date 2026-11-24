@@ -67,7 +67,22 @@ PLATFORMS = {
         simulator_kinds=frozenset(),
         cost={'untouched': 0.5, 'pass': 0.2, 'verify': 0.3, 'compiler': 0.1, 'lint': 0.1, 'tests': 0.1, 'deps': 0.1,
               'arch': 0.05, 'settings': 0.05},
-        tools=('node', 'pnpm'), marker='arch/shape.json', installed=('node_modules', 'dist')),
+        tools=('node', 'pnpm'), marker='pnpm-workspace.yaml', installed=('node_modules', 'dist')),
+    'android': Platform(
+        name='android', starter=ROOT / 'starters/android/template',
+        gates=('compiler', 'detekt', 'konsist', 'arch', 'deps', 'tests', 'verify'),
+        pass_gates=('compiler', 'detekt', 'konsist', 'arch', 'deps', 'tests'),
+        overlays=('core', 'core-ui', 'features', 'platform', 'fixtures', 'app', 'app-verify', 'verify', 'feature-map'),
+        editable=('gradle/libs.versions.toml', 'settings.gradle.kts', 'gradle.properties', 'CODEOWNERS'),
+        targets='features',
+        case_files=('core/**/*', 'core-ui/**/*', 'features/**/*', 'platform/**/*', 'fixtures/**/*', 'app/**/*',
+                    'app-verify/**/*', 'verify/**/*', 'feature-map/*.toml'),
+        example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|ItemName|Stored)[\w.-]*'), example_name='tally',
+        simulator_kinds=frozenset(),  # verify.py takes the emulator's lock itself (scripts/emulator.py)
+        cost={'untouched': 1.5, 'verify': 1, 'pass': 0.5, 'compiler': 0.2, 'detekt': 0.2, 'konsist': 0.2,
+              'tests': 0.2, 'deps': 0.1, 'arch': 0.05},
+        tools=('jdk', 'gradle', 'cmdline-tools', 'sdk'), marker='build-logic/settings.gradle.kts',
+        installed=('build', '.gradle', '.kotlin')),
 }
 
 

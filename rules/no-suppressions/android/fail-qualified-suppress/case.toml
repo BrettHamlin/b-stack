@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "`@kotlin.Suppress`"
+uses_example = false
+adds_targets = ["probe"]

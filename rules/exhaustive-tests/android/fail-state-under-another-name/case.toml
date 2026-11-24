@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[exhaustive-tests] Counter.uiState: a model exposes its state as `val state: StateFlow<...>`"
+uses_example = false
+adds_targets = ["probe"]

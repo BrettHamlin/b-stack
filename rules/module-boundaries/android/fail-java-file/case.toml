@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "write Kotlin; the checks read Kotlin only"
+uses_example = false

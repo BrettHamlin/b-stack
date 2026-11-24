@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "[no-fixtures-in-release] platform/probe/module.toml: platform/probe may not use fixtures"
+uses_example = false

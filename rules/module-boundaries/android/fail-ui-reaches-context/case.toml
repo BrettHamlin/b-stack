@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[module-boundaries] a feature's ui module doesn't reach the platform through LocalContext"
+uses_example = false
+adds_targets = ["probe"]

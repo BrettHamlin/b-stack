@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "feature-map/probe.toml: none of its journeys turns the device"
+uses_example = false
+adds_targets = ["probe"]

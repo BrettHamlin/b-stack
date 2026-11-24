@@ -9,7 +9,7 @@ Agents copy whatever patterns exist first, so enforcement must exist before the 
 
 ## 1. Confirm what's being built
 
-Ask the user for the platform and a one-line description of the app. Available starters: `starters/ios/` (an iOS app), `starters/rust/` (a Rust workspace with a binary) and `starters/typescript/` (an Electron desktop app laid out like T3 Code). For any other platform, **stop and report** that no starter exists yet. The steps below are for iOS; for Rust, see [Rust](#rust); for TypeScript, see [TypeScript](#typescript).
+Ask the user for the platform and a one-line description of the app. Available starters: `starters/ios/` (an iOS app), `starters/rust/` (a Rust workspace with a binary), `starters/typescript/` (an Electron desktop app laid out like T3 Code) and `starters/android/` (a Kotlin Android app with Compose). For any other platform, **stop and report** that no starter exists yet. The steps below are for iOS; for Rust, see [Rust](#rust); for TypeScript, see [TypeScript](#typescript); for Android, see [Android](#android).
 
 ## 2. Agree the module plan with the user
 
@@ -55,6 +55,16 @@ Steps 1, 2 and 5 are the same. In step 2, each feature is a package in `packages
 - check `starters/typescript/README.md` for what the template doesn't include yet, and list it in your report
 
 Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (it installs the packages first), and the screenshots and `.build/evidence/latest/evidence.md` must show each journey doing what it claims, and `python3 scripts/package.py` must build the app and pass every journey against it. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
+
+## Android
+
+Steps 1, 2 and 5 are the same. In step 2, each feature is three modules in `features/<name>/`: `api` (types, client interfaces, `<Feature>Ui` identifiers), `logic` (common code: the model, with Turbine tests of every state and a property test) and `ui` (Compose screens and the entry point both apps call), with real I/O in `platform/<name>` and wiring in `app` (real services) and `app-verify` (fixtures), following the tally example. Then:
+- copy `starters/android/template/` into the new repo, leaving out `.build/`; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, add `CLAUDE.md` containing `@AGENTS.md`, and set `bstack.applicationId` in `gradle.properties`
+- replace the tally example (`features/tally`, `platform/files`, the tally parts of `fixtures`, `app`, `app-verify`, `verify/journeys`, `feature-map/`) with the agreed features, and run `python3 scripts/verify.py adapters` after writing the journeys. Each module declares what it uses in its `module.toml`. Don't edit `arch/`, `build-logic/`, `gradle/`, the root Gradle files or `tools.toml`. A library needs the owner: list the ones the features need and ask before adding them to `gradle/libs.versions.toml` and `arch/shape.json` (and regenerating `gradle/verification-metadata.xml`)
+- replace `@OWNER` in `CODEOWNERS`; `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer
+- check `starters/android/README.md` for what the template doesn't include yet, and list it in your report
+
+Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (the first run downloads the JDK, Gradle, the Android SDK and an emulator image into the cache folder), and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
 
 ## 5. Report
 

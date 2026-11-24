@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[no-concurrency-escapes] runBlocking blocks the thread"
+uses_example = false

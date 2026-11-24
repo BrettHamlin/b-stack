@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[retired-apis] Thread.sleep blocks the thread"
+uses_example = false

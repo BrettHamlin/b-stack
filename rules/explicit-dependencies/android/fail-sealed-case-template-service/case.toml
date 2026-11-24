@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "object Live holds `val base`, a global"
+uses_example = false

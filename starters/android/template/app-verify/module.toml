@@ -1,0 +1,1 @@
+uses = ["core", "core-ui", "features/tally/api", "features/tally/logic", "features/tally/ui", "fixtures"]

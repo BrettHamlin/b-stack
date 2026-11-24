@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "top-level `cache` holds mutable state or a lazy service"
+uses_example = false

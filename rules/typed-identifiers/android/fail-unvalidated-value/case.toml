@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Cannot access 'constructor(value: String): PlayerName'"
+uses_example = false
+adds_targets = ["probe"]

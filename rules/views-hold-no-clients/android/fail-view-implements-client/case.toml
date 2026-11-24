@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[views-hold-no-clients] the view names NotesClient, a client"
+uses_example = false
+adds_targets = ["probe"]

@@ -19,3 +19,9 @@ tests = "check.py's tests gate runs vp test's unit project, whose include is eve
 lint = "bstack/no-skipped-tests: no .skip, .only, .todo, .skipIf, .runIf or .fails (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
 arch = "scripts/arch.py: files in tests/ are *.test.ts(x) or helpers in tests/support/; packages have no scripts."
 message = "Every test runs: never skip one or turn a package's tests off. If a test can't pass, fix the code or the test, or stop and report."
+
+[android]
+tests = "check.py's tests gate runs every module's tests by task (jvmTest, testDebugUnitTest), so a new module's tests run without being listed anywhere, then reads the JUnit results: a module with test sources and no results, or a skipped test, fails."
+konsist = "ArchitectureTest.testsAlwaysRun and everyTestAsserts (Konsist 0.18.1): no @Ignore, @Disabled or assumptions in tests, and every feature's logic module has tests."
+arch = "scripts/arch.py: tests live only in commonTest and src/test, which the gate runs; src/androidTest and other test source sets fail (they'd never run)."
+message = "Every test runs: never skip one or put it where the gate doesn't run it. If a test can't pass, fix the code or the test, or stop and report."

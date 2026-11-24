@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "journey `tallyIsSavedAcrossRuns` is already named in"
+uses_example = "names one of the tally feature's journeys"
+adds_targets = ["probe"]

@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[exhaustive-tests] every awaitItem() is the whole actual value of an assertEquals"
+uses_example = false
+adds_targets = ["probe"]

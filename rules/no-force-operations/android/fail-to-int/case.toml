@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[no-force-operations] toInt() throws on text that isn't a number"
+uses_example = false
+adds_targets = ["probe"]

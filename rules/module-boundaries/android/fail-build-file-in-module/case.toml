@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "[module-boundaries] features/probe/logic/build.gradle.kts"
+uses_example = false
+adds_targets = ["probe"]

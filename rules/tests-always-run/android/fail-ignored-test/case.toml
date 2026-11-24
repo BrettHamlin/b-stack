@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[tests-always-run] `@Ignore`"
+uses_example = false
+adds_targets = ["probe"]

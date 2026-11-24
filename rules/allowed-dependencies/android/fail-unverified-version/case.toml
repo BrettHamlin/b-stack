@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "Dependency verification failed"
+uses_example = false
+
+[[edits]]
+file = "gradle/libs.versions.toml"
+find = "coroutines = \"1.11.0\""
+replace = "coroutines = \"1.10.2\""

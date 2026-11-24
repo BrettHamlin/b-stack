@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "compiler"
+diagnostic = "[module-boundaries] features/probe/logic/module.toml: a logic module may not use core-ui"
+uses_example = false
+adds_targets = ["probe"]

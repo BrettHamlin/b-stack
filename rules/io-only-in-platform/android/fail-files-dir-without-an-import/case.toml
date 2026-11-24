@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[io-only-in-platform] `filesDir`"
+uses_example = false

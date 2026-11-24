@@ -1,0 +1,27 @@
+id = "tally"
+summary = "Count named items; the tally is saved between runs, and a failed save keeps the old one."
+modules = ["tally"]
+
+[[journeys]]
+name = "tallyIsSavedAcrossRuns"
+proves = "Adds count up on screen and survive stopping and starting the app."
+
+[[journeys]]
+name = "failedSaveKeepsTheOldTally"
+proves = "With a saved tally and every save failing (the FailingSaves fixture), adding shows an error, and the saved tally is unchanged on screen and after a relaunch."
+
+[[journeys]]
+name = "badNameIsRefused"
+proves = "An invalid name is refused with the rule for names, and nothing is counted."
+
+[[journeys]]
+name = "savedTallyIsShownAtStart"
+proves = "A tally saved before the app starts (the Saved fixture) is listed, sorted by name, when it opens."
+
+[[journeys]]
+name = "tallySurvivesRotation"
+proves = "Turning the device recreates the screen without losing the tally or the name being typed."
+
+[[journeys]]
+name = "unreadableTallyIsNeverOverwritten"
+proves = "When the saved tally can't be read (the Unreadable fixture), the app says so and Add stays off, so the file isn't overwritten; it's still unreadable after a relaunch."

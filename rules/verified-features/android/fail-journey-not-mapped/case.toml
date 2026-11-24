@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verified-features] journey `probeShowsGo` in verify/journeys isn't in the feature map"
+uses_example = false
+adds_targets = ["probe"]

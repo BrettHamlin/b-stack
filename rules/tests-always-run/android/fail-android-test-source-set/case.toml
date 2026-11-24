@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "[module-boundaries] platform/probe/src/androidTest"
+uses_example = false

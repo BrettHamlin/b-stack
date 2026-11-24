@@ -1,0 +1,32 @@
+{
+  "about": "The module shape (protected). A module's role comes from its folder. `may_use` names the roles whose modules it may depend on; `(own)` means only the same feature's. `external` names the version-catalog libraries (gradle/libs.versions.toml) every module of the role gets, so they all resolve the versions gradle/verification-metadata.xml lists. Modules name the modules they use in their own module.toml (`uses`), checked against this file when the build is configured. A role's `opt_in` lists the opt-in annotations its code may use (granted by the build; code can't opt in itself), and `test_opt_in` those every test compilation gets. Adding a library or a link means changing this file, which needs the owner.",
+  "roles": {
+    "core": {"folders": ["core"], "kind": "common", "may_use": [], "external": []},
+    "core-ui": {"folders": ["core-ui"], "kind": "android-library", "compose": true, "may_use": ["core"],
+                "external": ["compose-ui", "compose-foundation", "lifecycle-viewmodel-compose", "kotlinx-coroutines-core"]},
+    "api": {"folders": ["features/*/api"], "kind": "common", "declares_ui_ids": true, "may_use": ["core"],
+            "external": []},
+    "logic": {"folders": ["features/*/logic"], "kind": "common", "may_use": ["core", "api(own)"],
+              "external": ["kotlinx-coroutines-core"]},
+    "ui": {"folders": ["features/*/ui"], "kind": "android-library", "compose": true,
+           "may_use": ["core", "core-ui", "api(own)", "logic(own)"],
+           "external": ["compose-ui", "compose-foundation", "compose-material3", "kotlinx-coroutines-core"]},
+    "platform": {"folders": ["platform/*"], "kind": "android-library", "may_use": ["core", "api"],
+                 "external": ["kotlinx-coroutines-core"]},
+    "fixtures": {"folders": ["fixtures"], "kind": "android-library", "may_use": ["core", "api", "platform"],
+                 "external": ["kotlinx-coroutines-core"]},
+    "app": {"folders": ["app"], "kind": "android-app", "compose": true,
+            "may_use": ["core", "core-ui", "api", "logic", "ui", "platform"],
+            "external": ["activity-compose", "compose-ui", "compose-foundation", "compose-material3", "kotlinx-coroutines-core", "lifecycle-viewmodel-compose"]},
+    "app-verify": {"folders": ["app-verify"], "kind": "android-app", "compose": true, "test_mode": true,
+                   "may_use": ["core", "core-ui", "api", "logic", "ui", "platform", "fixtures"],
+                   "external": ["activity-compose", "compose-ui", "compose-foundation", "compose-material3", "kotlinx-coroutines-core", "lifecycle-viewmodel-compose"]},
+    "journeykit": {"folders": ["verify/journeykit"], "kind": "common", "may_use": ["core"], "external": []},
+    "journeys": {"folders": ["verify/journeys"], "kind": "common", "may_use": ["journeykit", "api", "core"], "external": []},
+    "runner": {"folders": ["verify/runner"], "kind": "android-test", "fixed": true},
+    "konsist": {"folders": ["arch/konsist"], "kind": "jvm-tests", "fixed": true},
+    "detekt-rules": {"folders": ["arch/detekt-rules"], "kind": "jvm", "fixed": true}
+  },
+  "common_test_external": ["kotlinx-coroutines-test", "turbine"],
+  "test_opt_in": ["kotlinx.coroutines.ExperimentalCoroutinesApi"]
+}
