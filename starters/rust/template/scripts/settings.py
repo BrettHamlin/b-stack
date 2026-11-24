@@ -106,8 +106,8 @@ def compiled() -> tuple[list[dict], dict[str, str]]:
         sys.exit(f'[protected-enforcement] cargo metadata failed:\n{meta.stderr.strip()[-3000:]}')
     packages = json.loads(meta.stdout)['packages']
     members = [a for p in packages for a in ('-p', p['name'])]
-    # By package and target name (rustc's --crate-name): two targets may share a source file.
-    listed = {f'{relative(str(Path(p["manifest_path"]).parent))} {t["name"].replace("-", "_")}':
+    # By package, target name (rustc's --crate-name) and source: two targets may share a name, or a source file.
+    listed = {f'{relative(str(Path(p["manifest_path"]).parent))} {t["name"].replace("-", "_")} {relative(t["src_path"])}':
               f'{relative(t["src_path"])} (target `{t["name"]}`)'
               for p in packages for t in p['targets'] if 'custom-build' not in t['kind']}
     for profile, flag in (('dev', []), ('release', ['--release'])):
@@ -143,7 +143,7 @@ def effective() -> dict:
                                                     else run['argv'][1:])
         where = relative(str(ROOT / source)) if source else relative(run['dir'])  # cargo runs rustc in the root
         name = run['argv'][run['argv'].index('--crate-name') + 1] if '--crate-name' in run['argv'] else ''
-        targets.append({'where': where, 'id': f'{relative(run["dir"])} {name}', 'profile': run['profile'],
+        targets.append({'where': where, 'id': f'{relative(run["dir"])} {name} {where}', 'profile': run['profile'],
                         'kind': 'tests' if test else crate_type, 'args': args})
         clippy.append({'driver': Path(run['argv'][0]).name, 'conf_dir': relative(run['clippy_conf_dir']),
                        'args': run['clippy_args']})
