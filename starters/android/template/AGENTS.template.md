@@ -11,7 +11,7 @@
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, detekt, konsist, arch, deps, tests, verify: all must PASS
+python3 scripts/check.py        # compiler, detekt, lint, konsist, arch, deps, tests, verify: all must PASS
 ```
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.

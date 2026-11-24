@@ -29,13 +29,13 @@ python3 scripts/emulator.py run -- sh -c 'adb shell uiautomator dump /sdcard/ui.
 
 1. Create `features/<name>/api`, `logic` and `ui`, each with a `module.toml` (copy `features/tally`'s), and name the feature in `feature-map/<id>.toml`.
 2. Give the feature's elements identifiers in its api module: an `object <Feature>Ui { val thing = UiId("feature.thing") }`. Only api modules can make a `UiId`. Views tag with `Modifier.uiId(<Feature>Ui.thing)`; nothing else counts.
-3. Write the journey in `verify/journeys` as `fun Journey.<name>()`: `launch(fixture)`, then `find(id)` (a list item: `find(TallyUi.item.at(row))`) and `tap`, `type`, `shows`, `isDisabled`, `relaunch()`, `rotate()`, and `checkpoint("what it shows")` for the evidence. Each feature needs one journey that calls `rotate()`. app-verify runs with StrictMode: disk or network work on the main thread kills it, so the journey fails. Journey bodies are common code: they can't reach UiAutomator, Android or the JVM. Then run `python3 scripts/verify.py adapters`, which writes the runner's test for each journey. If the Screen lacks something, stop and report (journeykit and the runner are code-owned).
+3. Write the journey in `verify/journeys` as `fun Journey.<name>()`: `launch(fixture)`, then `find(id)` (a list item: `find(TallyUi.item.at(row))`) and `tap`, `type`, `shows`, `isDisabled`, `relaunch()`, `rotate()`, `returnAfterProcessDeath()`, and `checkpoint("what it shows")` for the evidence. Each feature needs one journey that calls `rotate()` and one that calls `returnAfterProcessDeath()` (keep half-done input in the model's `Saved`, which `rememberModel` passes in). app-verify runs with StrictMode: disk or network work on the main thread kills it, so the journey fails. Journey bodies are common code: they can't reach UiAutomator, Android or the JVM. Then run `python3 scripts/verify.py adapters`, which writes the runner's test for each journey. If the Screen lacks something, stop and report (journeykit and the runner are code-owned).
 4. Start from known data with a `fixtures.Fixture` (app-verify reads `bstack.fixture`), never by adding a test mode to the shipped app.
 5. In `feature-map/<id>.toml`, name the feature's folder in `modules` and each journey with what it `proves`. A journey belongs to one feature only.
 
 ## Rules
 
 - Drive the real user path through the real app: app-verify calls the same feature entry points as the shipped app; only the services passed in differ.
-- Check durable effects, not just the screen: `relaunch()` and check again; `rotate()` where state must survive a configuration change.
+- Check durable effects, not just the screen: `relaunch()` and check again; `rotate()` where state must survive a configuration change; `returnAfterProcessDeath()` where it must survive the system ending the app in the background.
 - `shows` compares the whole text of an element and everything in it, one text per line.
 - If a journey fails, fix the app. **Never weaken a journey to make it pass.** If you can't make it pass within the rules, stop and report.
