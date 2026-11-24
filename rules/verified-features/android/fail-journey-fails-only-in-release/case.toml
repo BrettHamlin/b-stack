@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "release"
+diagnostic = "[verified-features] journey `tallyIsSavedAcrossRuns` failed in the release build"
+uses_example = "shows the tally model's class name as the screen's title, and a tally journey checks it"

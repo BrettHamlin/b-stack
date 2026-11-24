@@ -11,7 +11,7 @@
   3. The release APK is installed on the emulator with no data and launched from its icon's intent (verify.py's smoke
      launch): code R8 broke usually crashes here, and nowhere else before users see it.
 Outputs in .build/package/out/, named starter-<versionName>-<versionCode>: .aab (for Play), .apk, -mapping.txt (to
-read obfuscated crash reports; keep it with each upload). Evidence: .build/evidence/release/launched.png.
+read obfuscated crash reports; keep it with each upload). Evidence: .build/evidence/package/launched.png.
 
 Usage: python3 scripts/package.py [--version-name 0.2.0 --version-code 2]
 """
@@ -26,25 +26,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator import boot, in_use  # noqa: E402
 from tools import android_env, gradle_command, sdk_packages  # noqa: E402
-from verify import EVIDENCE, app_id, smoke  # noqa: E402
+from verify import EVIDENCE, KEYS, app_id, smoke, throwaway_key  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / '.build/package/out'
-KEYS = ('BSTACK_UPLOAD_KEYSTORE', 'BSTACK_UPLOAD_KEYSTORE_PASSWORD', 'BSTACK_UPLOAD_KEY_ALIAS', 'BSTACK_UPLOAD_KEY_PASSWORD')
-
-
-def throwaway_key(env: dict) -> dict:
-    """A key for test builds only, made once per checkout."""
-    store = ROOT / '.build/package/test-upload.jks'
-    if not store.is_file():
-        store.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run([str(Path(env['JAVA_HOME']) / 'bin/keytool'), '-genkeypair', '-keystore', str(store),
-                        '-storepass', 'test-only', '-keypass', 'test-only', '-alias', 'test', '-keyalg', 'RSA',
-                        '-keysize', '2048', '-validity', '3650', '-dname', 'CN=Test build not for upload', '-noprompt'],
-                       check=True, capture_output=True)
-    return dict(zip(KEYS, (str(store), 'test-only', 'test', 'test-only')))
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--version-name')
@@ -82,7 +67,7 @@ def main() -> int:
     if problems:
         print('\n'.join(problems))
         return 1
-    folder = EVIDENCE.parent / 'release'
+    folder = EVIDENCE.parent / 'package'
     shutil.rmtree(folder, ignore_errors=True)
     with in_use(f'package.py in {ROOT}'):
         failed = smoke(env, boot(env), 'release', folder)

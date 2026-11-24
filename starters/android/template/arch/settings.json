@@ -517,9 +517,11 @@
      "lintConfig": null
     },
     "release": {
-     "minify": false,
-     "shrinkResources": false,
-     "proguardFiles": [],
+     "minify": true,
+     "shrinkResources": true,
+     "proguardFiles": [
+      "proguard-android-optimize.txt-9.5.2"
+     ],
      "debuggable": false
     }
    },

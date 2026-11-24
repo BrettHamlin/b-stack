@@ -33,7 +33,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify']
+GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify', 'release']
 
 
 def git(root: Path, *args: str, env: dict | None = None) -> str:
