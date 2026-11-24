@@ -89,9 +89,14 @@ def normalized(args: list[str]) -> tuple[list[str], str, str, bool]:
     return kept, source, crate_type, test
 
 
-def compiled() -> tuple[list[dict], dict[str, str]]:
-    """Every workspace target's compile, dev and release, as cargo runs it under check.py's environment, and every
-    target cargo metadata lists (build scripts aside), by source file."""
+def target_key(manifest: str, target: dict) -> str:
+    """A target by package, name, kind and source: two targets may share any one of these."""
+    return f'{relative(str(Path(manifest).parent))} {target["name"]} {",".join(target["kind"])} {relative(target["src_path"])}'
+
+
+def compiled() -> tuple[list[dict], dict[str, str], dict[str, set[str]]]:
+    """Every workspace target's compile, dev and release, as cargo runs it under check.py's environment; every target
+    cargo metadata lists (build scripts aside); and, per profile, the targets cargo reported building."""
     env = rust_env()
     WORK.mkdir(parents=True, exist_ok=True)
     wrapper, log = WORK / 'rustc-wrapper', WORK / 'compiles.jsonl'
@@ -106,19 +111,22 @@ def compiled() -> tuple[list[dict], dict[str, str]]:
         sys.exit(f'[protected-enforcement] cargo metadata failed:\n{meta.stderr.strip()[-3000:]}')
     packages = json.loads(meta.stdout)['packages']
     members = [a for p in packages for a in ('-p', p['name'])]
-    # By package, target name (rustc's --crate-name) and source: two targets may share a name, or a source file.
-    listed = {f'{relative(str(Path(p["manifest_path"]).parent))} {t["name"].replace("-", "_")} {relative(t["src_path"])}':
-              f'{relative(t["src_path"])} (target `{t["name"]}`)'
+    listed = {target_key(p['manifest_path'], t): f'{relative(t["src_path"])} (target `{t["name"]}`)'
               for p in packages for t in p['targets'] if 'custom-build' not in t['kind']}
+    built: dict[str, set[str]] = {}
     for profile, flag in (('dev', []), ('release', ['--release'])):
         # Clean the workspace's own crates, so cargo compiles each one again and the wrapper sees it.
         subprocess.run(['cargo', 'clean', '--quiet', *flag, *members], cwd=ROOT, env=env, capture_output=True)
-        proc = subprocess.run(['cargo', 'clippy', '--quiet', '--workspace', '--all-targets', *flag], cwd=ROOT,
-                              env={**env, 'BSTACK_SETTINGS_PROFILE': profile}, capture_output=True, text=True)
+        proc = subprocess.run(['cargo', 'clippy', '--quiet', '--message-format', 'json', '--workspace', '--all-targets',
+                               *flag], cwd=ROOT, env={**env, 'BSTACK_SETTINGS_PROFILE': profile}, capture_output=True,
+                              text=True)
+        messages = [json.loads(line) for line in proc.stdout.splitlines() if line.startswith('{')]
+        built[profile] = {target_key(m['manifest_path'], m['target']) for m in messages
+                          if m.get('reason') == 'compiler-artifact'}
         if proc.returncode != 0:
             sys.exit(f'[protected-enforcement] Couldn\'t read the compiler settings ({profile} profile): the workspace '
                      f'doesn\'t check. Run the clippy gate.\n{proc.stderr.strip()[-3000:]}')
-    return ([json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []), listed
+    return ([json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []), listed, built
 
 
 def relative(path: str | None) -> str | None:
@@ -137,14 +145,12 @@ def effective() -> dict:
     """The settings in effect, in arch/settings.json's shape; compiler arguments are per target, not yet by kind."""
     env = rust_env()
     targets, clippy = [], []
-    runs, listed = compiled()
+    runs, listed, built = compiled()
     for run in runs:
         args, source, crate_type, test = normalized(run['argv'][2:] if Path(run['argv'][0]).name == 'clippy-driver'
                                                     else run['argv'][1:])
         where = relative(str(ROOT / source)) if source else relative(run['dir'])  # cargo runs rustc in the root
-        name = run['argv'][run['argv'].index('--crate-name') + 1] if '--crate-name' in run['argv'] else ''
-        targets.append({'where': where, 'id': f'{relative(run["dir"])} {name} {where}', 'profile': run['profile'],
-                        'kind': 'tests' if test else crate_type, 'args': args})
+        targets.append({'where': where, 'profile': run['profile'], 'kind': 'tests' if test else crate_type, 'args': args})
         clippy.append({'driver': Path(run['argv'][0]).name, 'conf_dir': relative(run['clippy_conf_dir']),
                        'args': run['clippy_args']})
     conf_dirs = {c['conf_dir'] for c in clippy if c['conf_dir'] is not None}
@@ -162,6 +168,7 @@ def effective() -> dict:
     return {
         'targets': targets,
         'listed': listed,
+        'built': built,
         'clippy': {'checks': [json.loads(c) for c in sorted({json.dumps(c, sort_keys=True) for c in clippy})],
                    'config': clippy_config},
         'rustdoc': {'RUSTDOCFLAGS': env.get('RUSTDOCFLAGS')},
@@ -251,8 +258,8 @@ def findings() -> list[str]:
     found = effective()
     out = compiler_findings(expected['compiler'], found['targets'])
     for profile in sorted(expected['compiler']):
-        seen = {t['id'] for t in found['targets'] if t['profile'] == profile}
-        missing = [shown for target, shown in sorted(found['listed'].items()) if target not in seen]
+        missing = [shown for target, shown in sorted(found['listed'].items())
+                   if target not in found['built'].get(profile, set())]
         if missing:
             out.append(f'[protected-enforcement] compiler arguments ({profile} profile): cargo never compiled '
                        f'{", ".join(missing)} (`required-features`, say), so no gate checks or tests it. Remove what '
