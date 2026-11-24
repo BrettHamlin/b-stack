@@ -16,4 +16,8 @@ value class PlayerName private constructor(val value: String) {
 @JvmInline
 value class ShipId(val id: Int)
 
-data class Fleet(val id: ShipId, val shipIds: Set<ShipId>, val leaderId: PlayerId?, val size: Int)
+/** An ID type whose name starts with a primitive's is still a typed ID. */
+@JvmInline
+value class StringId(val value: String)
+
+data class Fleet(val id: ShipId, val shipIds: Set<ShipId>, val leaderId: PlayerId?, val size: Int, val tagId: StringId?)

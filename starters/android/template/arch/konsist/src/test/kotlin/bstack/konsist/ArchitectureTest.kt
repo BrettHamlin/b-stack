@@ -229,9 +229,9 @@ class ArchitectureTest {
         }
         // A property or parameter named as an ID (`id`, `shipId`, `playerIDs`) typed as a raw primitive, nullable or in
         // a collection. The value class's own field (`value class ShipId(val id: Int)`) is the one place it belongs.
-        val raw = """(?:Int|Long|Short|Byte|UInt|ULong|UShort|UByte|String)"""
+        val raw = """(?:Int|Long|Short|Byte|UInt|ULong|UShort|UByte|String)(?!\w)"""
         val collection = """(?:List|Set|Collection|Iterable|Sequence|Array|MutableList|MutableSet|MutableCollection)"""
-        val ids = Regex("""(?<![\w.])(id|ids|[a-z]\w*(?:Id|ID|Ids|IDs))\s*:\s*((?:$collection\s*<\s*$raw\s*\??\s*>|$raw|(?:Int|Long|Short|Byte)Array)\s*\??)""")
+        val ids = Regex("""(?<![\w.])(id|ids|[a-z]\w*(?:Id|ID|Ids|IDs))\s*:\s*((?:$collection\s*<\s*$raw\s*\??\s*>|$raw|(?:Int|Long|Short|Byte)Array(?!\w))\s*\??)""")
         val wrapper = Regex("""\bvalue\s+class\s+\w+\s*(?:<[^>]*>)?\s*(?:(?:private|internal)\s+constructor\s*)?\(\s*(?:(?:private|internal)\s+)?val\s+$""")
         val raws = files.filter { it.role in setOf("core", "api", "logic") && !it.test }.flatMap { source ->
             val code = code(source.text)

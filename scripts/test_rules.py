@@ -170,6 +170,8 @@ class Worker:
             if item.name not in SKIP:
                 shutil.rmtree(item) if item.is_dir() else item.unlink()
         for item in project.iterdir():
+            if item.name == '.git' and item.is_file():
+                continue  # a linked worktree's pointer: commit_base would commit to the app's own branch
             if item.name not in SKIP and not item.name.endswith(('.xcodeproj', '.xcworkspace')):
                 # Symlinks stay links: Rules/Sources/ModuleShape links to the helpers a case may overlay.
                 if item.is_dir():
@@ -178,7 +180,6 @@ class Worker:
                     shutil.copy2(item, self.work / item.name)
         if platform.base_commit:
             self.base = commit_base(self.work)
-
 
     def check(self, *gates: str) -> tuple[bool, str]:
         cmd = [sys.executable, 'scripts/check.py'] + [a for g in gates for a in ('--only', g)]
@@ -234,8 +235,8 @@ class Worker:
 
 def commit_base(work: Path) -> str:
     """Commits the copy as it is (the untouched project) and returns the commit: the base the verify gate compares a
-    case's feature map with, as CI compares a pull request with its base branch. A copied project's own .git (an app's)
-    gets the commit on top of its history."""
+    case's feature map with, as CI compares a pull request with its base branch. A copied project's own .git folder (an
+    app's) gets the commit on top of its history; a linked worktree's .git file isn't copied, so the copy gets its own."""
     def git(*cmd: str) -> str:
         return subprocess.run(['git', *cmd], cwd=work, check=True, capture_output=True, text=True).stdout.strip()
     if not (work / '.git').exists():
