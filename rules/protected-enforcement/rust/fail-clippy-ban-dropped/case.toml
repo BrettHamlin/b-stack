@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] clippy config.clippy.toml.disallowed-methods: arch/settings.json records [{\"path\": \"std::thread::sleep\""
+uses_example = false
+
+[[edits]]
+file = "clippy.toml"
+find = "    { path = \"std::thread::sleep\", reason = \"Don't wait for time to pass. Wait for the event itself (a channel, a join handle), or take a clock as a dependency.\" },\n"
+replace = ""

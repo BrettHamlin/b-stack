@@ -1,0 +1,7 @@
+id = "probe"
+summary = "Write what the probe feature does for the user."
+modules = ["probe"]
+
+[[journeys]]
+name = "probe_works"
+proves = "Write what this journey shows working in the app."

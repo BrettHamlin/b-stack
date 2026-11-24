@@ -5,6 +5,7 @@ Map check (feature-map/*.toml):
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
 Run: the journeys are the #[test] functions in crates/app/tests/journeys.rs, each running the built app binary.
   - every journey there is in the map, and every journey in the map is there (one that never runs fails)
+  - no journey is still the stub scripts/new_feature.py wrote
   - each journey runs on its own; it fails if it doesn't pass
 Evidence (each journey's result and output) goes to .build/evidence/latest/evidence.md.
 
@@ -76,6 +77,13 @@ def map_errors(features: list[dict]) -> list[str]:
     return errors
 
 
+def stubs() -> list[str]:
+    """Journeys in crates/app/tests/journeys.rs whose body is still new_feature.py's stub."""
+    text = (ROOT / 'crates/app/tests/journeys.rs').read_text()
+    return [m.group(1) for m in re.finditer(r'^fn (\w+)\(\)[^{]*\{(.*?)^\}', text, re.MULTILINE | re.DOTALL)
+            if 'Write this journey' in m.group(2)]
+
+
 def run(env: dict, features: list[dict]) -> list[str]:
     listed = subprocess.run(JOURNEYS + ['--list', '--format', 'terse'], cwd=ROOT, env=env, capture_output=True, text=True)
     if listed.returncode != 0:
@@ -86,6 +94,8 @@ def run(env: dict, features: list[dict]) -> list[str]:
               'to the feature it proves.' for name in in_code if name not in mapped]
     errors += [f'[verified-features] {mapped[name]}: journey `{name}` isn\'t in crates/app/tests/journeys.rs, so it '
                'never runs.' for name in mapped if name not in in_code]
+    errors += [f'[verified-features] journey `{name}` is still the stub new_feature.py wrote. Write it: run the app as a '
+               'user would and check what they\'d see from the feature.' for name in stubs() if name in in_code]
     lines = ['# Verify evidence', '']
     for feature in features:
         lines += [f'## {feature.get("id")}: {feature.get("summary", "")}', '']

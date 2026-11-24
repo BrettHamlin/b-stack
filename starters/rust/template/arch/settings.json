@@ -1,0 +1,223 @@
+{
+ "about": "The enforcement settings in effect, recorded by `python3 scripts/settings.py record` (protected). The settings gate fails when what cargo, rustc, Clippy, rustdoc and cargo-deny will use differs from this, or when CODEOWNERS stops covering a path listed here.",
+ "compiler": {
+  "dev": {
+   "lib": [
+    "--edition=2024",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--deny=warnings"
+   ],
+   "tests": [
+    "--edition=2024",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--test",
+    "--deny=warnings"
+   ],
+   "bin": [
+    "--edition=2024",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--deny=warnings"
+   ]
+  },
+  "release": {
+   "tests": [
+    "--edition=2024",
+    "-C opt-level=3",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--test",
+    "--deny=warnings"
+   ],
+   "lib": [
+    "--edition=2024",
+    "-C opt-level=3",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--deny=warnings"
+   ],
+   "bin": [
+    "--edition=2024",
+    "-C opt-level=3",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--deny=warnings"
+   ]
+  }
+ },
+ "clippy": {
+  "checks": [
+   {
+    "args": "",
+    "conf_dir": ".",
+    "driver": "clippy-driver"
+   }
+  ],
+  "config": {
+   "clippy.toml": {
+    "allow-unwrap-in-tests": true,
+    "allow-expect-in-tests": true,
+    "allow-panic-in-tests": true,
+    "allow-indexing-slicing-in-tests": true,
+    "disallowed-methods": [
+     {
+      "path": "std::thread::sleep",
+      "reason": "Don't wait for time to pass. Wait for the event itself (a channel, a join handle), or take a clock as a dependency."
+     }
+    ]
+   }
+  }
+ },
+ "rustdoc": {
+  "RUSTDOCFLAGS": "-D warnings"
+ },
+ "cargo": {},
+ "deny": {
+  "graph": {
+   "all-features": true
+  },
+  "bans": {
+   "multiple-versions": "allow",
+   "wildcards": "deny",
+   "allow-wildcard-paths": true,
+   "deny": []
+  },
+  "licenses": {
+   "allow": [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib"
+   ],
+   "confidence-threshold": 0.9,
+   "unused-allowed-license": "allow",
+   "private": {
+    "ignore": true
+   }
+  },
+  "sources": {
+   "unknown-registry": "deny",
+   "unknown-git": "deny"
+  }
+ },
+ "toolchain": {
+  "rustc": "1.99.0 (b940084d7eb6a299eb4bfeb8e34901bc051e7ac4)",
+  "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+  "clippy": "clippy 0.1.99 (b940084d7e 2026-09-28)",
+  "cargo-deny": "cargo-deny 0.20.2"
+ },
+ "codeowners": [
+  "/CODEOWNERS",
+  "/.github/",
+  "/AGENTS.md",
+  "/CLAUDE.md",
+  "/.claude/",
+  "/Cargo.toml",
+  "/rust-toolchain.toml",
+  "/clippy.toml",
+  "/deny.toml",
+  "/.cargo/",
+  "/arch/",
+  "/scripts/",
+  "/tools.toml",
+  "/feature-map/",
+  "/crates/app/tests/journeys.rs",
+  "/crates/app/src/"
+ ]
+}

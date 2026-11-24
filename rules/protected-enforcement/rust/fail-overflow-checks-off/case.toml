@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] compiler arguments (tests, dev profile): in effect also -C overflow-checks=off."
+uses_example = false
+
+[[edits]]
+file = "Cargo.toml"
+find = "[workspace.lints.rust]"
+replace = "[profile.dev]\noverflow-checks = false\n\n[workspace.lints.rust]"

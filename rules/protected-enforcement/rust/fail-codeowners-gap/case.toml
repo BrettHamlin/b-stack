@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] CODEOWNERS: no code owner for /deny.toml."
+uses_example = false
+
+[[edits]]
+file = "CODEOWNERS"
+find = "/deny.toml             @OWNER\n"
+replace = ""

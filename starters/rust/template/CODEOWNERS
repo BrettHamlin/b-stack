@@ -13,8 +13,10 @@
 /rust-toolchain.toml   @OWNER
 /clippy.toml           @OWNER
 /deny.toml             @OWNER
+# Cargo's own configuration: a test runner, [env] or profile overrides there change what the gates check
+/.cargo/               @OWNER
 
-# Module shape and the arch checker; gates and pinned tools
+# Module shape, the arch checker and the recorded settings; gates and pinned tools
 /arch/                 @OWNER
 /scripts/              @OWNER
 /tools.toml            @OWNER

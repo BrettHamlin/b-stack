@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] deny sources.unknown-git: arch/settings.json records \"deny\", in effect \"allow\"."
+uses_example = false
+
+[[edits]]
+file = "deny.toml"
+find = "unknown-git = \"deny\""
+replace = "unknown-git = \"allow\""

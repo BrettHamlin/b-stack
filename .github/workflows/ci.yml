@@ -33,7 +33,8 @@ jobs:
         run: python3 scripts/test_starter_scripts.py
 
   rust:
-    runs-on: macos-15
+    # Linux, as the starter's own workflow runs (tools.toml pins cargo-deny for linux-x64 too).
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
@@ -44,8 +45,17 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/bstack-cache"
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: The starter's own gates (check.py), as the starter's workflow runs them
+        working-directory: starters/rust/template
+        run: python3 scripts/check.py
       - name: Every Rust rule case through the Rust starter's gates
         run: python3 scripts/test_rules.py --platform rust
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: rust-evidence
+          path: starters/rust/template/.build/evidence/
+          if-no-files-found: ignore
 
   android:
     # Linux, not macOS: GitHub's Linux runners give the emulator KVM, and its macOS runners can't run it. The starter

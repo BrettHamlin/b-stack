@@ -6,6 +6,9 @@ Gates:
   clippy    no unwrap/expect/panic, indexing, `as` casts, catch-all matches on enums, banned APIs (clippy.toml)
   deny      every crate in the dependency tree comes from crates.io and has an allowed license (deny.toml)
   arch      the crate graph against the module shape (arch/shape.toml), and the source checks in arch/checker
+  settings  the enforcement settings in effect (compiler arguments per target, Clippy's config, cargo's config,
+            deny.toml, toolchain) are the ones recorded in arch/settings.json, and CODEOWNERS covers every enforcement
+            path (scripts/settings.py)
   tests     every test: unit, integration, property and doc tests
   verify    the feature map is complete, and every journey passes against the built app (scripts/verify.py)
 
@@ -25,7 +28,7 @@ from arch import findings as arch_findings  # noqa: E402
 from tools import rust_env, tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'clippy', 'deny', 'arch', 'tests', 'verify']
+GATES = ['compiler', 'clippy', 'deny', 'arch', 'settings', 'tests', 'verify']
 NOISE = ('Compiling ', 'Checking ', 'Finished ', 'Running ', 'Doc-tests ', 'Blocking ', 'Locking ', 'Adding ',
          'Downloaded ', 'Downloading ', 'Updating ')
 
@@ -42,11 +45,13 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
     if name == 'clippy':
         return run(['cargo', 'clippy', '--workspace', '--all-targets'], env)
     if name == 'deny':
-        return run([str(tool_path('cargo-deny')), '--manifest-path', 'Cargo.toml', 'check', '--hide-inclusion-graph',
-                    'bans', 'licenses', 'sources'], env)
+        return run([str(tool_path('cargo-deny')), '--manifest-path', 'Cargo.toml', '--config', 'deny.toml', 'check',
+                    '--hide-inclusion-graph', 'bans', 'licenses', 'sources'], env)
     if name == 'arch':
         found = arch_findings()
         return not found, '\n'.join(found)
+    if name == 'settings':
+        return run([sys.executable, str(ROOT / 'scripts/settings.py')], env)
     if name == 'tests':
         ok, output = run(['cargo', 'test', '--workspace', '--all-targets', '--no-fail-fast'], env)
         if not ok:

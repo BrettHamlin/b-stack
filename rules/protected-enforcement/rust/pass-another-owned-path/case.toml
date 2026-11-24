@@ -1,0 +1,8 @@
+expect = "pass"
+enforced_by = "settings"
+uses_example = false
+
+[[edits]]
+file = "CODEOWNERS"
+find = "/tools.toml            @OWNER"
+replace = "/tools.toml            @OWNER\n/docs/                 @OWNER"

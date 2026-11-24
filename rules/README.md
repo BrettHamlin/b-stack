@@ -16,6 +16,7 @@ rules/<rule-id>/
     case.toml                 what must happen
     crates/**                 overlaid onto the starter's crates/ (usually a new crate, e.g. crates/features/probe/)
     feature-map/*.toml        overlaid onto feature-map/
+    .cargo/*.toml             cargo's configuration, added to the project
   typescript/<case-name>/
     case.toml                 what must happen
     packages/**, apps/**      overlaid onto the starter's (usually a new package, e.g. packages/features/probe/)
@@ -40,14 +41,14 @@ rules/case-feature/ios/       Meter: a small iOS feature any case can bring (cas
 | `message` | What the agent sees: what's wrong, what to use instead, stop and report if blocked |
 | `escape_hatches` | Ways around the rule, and what blocks each |
 | `origin` | Where the rule came from |
-| `[ios]`, `[rust]`, `[typescript]`, `[android]` | One table per platform the rule is enforced on, at least one. One key per enforcing tool saying how (iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`; Rust: `compiler`, `clippy`, `deny`, `arch`, `tests`, `verify`, `repo`; TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests`, `verify`, `repo`; Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `settings`, `tests`, `verify`, `release`, `repo`). `tests_pending` if no cases exist yet, with the reason. Optional `layer` and `message` when they differ on that platform. |
+| `[ios]`, `[rust]`, `[typescript]`, `[android]` | One table per platform the rule is enforced on, at least one. One key per enforcing tool saying how (iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`; Rust: `compiler`, `clippy`, `deny`, `arch`, `settings`, `tests`, `verify`, `repo`; TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests`, `verify`, `repo`; Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `settings`, `tests`, `verify`, `release`, `repo`). `tests_pending` if no cases exist yet, with the reason. Optional `layer` and `message` when they differ on that platform. |
 
 ### case.toml
 
 | Key | Meaning |
 |---|---|
 | `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate except `verify`, which runs on the untouched project: on iOS it drives a simulator, and a case's code isn't a mapped feature) |
-| `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `tests` or `verify`. TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests` or `verify`. Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `settings`, `tests`, `verify` or `release` |
+| `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `settings`, `tests` or `verify`. TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests` or `verify`. Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `settings`, `tests`, `verify` or `release` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
 | `uses_example` | `false` if the case applies to any app, or a short reason it uses the starter's example (iOS: Settings; Rust, TypeScript and Android: tally; its modules, identifiers, journeys, fixtures or feature map). Required. Example cases run only on the starter; `test_rules.py --project <app>` lists them as OUT with the reason. `check_repo.py` fails a `false` case whose files mention the example, or (iOS) that replaces Features.swift, which would drop the app's own features |
 | `adds_targets` | Optional: targets (iOS) or folders directly under `crates/` (Rust), `packages/` (TypeScript) or `features/` (Android) the case adds that the project doesn't have (otherwise a missing one is a SKIP) |
@@ -56,7 +57,7 @@ rules/case-feature/ios/       Meter: a small iOS feature any case can bring (cas
 | `shared_links` | Optional, iOS: `SharedLink` cases (`"appUsesPlatform"`) added to the project's `sharedLinks` |
 | `generate_adapters` | Optional, iOS: `true` runs `scripts/verify.py adapters` after the overlay, as an agent does after adding a journey body |
 | `needs_fixtures` | Optional, iOS: fixtures the case's feature map names that must already exist (e.g. `["standard"]`, the starter's default); a project without one SKIPs the case |
-| `edits` | Optional: `[[edits]]` tables (`file`, `find`, `replace`) applied to a protected project file (iOS: `Project.swift`; Rust: the root `Cargo.toml` or `Cargo.lock`; TypeScript: the root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `tsconfig.effect.json`, `vite.config.ts` or `CODEOWNERS`; Android: `gradle/libs.versions.toml`, `settings.gradle.kts`, `gradle.properties` or `CODEOWNERS`), for cases about hand edits. `find` must occur exactly once, or the case FAILs |
+| `edits` | Optional: `[[edits]]` tables (`file`, `find`, `replace`) applied to a protected project file (iOS: `Project.swift`; Rust: the root `Cargo.toml`, `Cargo.lock`, `clippy.toml`, `deny.toml` or `CODEOWNERS`; TypeScript: the root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `tsconfig.effect.json`, `vite.config.ts` or `CODEOWNERS`; Android: `gradle/libs.versions.toml`, `settings.gradle.kts`, `gradle.properties` or `CODEOWNERS`), for cases about hand edits. `find` must occur exactly once, or the case FAILs |
 
 Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 
@@ -78,10 +79,10 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [thin-app](thin-app/rule.toml) | 2 | Harmonize |  |  | Konsist | The shipped App only composes screens and services; no decisions, functions or tasks |
 | [views-hold-no-clients](views-hold-no-clients/rule.toml) | 1+2 | compiler, Harmonize |  |  | compiler, Konsist | A feature's view gets only its store; clients go into the reducer |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize |  | oxlint | Konsist | TCA tests stay exhaustive (no exhaustivity off or skips; TypeScript: whole-value assertions) |
-| [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch | tests, oxlint, arch | tests, Konsist, arch | Every test target runs in the tests gate |
+| [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch, settings | tests, oxlint, arch | tests, Konsist, arch | Every test target runs in the tests gate |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist |  | arch, oxlint | compiler | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |
 | [allowed-dependencies](allowed-dependencies/rule.toml) | 2 |  | arch, cargo-deny | arch, deps | compiler, deps | Third-party packages only from each role's list, the registry, allowed licenses |
 | [verified-features](verified-features/rule.toml) | 3 | verify | verify | verify (Playwright) | verify, release (UiAutomator) | Every feature is in the feature map and its journeys pass in the running app |
 | [minimum-os-apis](minimum-os-apis/rule.toml) | 2 |  |  |  | Android Lint | Code calls only APIs the oldest supported OS has, or checks the version first |
 | [listed-permissions](listed-permissions/rule.toml) | 2 |  |  |  | deps | The shipped app asks only for the permissions, and exports only the components, its owner listed |
-| [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | (not tested yet) | settings | settings | Enforcement files need a human code owner to change |
+| [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | settings | settings | settings | Enforcement files need a human code owner to change |

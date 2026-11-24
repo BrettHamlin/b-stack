@@ -1,0 +1,5 @@
+# A test runner that exits 0 makes every test "pass" without running it; the tests gate alone lets this through.
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] cargo target: arch/settings.json records null, in effect {\"cfg(all())\": {\"runner\": \"true\"}}."
+uses_example = false

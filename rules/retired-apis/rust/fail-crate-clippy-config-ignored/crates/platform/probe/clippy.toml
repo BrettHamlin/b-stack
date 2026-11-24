@@ -1,0 +1,2 @@
+# Clippy reads the root clippy.toml for every crate (CLIPPY_CONF_DIR), so this one, which would drop the ban, is ignored.
+disallowed-methods = []

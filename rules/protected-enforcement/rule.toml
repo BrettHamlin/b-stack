@@ -3,7 +3,7 @@ layer = "foundation"
 summary = "Files that control enforcement can't change without a human code owner."
 problem = "Agents can edit compiler flags, lint config, the dependency graph and CI. Weakening a check is often the cheapest way to pass it."
 message = "This change modifies the enforcement surface. It needs code-owner review. If you changed it to make a check pass, revert and fix the underlying issue, or stop and report."
-escape_hatches = ["Moving settings to an unlisted file: the settings check asserts effective settings.", "Editing the CI workflow in the same PR: CODEOWNERS on .github/ or required org workflows.", "TypeScript and Android: weakening a setting and arch/settings.json together, or editing scripts/settings.py (or build-logic, which reports Android's settings): all code-owned; review."]
+escape_hatches = ["Moving settings to an unlisted file: the settings check asserts effective settings.", "Editing the CI workflow in the same PR: CODEOWNERS on .github/ or required org workflows.", "TypeScript, Android and Rust: weakening a setting and arch/settings.json together, or editing scripts/settings.py (or build-logic, which reports Android's settings, or scripts/tools.py, which sets Rust's environment): all code-owned; review."]
 origin = "Design discussion, Nov 2026."
 
 [ios]
@@ -11,8 +11,8 @@ repo = "CODEOWNERS on Project.swift, Tuist.swift, Tuist/ (except the agent-edite
 tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files, compiler-settings assertion) not built yet."
 
 [rust]
-repo = "CODEOWNERS on Cargo.toml, rust-toolchain.toml, clippy.toml, deny.toml, tools.toml, arch/, scripts/, crates/app/tests/journeys.rs, feature-map/, .github/, AGENTS.md; branch protection."
-tests_pending = "Repo-level checks (CODEOWNERS coverage of the enforcement files) not built yet."
+repo = "CODEOWNERS on Cargo.toml, rust-toolchain.toml, clippy.toml, deny.toml, .cargo/, tools.toml, arch/, scripts/, crates/app/tests/journeys.rs, crates/app/src/, feature-map/, .github/, .claude/, AGENTS.md; branch protection. GitHub ignores a rule whose owner doesn't exist, so the new-project skill replaces @OWNER."
+settings = "scripts/settings.py (the settings gate) compares the settings in effect with arch/settings.json (Rust 1.99.0, cargo-deny 0.20.2): every workspace target's compiler arguments as cargo passes them, recorded by a RUSTC_WRAPPER during `cargo clippy --all-targets` in the dev and release profiles (the workspace lint levels, RUSTFLAGS' -D warnings, lint caps, cfgs, and each profile's overflow checks, debug assertions, optimization and panic strategy), per profile and kind (library, binary, tests); the Clippy driver, config folder and clippy.toml settings each crate gets; RUSTDOCFLAGS; cargo's merged file configuration (`cargo config get`: .cargo/config.toml here, in parent folders or in CARGO_HOME, so a test runner, [env], profile override or compiler wrapper there fails); deny.toml's settings (check.py passes it to cargo-deny with --config); the rustc, cargo, Clippy and cargo-deny versions; and that /CODEOWNERS is the only one, every rule names an owner and it lists every enforcement path. Settings from the environment (RUSTFLAGS, CARGO_ENCODED_RUSTFLAGS, CARGO_PROFILE_*, CARGO_BUILD_*, CARGO_TARGET_*, RUSTC_WRAPPER, CLIPPY_CONF_DIR, ...) never reach the gates: scripts/tools.py drops them."
 
 [typescript]
 repo = "CODEOWNERS on package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.effect.json, vite.config.ts, tools.toml, arch/, scripts/, .githooks/, apps/desktop/journeys/, apps/desktop/src/, apps/web/src/main.tsx, apps/desktop/vite.config.ts, apps/web/vite.config.ts, packages/fixtures/, feature-map/, .github/, .claude/, .agents/, AGENTS.md; branch protection. GitHub ignores a rule whose owner doesn't exist, so the new-project skill replaces @OWNER."
