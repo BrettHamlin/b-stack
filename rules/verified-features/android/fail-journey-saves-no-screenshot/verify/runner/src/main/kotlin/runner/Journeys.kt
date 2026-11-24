@@ -7,6 +7,7 @@ import journeys.badNameIsRefused
 import journeys.failedSaveKeepsTheOldTally
 import journeys.savedTallyIsShownAtStart
 import journeys.tallyIsSavedAcrossRuns
+import journeys.tallySurvivesProcessDeath
 import journeys.tallySurvivesRotation
 import journeys.unreadableTallyIsNeverOverwritten
 import org.junit.Test
@@ -28,6 +29,9 @@ class Journeys {
 
     @Test
     fun tallySurvivesRotation() = Driver("tallySurvivesRotation").tallySurvivesRotation()
+
+    @Test
+    fun tallySurvivesProcessDeath() = Driver("tallySurvivesProcessDeath").tallySurvivesProcessDeath()
 
     @Test
     fun unreadableTallyIsNeverOverwritten() = Driver("unreadableTallyIsNeverOverwritten").unreadableTallyIsNeverOverwritten()

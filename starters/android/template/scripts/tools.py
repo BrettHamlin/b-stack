@@ -14,6 +14,7 @@ from pathlib import Path
 import fcntl
 import hashlib
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -39,9 +40,32 @@ def pins() -> dict:
     return tomllib.loads((ROOT / 'tools.toml').read_text())
 
 
+HOSTS = {('Darwin', 'arm64'): 'mac-arm64', ('Linux', 'x86_64'): 'linux-x64'}
+
+
+def host() -> str:
+    """This machine's name in tools.toml (mac-arm64 or linux-x64)."""
+    found = HOSTS.get((platform.system(), platform.machine()))
+    if not found:
+        sys.exit(f'No tools are pinned for {platform.system()} {platform.machine()}: tools.toml has '
+                 f'{", ".join(HOSTS.values())}.')
+    return found
+
+
+def spec_for(name: str) -> dict:
+    """The tool's pin, with this machine's own table (url, sha256, home) if it is built per machine."""
+    spec = pins()[name]
+    hosts = [h for h in HOSTS.values() if h in spec]
+    if not hosts:
+        return spec
+    if host() not in spec:
+        sys.exit(f'tools.toml pins {name} for {", ".join(hosts)}, not {host()}.')
+    return {**{k: v for k, v in spec.items() if k not in hosts}, **spec[host()]}
+
+
 def tool_path(name: str) -> Path:
     """The tool's folder (its `home` in tools.toml), downloaded and verified first if needed."""
-    spec = pins()[name]
+    spec = spec_for(name)
     folder = tools_dir() / f'{name}-{spec["version"]}'
     home = folder / spec['home']
     if (folder / '.complete').is_file():
@@ -63,8 +87,11 @@ def tool_path(name: str) -> Path:
                 sys.exit(f'{name}: checksum mismatch (expected {spec["sha256"]}, got {digest}). Refusing to use it.')
             unpacked = staging / 'tool'
             if archive.name.endswith('.zip'):
-                # ditto keeps the permissions inside the archive (Gradle's and sdkmanager's launchers); zipfile doesn't.
-                subprocess.run(['ditto', '-x', '-k', str(archive), str(unpacked)], check=True)
+                # ditto and unzip keep the permissions inside the archive (Gradle's and sdkmanager's launchers);
+                # zipfile doesn't.
+                unzip = (['ditto', '-x', '-k', str(archive), str(unpacked)] if platform.system() == 'Darwin'
+                         else ['unzip', '-q', str(archive), '-d', str(unpacked)])
+                subprocess.run(unzip, check=True)
             else:
                 with tarfile.open(archive) as tar:
                     tar.extractall(unpacked, filter='tar')
@@ -91,9 +118,15 @@ def installed_revision(package: str) -> str | None:
     return None
 
 
+def sdk_packages() -> dict[str, str]:
+    """The SDK packages tools.toml pins for every machine, and this machine's own (its emulator image)."""
+    pinned = pins()['android-sdk']
+    return {**pinned['packages'], **pinned.get(host(), {})}
+
+
 def sdk() -> Path:
     """The Android SDK with tools.toml's packages at their pinned revisions, installed by the pinned sdkmanager."""
-    wanted = pins()['android-sdk']['packages']
+    wanted = sdk_packages()
     root = sdk_root()
     root.mkdir(parents=True, exist_ok=True)
     with (root.parent / 'android-sdk.lock').open('w') as lock:

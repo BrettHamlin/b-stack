@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deps"
+diagnostic = "[listed-permissions] the shipped app exports receiver app.SyncReceiver to other apps"
+uses_example = "replaces the starter's app manifest"

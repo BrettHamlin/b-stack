@@ -1,5 +1,6 @@
 package tally.logic
 
+import core.Saved
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,9 +32,10 @@ sealed interface TallyAction {
 }
 
 /** The tally screen's state. The view renders [state] and sends actions; storage goes through [store], and work
- * runs in [scope], which the composition root owns (it outlives configuration changes). */
-class TallyModel(private val store: TallyStore, private val scope: CoroutineScope) {
-    private val current = MutableStateFlow(TallyState())
+ * runs in [scope], which the composition root owns (it outlives configuration changes). The name being typed is kept
+ * in [saved] too, so it survives the system ending the app in the background. */
+class TallyModel(private val store: TallyStore, private val scope: CoroutineScope, private val saved: Saved) {
+    private val current = MutableStateFlow(TallyState(name = saved[NAME] ?: ""))
     val state: StateFlow<TallyState> = current.asStateFlow()
 
     init {
@@ -47,7 +49,10 @@ class TallyModel(private val store: TallyStore, private val scope: CoroutineScop
 
     fun send(action: TallyAction) {
         when (action) {
-            is TallyAction.NameChanged -> current.update { it.copy(name = action.text) }
+            is TallyAction.NameChanged -> {
+                saved[NAME] = action.text
+                current.update { it.copy(name = action.text) }
+            }
             TallyAction.Add -> add()
         }
     }
@@ -66,12 +71,17 @@ class TallyModel(private val store: TallyStore, private val scope: CoroutineScop
         current.update { it.copy(saving = true) }
         scope.launch {
             when (store.save(next)) {
-                is Stored.Done -> current.update { it.copy(tally = next, name = "", saving = false, problem = null) }
+                is Stored.Done -> {
+                    saved[NAME] = ""
+                    current.update { it.copy(tally = next, name = "", saving = false, problem = null) }
+                }
                 Stored.Failed -> current.update { it.copy(saving = false, problem = TallyProblem.SaveFailed) }
             }
         }
     }
 }
+
+private const val NAME = "name"
 
 /** The tally after recording [name] once more. */
 fun recorded(tally: Tally, name: ItemName): Tally =

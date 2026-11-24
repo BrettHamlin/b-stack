@@ -215,6 +215,9 @@ bstack:
   NoThrow:
     active: true
     excludes: ['**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
+  NoPlatformTypeCall:
+    active: true
+    excludes: ['**/commonTest/**', '**/src/test/**']
 
 console-reports:
   exclude: ['ProjectStatisticsReport', 'ComplexityReport', 'NotificationReport', 'FindingsReport']

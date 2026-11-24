@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "journey `tallySurvivesProcessDeath` failed"
+uses_example = "changes the tally model to forget the name being typed when its process ends"

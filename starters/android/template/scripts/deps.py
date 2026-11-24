@@ -8,6 +8,9 @@
     (app's release runtime classpath) may use only permissive licenses; build and test tools may also use the weak
     copyleft licenses below (JUnit's EPL, and the MPL and EPL parts of the Android Gradle Plugin's own tools). An unknown or missing license fails: add it to the table here
     (a code-owned change) once someone has read it.
+  - Manifest: the shipped app's merged release manifest (its own and every library's) requests only the permissions,
+    and exports only the components, listed in arch/manifest.toml, each exported one guarded by its listed permission
+    (its own, else the application's; a provider's read and write permissions are listed as `P (read R, write W)`).
 
 Usage: python3 scripts/deps.py
 """
@@ -15,6 +18,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tomllib
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -79,6 +83,56 @@ def shipped(env: dict) -> set[str]:
     return {m.group(1) for m in re.finditer(r'--- ([\w.-]+:[\w.-]+):', proc.stdout)}
 
 
+ANDROID = '{http://schemas.android.com/apk/res/android}'
+MERGED = ROOT / '.build/gradle/app/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml'
+
+
+def manifest(env: dict) -> list[str]:
+    """The shipped app's merged manifest against the owner's list in arch/manifest.toml."""
+    proc = subprocess.run(gradle_command('-q', ':app:processReleaseMainManifest'), cwd=ROOT, env=env,
+                          capture_output=True, text=True)
+    if proc.returncode != 0 or not MERGED.is_file():
+        return [f'[listed-permissions] Couldn\'t merge the app\'s manifest:\n{(proc.stdout + proc.stderr)[-3000:]}']
+    root = ET.parse(MERGED).getroot()
+    app_id = root.get('package', '')
+    listed = tomllib.loads((ROOT / 'arch/manifest.toml').read_text())
+    allowed = {p.replace('{app}', app_id) for p in listed.get('permissions', [])}
+    exported = {name: permission.replace('{app}', app_id) for name, permission in listed.get('exported', {}).items()}
+    found = []
+    tell = ('Remove it, or if the app needs it, stop and report: the owner adds it to arch/manifest.toml after '
+            'reading what it gives the app (or other apps). A library that brought it can be dropped, or its entry '
+            'removed with tools:node="remove" in app\'s manifest, which also needs the owner.')
+    for tag in ('uses-permission', 'uses-permission-sdk-23'):
+        for element in root.iter(tag):
+            name = element.get(ANDROID + 'name', '')
+            if name not in allowed:
+                found.append(f'[listed-permissions] the shipped app requests {name} (merged manifest, {tag}), which '
+                             f'isn\'t in arch/manifest.toml. {tell}')
+    application = root.find('application')
+    inherited = application.get(ANDROID + 'permission', '') if application is not None else ''
+    for tag in ('activity', 'activity-alias', 'service', 'receiver', 'provider'):
+        for element in root.iter(tag):
+            # Only a literal false keeps it private; `@bool/...` may resolve to true. Unset is private on targetSdk 31+.
+            if element.get(ANDROID + 'exported') in (None, 'false'):
+                continue
+            name = element.get(ANDROID + 'name', '')
+            # The permission that guards it: its own, else the application's (not for an alias since Android 12).
+            guard = element.get(ANDROID + 'permission') or ('' if tag == 'activity-alias' else inherited)
+            if tag == 'provider':  # a provider's read and write permissions override its permission
+                read, write = element.get(ANDROID + 'readPermission'), element.get(ANDROID + 'writePermission')
+                if read or write:
+                    guard = f'{guard} (read {read or guard or "none"}, write {write or guard or "none"})'.strip()
+            if name not in exported:
+                found.append(f'[listed-permissions] the shipped app exports {tag} {name} to other apps (merged '
+                             f'manifest), which isn\'t in arch/manifest.toml. Set android:exported="false" unless other '
+                             f'apps must start it; if they must, stop and report. {tell}')
+            elif exported[name] != guard:
+                found.append(f'[listed-permissions] the shipped app exports {tag} {name} guarded by '
+                             f'{guard or "no permission"}; arch/manifest.toml lists it with {exported[name] or "none"}. '
+                             f'{tell}')
+    return found
+
+
 def findings() -> list[str]:
     found = []
     for settings in ('settings.gradle.kts', 'build-logic/settings.gradle.kts'):
@@ -99,6 +153,7 @@ def findings() -> list[str]:
         found.append('[allowed-dependencies] gradle/verification-metadata.xml must verify every artifact '
                      '(verify-metadata true) and trust none without a checksum.')
     env = android_env()
+    found += manifest(env)
     home, in_app = gradle_home(), shipped(env)
     components = [(c.get('group'), c.get('name'), c.get('version')) for c in metadata.findall('v:components/v:component', NS)]
     if any(pom(home, *c) is None for c in components):
@@ -110,8 +165,8 @@ def findings() -> list[str]:
     for component in metadata.findall('v:components/v:component', NS):
         group, name, version = component.get('group'), component.get('name'), component.get('version')
         artifacts = [a.get('name') for a in component.findall('v:artifact', NS)]
-        if all(a.endswith('.pom') for a in artifacts) or name.endswith('.gradle.plugin'):
-            continue  # a parent POM, BOM or plugin marker: no code of its own
+        if all(a.endswith(('.pom', '.module')) for a in artifacts) or name.endswith('.gradle.plugin'):
+            continue  # a parent POM, BOM, Gradle module metadata or plugin marker: no code of its own
         names = licenses(home, group, name, version)
         coordinate = f'{group}:{name}:{version}'
         if not names:

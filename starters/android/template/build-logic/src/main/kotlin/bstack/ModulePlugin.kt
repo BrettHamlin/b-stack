@@ -129,6 +129,7 @@ class ModulePlugin : Plugin<Project> {
                     versionName = "0.1.0"
                 }
                 compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+                lint { lint(this) }
             }
         } else {
             project.pluginManager.apply("com.android.library")
@@ -137,6 +138,7 @@ class ModulePlugin : Plugin<Project> {
                 compileSdk { version = release(37) { minorApiLevel = 2 } }
                 defaultConfig { minSdk = 29 }
                 compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+                lint { lint(this) }
             }
         }
         if (role.compose) project.pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
@@ -147,6 +149,17 @@ class ModulePlugin : Plugin<Project> {
             add("testImplementation", catalog.library("junit"))
             add("testImplementation", catalog.library("kotlinx-coroutines-test"))
         }
+    }
+
+    /** Android Lint, the lint gate: only NewApi (a call to an API newer than minSdk 29, which compiles but crashes on
+     * older devices), as an error, with no baseline. */
+    private fun lint(lint: com.android.build.api.dsl.Lint) {
+        lint.checkOnly.add("NewApi")
+        lint.error.add("NewApi")
+        lint.abortOnError = true
+        lint.warningsAsErrors = true
+        lint.checkReleaseBuilds = false
+        lint.checkTestSources = false
     }
 
     /** verify/runner: the journeys' driver and generated adapters, a self-instrumenting test app for app-verify. */

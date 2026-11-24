@@ -1,5 +1,6 @@
 package appverify
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,16 +19,17 @@ class VerifyActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = application as? VerifyApp ?: return finish()
-        val fixture = fixtureNamed(intent.getStringExtra("bstack.fixture"))
-        val reset = savedInstanceState == null && intent.getBooleanExtra("bstack.reset", false)
+        val launch: Intent? = intent
+        val fixture = fixtureNamed(launch?.getStringExtra("bstack.fixture"))
+        val reset = savedInstanceState == null && launch?.getBooleanExtra("bstack.reset", false) == true
         val store = fixture?.let { app.tallyStore(it, reset) }
         setContent {
             MaterialTheme {
                 Surface {
                     if (store == null) {
-                        Text("Unknown fixture: ${intent.getStringExtra("bstack.fixture")}")
+                        Text("Unknown fixture: ${launch?.getStringExtra("bstack.fixture")}")
                     } else {
-                        TallyRoute(rememberModel("tally") { scope -> TallyModel(store, scope) })
+                        TallyRoute(rememberModel("tally") { scope, saved -> TallyModel(store, scope, saved) })
                     }
                 }
             }

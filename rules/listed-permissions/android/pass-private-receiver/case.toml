@@ -1,0 +1,3 @@
+expect = "pass"
+enforced_by = "deps"
+uses_example = "replaces the starter's app manifest"

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deps"
+diagnostic = "[listed-permissions] the shipped app exports activity app.MainActivity guarded by android.permission.BIND_JOB_SERVICE; arch/manifest.toml lists it with none."
+uses_example = "replaces the starter's app manifest"

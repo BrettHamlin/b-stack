@@ -1,0 +1,11 @@
+id = "minimum-os-apis"
+layer = "2"
+summary = "Code calls only APIs the oldest supported OS version has, or checks the version first."
+problem = "A call to an API newer than the minimum OS version compiles against the newest SDK and passes every test on a new device or emulator, then crashes on the older devices the app still supports. Agents copy current API examples without checking when the API arrived."
+message = "This API is newer than the oldest OS the app supports. Check the version first and handle older versions, or use the compat library's helper. Never raise the minimum version or silence the check; if neither works, stop and report."
+escape_hatches = ["Android: @TargetApi, tools:targetApi and @SuppressLint(\"NewApi\") switch the check off: banned by no-suppressions (arch).", "Android: @RequiresApi passes the requirement to callers, which Lint then checks; on a class the system starts itself (an Activity named in the manifest), no caller is checked: review.", "Android: reflection, or a constant inlined from a newer SDK (Lint's InlinedApi, not enabled): review.", "Android: raising minSdk is a change to build-logic (code-owned)."]
+origin = "Fable 5.2 review of the Android starter, 2026-11-23: calls above minSdk 29 compiled, and the only emulator runs API 37, so nothing saw the crash."
+
+[android]
+lint = "Android Lint's NewApi on every Android module's main sources, as an error with no baseline (AGP 9.5.2, Lint 32.5.2, minSdk 29). Kotlin common modules can't reach Android at all."
+message = "A call above minSdk 29 compiles, but crashes on the older devices the app supports. Check the version first (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { ... } with a path for older versions), or use the AndroidX compat helper (ContextCompat and the like). Never raise minSdk or silence Lint; if neither works, stop and report."

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "deps"
+diagnostic = "[listed-permissions] the shipped app requests android.permission.READ_CONTACTS (merged manifest, uses-permission), which isn't in arch/manifest.toml."
+uses_example = "replaces the starter's app manifest"

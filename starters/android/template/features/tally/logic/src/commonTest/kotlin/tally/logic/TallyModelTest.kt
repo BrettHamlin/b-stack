@@ -1,6 +1,7 @@
 package tally.logic
 
 import app.cash.turbine.test
+import core.SavedInMemory
 import kotlinx.coroutines.test.runTest
 import tally.api.ItemName
 import tally.api.Tally
@@ -13,7 +14,7 @@ class TallyModelTest {
     @Test
     fun recordingCountsAndSaves() = runTest {
         val store = MemoryStore()
-        val model = TallyModel(store, backgroundScope)
+        val model = TallyModel(store, backgroundScope, SavedInMemory())
         model.state.test {
             assertEquals(TallyState(), awaitItem())
             assertEquals(TallyState(loading = false), awaitItem())
@@ -31,7 +32,7 @@ class TallyModelTest {
     fun failedSaveKeepsTheOldTally() = runTest {
         val before = Tally(mapOf(apple to 2))
         val store = MemoryStore(before, failSaves = true)
-        val model = TallyModel(store, backgroundScope)
+        val model = TallyModel(store, backgroundScope, SavedInMemory())
         model.state.test {
             assertEquals(TallyState(), awaitItem())
             assertEquals(TallyState(tally = before, loading = false), awaitItem())
@@ -50,7 +51,7 @@ class TallyModelTest {
     @Test
     fun badNameIsRefused() = runTest {
         val store = MemoryStore()
-        val model = TallyModel(store, backgroundScope)
+        val model = TallyModel(store, backgroundScope, SavedInMemory())
         model.state.test {
             assertEquals(TallyState(), awaitItem())
             assertEquals(TallyState(loading = false), awaitItem())
@@ -69,7 +70,7 @@ class TallyModelTest {
     fun aFailedLoadBlocksAdding() = runTest {
         val before = Tally(mapOf(apple to 2))
         val store = MemoryStore(before, failLoads = true)
-        val model = TallyModel(store, backgroundScope)
+        val model = TallyModel(store, backgroundScope, SavedInMemory())
         model.state.test {
             assertEquals(TallyState(), awaitItem())
             assertEquals(TallyState(loading = false, problem = TallyProblem.LoadFailed), awaitItem())
@@ -77,6 +78,24 @@ class TallyModelTest {
             assertEquals(TallyState(name = "apple", loading = false, problem = TallyProblem.LoadFailed), awaitItem())
             model.send(TallyAction.Add)
             assertEquals(before, store.current)
+        }
+    }
+
+    @Test
+    fun theNameBeingTypedIsKeptForAfterProcessDeath() = runTest {
+        val saved = SavedInMemory("name" to "pea")
+        val model = TallyModel(MemoryStore(), backgroundScope, saved)
+        model.state.test {
+            assertEquals(TallyState(name = "pea"), awaitItem())
+            assertEquals(TallyState(name = "pea", loading = false), awaitItem())
+            model.send(TallyAction.NameChanged("pear"))
+            assertEquals(TallyState(name = "pear", loading = false), awaitItem())
+            assertEquals("pear", saved["name"])
+            model.send(TallyAction.Add)
+            assertEquals(TallyState(name = "pear", loading = false, saving = true), awaitItem())
+            val pear = ItemName.parse("pear") ?: error("valid name")
+            assertEquals(TallyState(tally = Tally(mapOf(pear to 1)), loading = false), awaitItem())
+            assertEquals("", saved["name"])
         }
     }
 }

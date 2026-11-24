@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+diagnostic = "[no-suppressions] platform/probe/src/main/kotlin/platform/probe/Probe.kt:6: `@TargetApi`"
+uses_example = false

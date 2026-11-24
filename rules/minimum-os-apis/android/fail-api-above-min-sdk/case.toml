@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "lint"
+diagnostic = "Call requires API level 30 (current min is 29)"
+uses_example = false
