@@ -12,7 +12,7 @@ compiler = "@available(*, unavailable, message: \"Use <replacement>, which <why>
 [rust]
 layer = "1+2"
 compiler = "#[deprecated(note = \"Use <replacement>, which <why>\")] on owned APIs, with the deprecated lint at deny: a call fails to compile and the error carries the note (Rust 1.99.0)."
-clippy = "clippy.toml disallowed-methods (deny) for std and third-party APIs, each with the reason and replacement; std::thread::sleep is banned to start."
+clippy = "clippy.toml disallowed-methods (deny) for std and third-party APIs, each with the reason and replacement; std::thread::sleep is banned to start. Every crate gets the root clippy.toml (scripts/tools.py sets CLIPPY_CONF_DIR): without it, Clippy 0.1.99 (Rust 1.99.0) reads the nearest clippy.toml above each crate's manifest, so a crate's own clippy.toml could drop the bans."
 
 [typescript]
 layer = "2"

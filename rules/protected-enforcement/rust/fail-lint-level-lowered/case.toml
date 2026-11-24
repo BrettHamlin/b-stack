@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] compiler arguments (lib, dev profile): in effect also --warn=clippy::unwrap_used; missing --deny=clippy::unwrap_used."
+uses_example = false
+
+[[edits]]
+file = "Cargo.toml"
+find = "unwrap_used = \"deny\""
+replace = "unwrap_used = \"warn\""

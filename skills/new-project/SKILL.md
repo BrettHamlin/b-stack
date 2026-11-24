@@ -40,7 +40,8 @@ Then, from b-stack: `python3 scripts/test_rules.py --project <new-repo>`. It run
 Steps 1, 2 and 5 are the same. In step 2, each feature is a `no_std` crate in `crates/features/<name>/` (logic plus traits for what it needs), with real I/O in a `crates/platform/<name>/` crate and wiring in `crates/app`, following the tally example. Then:
 - copy `starters/rust/template/` into the new repo; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, and add `CLAUDE.md` containing `@AGENTS.md`
 - replace the tally example (`crates/features/tally`, `crates/platform/files`, the app's commands, `crates/app/tests/journeys.rs`, `feature-map/`) with the agreed features. Don't edit the root `Cargo.toml`, `arch/`, `clippy.toml` or `deny.toml`. A third-party crate needs the owner: list the ones the features need and ask before adding them to `arch/shape.toml`
-- replace `@OWNER` in `CODEOWNERS`; `git init`
+- add each agreed feature with `python3 scripts/new_feature.py <name>`, then write its logic, test and journey
+- replace `@OWNER` in `CODEOWNERS`; `git init`; after the first push, make the `check` job (`.github/workflows/check.yml`) a required status check, with code-owner review
 - check `starters/rust/README.md` for what the template doesn't include yet, and list it in your report
 
 Prove it: `python3 scripts/check.py` must PASS every gate in the new repo, and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` (the platform is found from the repo's files) must give zero FAIL.

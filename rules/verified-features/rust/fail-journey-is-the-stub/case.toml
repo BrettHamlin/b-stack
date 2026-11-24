@@ -1,0 +1,5 @@
+# The feature as scripts/new_feature.py creates it, journey not yet written.
+expect = "fail"
+enforced_by = "verify"
+uses_example = "adds a journey to the example app's journeys file"
+diagnostic = "[verified-features] journey `probe_works` is still the stub new_feature.py wrote. Write it"

@@ -1,0 +1,42 @@
+# Runs every gate on each pull request and on main. Make `check` a required status check in branch protection, with
+# "Require review from Code Owners" (CODEOWNERS covers this file).
+#
+# Linux: tools.toml pins cargo-deny for linux-x64 as well as mac-arm64. The runner's rustup installs the toolchain
+# rust-toolchain.toml pins, into the cache folder.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: Every gate (check.py), journeys against the built app
+        run: python3 scripts/check.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: evidence
+          path: .build/evidence/
+          if-no-files-found: ignore

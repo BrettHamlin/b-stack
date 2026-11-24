@@ -1,9 +1,9 @@
 """Tests for the starter's Python helpers that rule cases can't reach (they run outside check.py's gates).
 
-Covers every starter: the iOS one's check record and simulator lock, the Rust one's tool and toolchain setup, the
-TypeScript one's tool setup (Node.js, pnpm and where installed packages go), and the Android one's tool setup (JDK,
-Gradle, the SDK's pinned revisions) and emulator lock. Also the skills' tools: art-eval's pick page builder, its answer
-export and its planted-flaw ranking.
+Covers every starter: the iOS one's check record and simulator lock, the Rust one's tool and toolchain setup (and the
+inherited settings it drops), new-feature command and CI workflow, the TypeScript one's tool setup (Node.js, pnpm and
+where installed packages go), and the Android one's tool setup (JDK, Gradle, the SDK's pinned revisions) and emulator
+lock. Also the skills' tools: art-eval's pick page builder, its answer export and its planted-flaw ranking.
 
 Usage: python3 scripts/test_starter_scripts.py
 """
@@ -11,6 +11,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -19,6 +20,7 @@ import sys
 import tempfile
 import threading
 import time
+import tomllib
 import unittest
 from unittest import mock
 
@@ -432,16 +434,8 @@ class RustToolsTests(unittest.TestCase):
         self.assertFalse((self.tools / 'fake-1.0').exists())
 
     def test_rust_env_keeps_toolchain_and_build_output_out_of_home(self) -> None:
-        # A toolchain already in the tools folder, so nothing is downloaded.
+        env = self.rust_env()
         toolchain = self.tools / 'rust/rustup/toolchains/1.99.0-aarch64-apple-darwin'
-        (toolchain / 'bin').mkdir(parents=True)
-        (toolchain / 'bin/cargo-clippy').write_text('')
-        script = ('import json, sys; sys.path.insert(0, sys.argv[1]); from tools import rust_env; '
-                  'print(json.dumps(rust_env()))')
-        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], env=self.env,
-                                capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        env = json.loads(result.stdout)
         self.assertEqual(env['RUSTUP_HOME'], str(self.tools / 'rust/rustup'))
         self.assertEqual(env['CARGO_HOME'], str(self.tools / 'rust/cargo'))
         self.assertEqual(env['RUSTUP_TOOLCHAIN'], '1.99.0')
@@ -453,6 +447,53 @@ class RustToolsTests(unittest.TestCase):
         self.assertTrue((self.root / '.build').resolve().is_relative_to(self.cache.resolve()))
         if Path('/usr/bin/cc').is_file():
             self.assertEqual(env['CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER'], '/usr/bin/cc')
+
+    def rust_env(self) -> dict:
+        # A toolchain already in the tools folder, so nothing is downloaded.
+        toolchain = self.tools / 'rust/rustup/toolchains/1.99.0-aarch64-apple-darwin'
+        (toolchain / 'bin').mkdir(parents=True, exist_ok=True)
+        (toolchain / 'bin/cargo-clippy').write_text('')
+        script = ('import json, sys; sys.path.insert(0, sys.argv[1]); from tools import rust_env; '
+                  'print(json.dumps(rust_env()))')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], env=self.env,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_rust_env_drops_inherited_settings_that_change_the_checks(self) -> None:
+        self.env.update({'RUSTFLAGS': '-A warnings', 'CARGO_ENCODED_RUSTFLAGS': '-Awarnings',
+                         'CARGO_PROFILE_DEV_OVERFLOW_CHECKS': 'false', 'CARGO_BUILD_RUSTC_WRAPPER': '/bin/true',
+                         'RUSTC_WRAPPER': '/bin/true', 'CLIPPY_CONF_DIR': '/tmp', 'CLIPPY_ARGS': '-Aclippy::all',
+                         'CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER': 'true', 'CARGO_TERM_COLOR': 'always'})
+        env = self.rust_env()
+        self.assertEqual(env['RUSTFLAGS'], '-D warnings')
+        self.assertEqual(env['CLIPPY_CONF_DIR'], str(self.root))  # every crate gets the root clippy.toml
+        for dropped in ('CARGO_ENCODED_RUSTFLAGS', 'CARGO_PROFILE_DEV_OVERFLOW_CHECKS', 'CARGO_BUILD_RUSTC_WRAPPER',
+                        'RUSTC_WRAPPER', 'CLIPPY_ARGS', 'CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER'):
+            self.assertNotIn(dropped, env)
+        self.assertEqual(env['CARGO_TERM_COLOR'], 'always')  # output settings stay
+
+    def test_a_tool_pinned_per_host_uses_this_hosts_pin(self) -> None:
+        archive = self.fake_archive()
+        here = {('Darwin', 'arm64'): 'mac-arm64', ('Linux', 'x86_64'): 'linux-x64'}[(platform.system(), platform.machine())]
+        other = 'linux-x64' if here == 'mac-arm64' else 'mac-arm64'
+        sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+        (self.root / 'tools.toml').write_text(
+            f'[fake]\nversion = "1.0"\n\n[fake.{here}]\nurl = "{archive.as_uri()}"\nsha256 = "{sha}"\n'
+            f'binary = "fake-1.0/fake"\n\n[fake.{other}]\nurl = "file:///nowhere.tar.gz"\nsha256 = "{"0" * 64}"\n'
+            'binary = "elsewhere/fake"\n')
+        result = self.run_tools('fake')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(Path(result.stdout.strip()), self.tools / 'fake-1.0/fake-1.0/fake')
+        (self.root / 'tools.toml').write_text(f'[fake]\nversion = "2.0"\n\n[fake.{other}]\nurl = "file:///x.tar.gz"\n'
+                                              f'sha256 = "{"0" * 64}"\nbinary = "fake"\n')
+        refused = self.run_tools('fake')
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn(f'tools.toml pins fake for {other}, not {here}.', refused.stderr)
+
+    def test_the_starter_pins_cargo_deny_for_every_host(self) -> None:
+        pins = tomllib.loads((RUST_TEMPLATE / 'tools.toml').read_text())['cargo-deny']
+        self.assertEqual(sorted(k for k in pins if isinstance(pins[k], dict)), ['linux-x64', 'mac-arm64'])
 
     def test_missing_cache_drive_stops_instead_of_building_elsewhere(self) -> None:
         self.env['BSTACK_CACHE_DIR'] = str(self.root / 'unmounted')
@@ -738,6 +779,76 @@ class AndroidNewFeatureTests(unittest.TestCase):
         again = self.run_new('notes')
         self.assertEqual(again.returncode, 1)
         self.assertIn('already exist', again.stderr)
+
+
+class RustNewFeatureTests(unittest.TestCase):
+    """The Rust starter's scripts/new_feature.py, in a copy of its scripts, crates and feature map. (That a created
+    feature passes compiler, clippy, deny, arch and settings, and its test and journey fail until written, was checked
+    on the starter.)"""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'crates', 'feature-map'):
+            shutil.copytree(RUST_TEMPLATE / folder, self.root / folder, ignore=shutil.ignore_patterns('__pycache__'))
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_feature.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_creates_the_crate_map_entry_journey_and_the_apps_dependency(self) -> None:
+        result = self.run_new('daily_notes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        feature = self.root / 'crates/features/daily_notes'
+        manifest = tomllib.loads((feature / 'Cargo.toml').read_text())
+        self.assertEqual(manifest['package']['name'], 'daily_notes')
+        self.assertEqual(manifest['lints'], {'workspace': True})
+        self.assertEqual(manifest['dependencies'], {'core-types': {'path': '../../core'}})
+        self.assertTrue((feature / 'src/lib.rs').read_text().startswith('#![no_std]\n'))
+        self.assertIn('panic!("Write this test', (feature / 'tests/daily_notes.rs').read_text())
+        entry = tomllib.loads((self.root / 'feature-map/daily_notes.toml').read_text())
+        self.assertEqual((entry['modules'], entry['journeys'][0]['name']), (['daily_notes'], 'daily_notes_works'))
+        journeys = (self.root / 'crates/app/tests/journeys.rs').read_text()
+        self.assertIn('fn tally_is_saved_across_runs()', journeys)  # the app's own journeys stay
+        self.assertIn('fn daily_notes_works() {\n    let _data = data_folder("daily_notes_works");\n    panic!("Write this journey',
+                      journeys)
+        app = tomllib.loads((self.root / 'crates/app/Cargo.toml').read_text())
+        self.assertEqual(app['dependencies']['daily_notes'], {'path': '../features/daily_notes'})
+        self.assertIn('tally', app['dependencies'])
+
+    def test_refuses_a_bad_name_and_an_existing_feature(self) -> None:
+        for bad in ('Notes', 'daily-notes', 'two words', 'fn', 'core', '1notes', 'a__b', 'notes_'):
+            self.assertEqual(self.run_new(bad).returncode, 2, bad)
+        self.assertEqual(self.run_new('notes').returncode, 0)
+        again = self.run_new('notes')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('crates/features/notes already exists', again.stderr)
+        taken = self.run_new('files')  # the platform crate's name
+        self.assertEqual(taken.returncode, 1)
+        self.assertIn('a crate named `files` is already in the workspace', taken.stderr)
+
+    def test_writes_nothing_when_one_edit_cant_be_made(self) -> None:
+        app = self.root / 'crates/app/Cargo.toml'
+        app.write_text(app.read_text().replace('[dependencies]', '[dev-dependencies]'))
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        result = self.run_new('notes')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('crates/app/Cargo.toml has no [dependencies] table', result.stderr)
+        self.assertEqual({p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
+
+
+class RustWorkflowTests(unittest.TestCase):
+    """The Rust starter's own CI workflow runs what b-stack's CI proves on the starter (its rust job)."""
+
+    def test_the_starter_workflow_runs_the_commands_b_stack_ci_runs(self) -> None:
+        starter = (RUST_TEMPLATE / '.github/workflows/check.yml').read_text()
+        ours = (ROOT / '.github/workflows/ci.yml').read_text()
+        job = ours[ours.index('\n  rust:'):]
+        job = job[:re.search(r'\n  [a-z-]+:\n', job[1:]).start() + 1]
+        for command in ('runs-on: ubuntu-24.04', 'echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"',
+                        'run: python3 scripts/check.py\n'):
+            self.assertIn(command, starter)
+            self.assertIn(command, job)
 
 
 class AndroidWorkflowTests(unittest.TestCase):
