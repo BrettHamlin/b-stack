@@ -43,7 +43,7 @@ PLATFORMS = {
         tools=('tuist', 'swiftlint'), marker='Project.swift'),
     'rust': Platform(
         name='rust', starter=ROOT / 'starters/rust/template',
-        gates=('compiler', 'clippy', 'deny', 'arch', 'settings', 'tests', 'verify'),
+        gates=('compiler', 'clippy', 'deny', 'arch', 'settings', 'tests', 'verify', 'release'),
         pass_gates=('compiler', 'clippy', 'deny', 'arch', 'settings', 'tests'),
         overlays=('crates', 'feature-map', '.cargo'),
         editable=('Cargo.toml', 'Cargo.lock', 'clippy.toml', 'deny.toml', 'CODEOWNERS'),
@@ -52,7 +52,7 @@ PLATFORMS = {
         example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|Count)[\w.-]*'), example_name='tally',
         simulator_kinds=frozenset(),
         cost={'untouched': 1, 'pass': 0.5, 'compiler': 0.2, 'clippy': 0.2, 'tests': 0.3, 'verify': 0.3, 'deny': 0.1,
-              'arch': 0.1, 'settings': 0.1},
+              'arch': 0.1, 'settings': 0.1, 'release': 0.5},
         tools=('rust', 'cargo-deny'), marker='arch/shape.toml', restamp=True),
     'typescript': Platform(
         name='typescript', starter=ROOT / 'starters/typescript/template',

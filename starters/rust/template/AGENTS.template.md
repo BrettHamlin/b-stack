@@ -11,12 +11,13 @@
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, clippy, deny, arch, settings, tests, verify: all must PASS
+python3 scripts/check.py        # compiler, clippy, deny, arch, settings, tests, verify, release: all must PASS
+python3 scripts/package.py      # the release binary, checked and launched once
 ```
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.
 
-`verify` runs every feature-map journey against the built app and writes each one's output to `.build/evidence/latest/evidence.md`. For behaviour changes, read it and include its path in your report.
+`verify` runs every feature-map journey against the built app and writes each one's output to `.build/evidence/latest/evidence.md`; `release` runs them against the release build. For behaviour changes, read it and include its path in your report. The verify skill (`.agents/skills/verify/SKILL.md`) says how to prove and explore a feature.
 
 ## Never weaken enforcement
 

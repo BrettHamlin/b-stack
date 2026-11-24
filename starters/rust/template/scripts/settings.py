@@ -279,7 +279,8 @@ def record() -> None:
         'about': 'The enforcement settings in effect, recorded by `python3 scripts/settings.py record` (protected). The '
                  'settings gate fails when what cargo, rustc, Clippy, rustdoc and cargo-deny will use differs from this, '
                  'or when CODEOWNERS stops covering a path listed here.',
-        'compiler': kinds, **{k: found[k] for k in ('clippy', 'rustdoc', 'cargo', 'deny', 'toolchain')},
+        # Kinds in a fixed order: cargo compiles targets in parallel, so they arrive in any order.
+        'compiler': {profile: dict(sorted(by.items())) for profile, by in sorted(kinds.items())}, **{k: found[k] for k in ('clippy', 'rustdoc', 'cargo', 'deny', 'toolchain')},
         'codeowners': codeowners_paths(),
     }, indent=1) + '\n')
     print(f'recorded {RECORD.relative_to(ROOT)}')

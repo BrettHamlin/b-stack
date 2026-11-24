@@ -491,6 +491,16 @@ class RustToolsTests(unittest.TestCase):
         self.assertNotEqual(refused.returncode, 0)
         self.assertIn(f'tools.toml pins fake for {other}, not {here}.', refused.stderr)
 
+    def test_handback_helper_and_hooks_match_the_ios_starter_but_its_gates(self) -> None:
+        strip = lambda text: [line for line in text.splitlines() if not line.startswith('GATES = ')]
+        self.assertEqual(strip((RUST_TEMPLATE / 'scripts/handback.py').read_text()),
+                         strip((TEMPLATE / 'scripts/handback.py').read_text()))
+        gates = next(l for l in (RUST_TEMPLATE / 'scripts/handback.py').read_text().splitlines() if l.startswith('GATES = '))
+        self.assertIn(gates.split(' = ', 1)[1], (RUST_TEMPLATE / 'scripts/check.py').read_text())
+        for hook in ('.githooks/commit-msg', '.claude/settings.json'):
+            self.assertEqual((RUST_TEMPLATE / hook).read_text(), (TEMPLATE / hook).read_text(), hook)
+        self.assertTrue(os.access(RUST_TEMPLATE / '.githooks/commit-msg', os.X_OK))
+
     def test_the_starter_pins_cargo_deny_for_every_host(self) -> None:
         pins = tomllib.loads((RUST_TEMPLATE / 'tools.toml').read_text())['cargo-deny']
         self.assertEqual(sorted(k for k in pins if isinstance(pins[k], dict)), ['linux-x64', 'mac-arm64'])
@@ -857,7 +867,7 @@ class RustWorkflowTests(unittest.TestCase):
         job = job[:re.search(r'\n  [a-z-]+:\n', job[1:]).start() + 1]
         for command in ('runs-on: ubuntu-24.04', 'mkdir -p "$RUNNER_TEMP/bstack-cache"\n',
                         'echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"',
-                        'run: python3 scripts/check.py\n'):
+                        'run: python3 scripts/check.py\n', 'run: python3 scripts/package.py\n'):
             self.assertIn(command, starter)
             self.assertIn(command, job)
 

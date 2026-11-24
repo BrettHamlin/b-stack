@@ -2,6 +2,27 @@
  "about": "The enforcement settings in effect, recorded by `python3 scripts/settings.py record` (protected). The settings gate fails when what cargo, rustc, Clippy, rustdoc and cargo-deny will use differs from this, or when CODEOWNERS stops covering a path listed here.",
  "compiler": {
   "dev": {
+   "bin": [
+    "--edition=2024",
+    "--deny=clippy::wildcard_enum_match_arm",
+    "--deny=clippy::unwrap_used",
+    "--forbid=unsafe_code",
+    "--deny=clippy::unimplemented",
+    "--deny=clippy::todo",
+    "--deny=clippy::panic",
+    "--deny=clippy::mem_forget",
+    "--deny=clippy::indexing_slicing",
+    "--deny=clippy::expect_used",
+    "--deny=clippy::exit",
+    "--deny=clippy::disallowed_types",
+    "--deny=clippy::disallowed_methods",
+    "--deny=deprecated",
+    "--deny=clippy::dbg_macro",
+    "--deny=clippy::as_conversions",
+    "--deny=clippy::allow_attributes_without_reason",
+    "--deny=clippy::allow_attributes",
+    "--deny=warnings"
+   ],
    "lib": [
     "--edition=2024",
     "--deny=clippy::wildcard_enum_match_arm",
@@ -43,32 +64,11 @@
     "--deny=clippy::allow_attributes_without_reason",
     "--deny=clippy::allow_attributes",
     "--test",
-    "--deny=warnings"
-   ],
-   "bin": [
-    "--edition=2024",
-    "--deny=clippy::wildcard_enum_match_arm",
-    "--deny=clippy::unwrap_used",
-    "--forbid=unsafe_code",
-    "--deny=clippy::unimplemented",
-    "--deny=clippy::todo",
-    "--deny=clippy::panic",
-    "--deny=clippy::mem_forget",
-    "--deny=clippy::indexing_slicing",
-    "--deny=clippy::expect_used",
-    "--deny=clippy::exit",
-    "--deny=clippy::disallowed_types",
-    "--deny=clippy::disallowed_methods",
-    "--deny=deprecated",
-    "--deny=clippy::dbg_macro",
-    "--deny=clippy::as_conversions",
-    "--deny=clippy::allow_attributes_without_reason",
-    "--deny=clippy::allow_attributes",
     "--deny=warnings"
    ]
   },
   "release": {
-   "tests": [
+   "bin": [
     "--edition=2024",
     "-C opt-level=3",
     "--deny=clippy::wildcard_enum_match_arm",
@@ -88,7 +88,7 @@
     "--deny=clippy::as_conversions",
     "--deny=clippy::allow_attributes_without_reason",
     "--deny=clippy::allow_attributes",
-    "--test",
+    "-C overflow-checks=on",
     "--deny=warnings"
    ],
    "lib": [
@@ -111,9 +111,10 @@
     "--deny=clippy::as_conversions",
     "--deny=clippy::allow_attributes_without_reason",
     "--deny=clippy::allow_attributes",
+    "-C overflow-checks=on",
     "--deny=warnings"
    ],
-   "bin": [
+   "tests": [
     "--edition=2024",
     "-C opt-level=3",
     "--deny=clippy::wildcard_enum_match_arm",
@@ -133,6 +134,8 @@
     "--deny=clippy::as_conversions",
     "--deny=clippy::allow_attributes_without_reason",
     "--deny=clippy::allow_attributes",
+    "-C overflow-checks=on",
+    "--test",
     "--deny=warnings"
    ]
   }
@@ -208,6 +211,8 @@
   "/AGENTS.md",
   "/CLAUDE.md",
   "/.claude/",
+  "/.agents/",
+  "/.githooks/",
   "/Cargo.toml",
   "/rust-toolchain.toml",
   "/clippy.toml",
@@ -218,6 +223,7 @@
   "/tools.toml",
   "/feature-map/",
   "/crates/app/tests/journeys.rs",
-  "/crates/app/src/"
+  "/crates/app/src/",
+  "/crates/app/smoke.toml"
  ]
 }

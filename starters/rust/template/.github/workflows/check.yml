@@ -1,4 +1,4 @@
-# Runs every gate on each pull request and on main. Make `check` a required status check in branch protection, with
+# Runs every gate on each pull request and on main, then builds the release binary and proves it runs. Make `check` a required status check in branch protection, with
 # "Require review from Code Owners" (CODEOWNERS covers this file).
 #
 # Linux: tools.toml pins cargo-deny for linux-x64 as well as mac-arm64. The runner's rustup installs the toolchain
@@ -32,8 +32,15 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/bstack-cache"
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
-      - name: Every gate (check.py), journeys against the built app
+      - name: Every gate (check.py), journeys against the debug and release builds
         run: python3 scripts/check.py
+      - name: The release binary, checked, and its smoke run
+        run: python3 scripts/package.py
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release
+          path: .build/package/out/
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

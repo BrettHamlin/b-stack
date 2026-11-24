@@ -1,0 +1,6 @@
+# debug_assert! runs only in debug builds: here it holds the rename that saves the tally, so the tally is saved in
+# debug (verify passes) and never in release.
+expect = "fail"
+enforced_by = "release"
+diagnostic = "[verified-features] journey `tally_is_saved_across_runs` failed in the release build (feature-map/tally.toml)"
+uses_example = "makes the example's file store save only inside a debug_assert!, and a tally journey checks it"

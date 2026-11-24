@@ -10,13 +10,17 @@ Copied into a new repo by the [new-project skill](../../skills/new-project/SKILL
 | Module shape: crate roles by folder, the links each may use, which are `no_std`, which third-party crates each may use | `template/arch/shape.toml` | ✅ Agents add crates in the shape's folders without editing protected files |
 | Example feature: a tally of named items (record, show, failed save keeps the old tally), with example tests and a property test | `template/crates/features/tally/`, `template/crates/platform/files/`, `template/crates/app/` | ✅ |
 | Property test for the example feature: 200 seeded random sequences of records, failed loads and failed saves, checked step by step against a model; stops at the first divergence and prints the seed and steps | `template/crates/features/tally/tests/property.rs` | ✅ Under a second. No library: a seeded generator in the file |
-| Gate command: compiler, clippy, deny, arch, settings, tests, verify | `template/scripts/check.py` | ✅ Every gate passes; rule suite 68/68 (2026-11-24, Rust 1.99.0, cargo-deny 0.20.2) |
+| Gate command: compiler, clippy, deny, arch, settings, tests, verify, release | `template/scripts/check.py` | ✅ Every gate passes; rule suite 69/69 (2026-11-24, Rust 1.99.0, cargo-deny 0.20.2) |
 | Architecture checks: the crate graph and manifests against the shape (`cargo metadata`), then every source file through a `syn` parser | `template/scripts/arch.py`, `template/arch/checker/` | ✅ Module boundaries, third-party crates per role, inherited lints, no build scripts or proc macros, no lint attributes, no global state, no std in `no_std` crates, no skipped tests, no `macro_rules!`/`include!`/`#[path]` |
 | Verification: feature map, journeys that run the built app binary, evidence | `template/scripts/verify.py`, `template/crates/app/tests/journeys.rs`, `template/feature-map/` | ✅ Three tally journeys; each journey's output goes to `.build/evidence/latest/evidence.md` |
+| Release gate: every journey against the release build (`cargo test --release`) | `template/scripts/verify.py release` | ✅ Work inside a `debug_assert!` passes verify and fails here. Release keeps overflow checks (`[profile.release]`), so overflow stops the app in both builds |
+| Release builds: the optimized binary, checked (executable, SHA-256 matches what cargo built) and launched once (`crates/app/smoke.toml`), named `app-<version>-<target>` | `template/scripts/package.py` | ✅ Outputs in `.build/package/out/`, moved there only once every check passes |
+| Hand-back record (observe mode): which gates ran and passed on the files handed back or committed | `template/scripts/handback.py`, `template/.claude/settings.json`, `template/.githooks/commit-msg` | ✅ The iOS starter's, gates aside; `git config core.hooksPath .githooks` turns on the `Checked:` trailer |
+| Verify skill for agents in the new app | `template/.agents/skills/verify/SKILL.md` (`.claude/skills` links to it) | ✅ |
 | Pinned tools, checksum-verified, no global install | `template/rust-toolchain.toml`, `template/tools.toml`, `template/scripts/tools.py` | ✅ Rust 1.99.0 (installed by rustup into the tools folder, not `~/.rustup`), cargo-deny 0.20.2 for Apple silicon Macs and x64 Linux. Inherited settings that change a check (`RUSTFLAGS`, `CARGO_PROFILE_*`, `RUSTC_WRAPPER`, `CLIPPY_CONF_DIR`, ...) are dropped, and every crate gets the root `clippy.toml` |
 | New-feature command: a feature crate in the shape's folder, its feature-map entry, a journey stub and the app's dependency on it; every edit checked before any file is written | `template/scripts/new_feature.py` | ✅ The new crate passes compiler, clippy, deny, arch and settings; its test and journey fail the tests and verify gates with "Write this ..." until written |
 | Settings gate: the compiler arguments each target gets (lint levels, `-D warnings`, profile settings) as cargo passes them, Clippy's config, cargo's merged config, deny.toml, the toolchain versions, CODEOWNERS coverage; `record` for the owner | `template/scripts/settings.py`, `template/arch/settings.json` | ✅ A lowered lint level, a profile without overflow checks, a `.cargo/config.toml` test runner, a weakened deny.toml or clippy.toml, or a CODEOWNERS gap fails it |
-| CI workflow: every gate on pull requests and `main`, on Linux | `template/.github/workflows/check.yml` | ✅ The same commands as b-stack's own CI runs on the starter (a test checks they match) |
+| CI workflow: every gate and the release binary on pull requests and `main`, on Linux | `template/.github/workflows/check.yml` | ✅ The same commands as b-stack's own CI runs on the starter (a test checks they match); the binary is uploaded |
 | Build output, toolchain and downloaded crates in a configurable cache folder | `template/scripts/paths.py`, `template/scripts/tools.py` | ✅ `.build/` becomes a link into it; stops if the folder is missing |
 | Agent instructions, CODEOWNERS | `template/AGENTS.template.md`, `template/CODEOWNERS` | ✅ Draft; placeholders to fill in |
 
@@ -53,11 +57,9 @@ to remove `crates/platform/*` from the root `Cargo.toml`. No third-party crates 
 
 ## Not built yet (in order)
 
-1. **Release builds:** the optimized binary, checked and launched once, named by version.
-2. **Journeys against the release build** (a `release` gate).
-3. **Check record:** the iOS starter's observe-mode hand-back record (`handback.py`, hooks) isn't ported.
-4. **Verify skill** for agents in the new app (the iOS starter has one).
-5. **Fuzzing** for code that reads untrusted input (file formats, network messages).
+1. **Fuzzing** for code that reads untrusted input (file formats, network messages).
+2. **Release builds for other machines:** package.py builds for the machine it runs on only (Apple silicon Macs and
+   x64 Linux have pinned tools).
 
 Branch protection (the `check` job as a required status check, code-owner review) is set on GitHub after the first
 push; the new-project skill says how.

@@ -48,6 +48,9 @@ jobs:
       - name: The starter's own gates (check.py), as the starter's workflow runs them
         working-directory: starters/rust/template
         run: python3 scripts/check.py
+      - name: The release binary and its smoke run, as the starter's workflow runs them
+        working-directory: starters/rust/template
+        run: python3 scripts/package.py
       - name: Every Rust rule case through the Rust starter's gates
         run: python3 scripts/test_rules.py --platform rust
       - uses: actions/upload-artifact@v7.0.2
