@@ -165,8 +165,8 @@ def findings() -> list[str]:
     for component in metadata.findall('v:components/v:component', NS):
         group, name, version = component.get('group'), component.get('name'), component.get('version')
         artifacts = [a.get('name') for a in component.findall('v:artifact', NS)]
-        if all(a.endswith('.pom') for a in artifacts) or name.endswith('.gradle.plugin'):
-            continue  # a parent POM, BOM or plugin marker: no code of its own
+        if all(a.endswith(('.pom', '.module')) for a in artifacts) or name.endswith('.gradle.plugin'):
+            continue  # a parent POM, BOM, Gradle module metadata or plugin marker: no code of its own
         names = licenses(home, group, name, version)
         coordinate = f'{group}:{name}:{version}'
         if not names:
