@@ -114,8 +114,8 @@ class ArchitectureTest {
                 val name = match.groupValues[1]
                 val owner = packages.filter { name.startsWith("$it.") }.maxByOrNull { it.length } ?: return@mapNotNull null
                 val path = name.removePrefix("$owner.").split('.')
-                // A nested type (an action's case) is fine; a companion's or a type's member isn't.
-                val nested = path.drop(1).all { it.first().isUpperCase() && it != "Companion" }
+                // A nested type (an action's case) is fine; a companion's or a type's member, or a wildcard, isn't.
+                val nested = path.drop(1).all { it.firstOrNull()?.isUpperCase() == true && it != "Companion" }
                 if ("$owner.${path.first()}" in allowed && nested) return@mapNotNull null
                 val types = allowed.filter { it.substringBeforeLast('.') == owner }.map { it.substringAfterLast('.') }
                 "${source.relative}:${line(source.text, match.range.first)}: [module-boundaries] a feature's ui module " +
