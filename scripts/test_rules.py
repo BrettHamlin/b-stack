@@ -57,6 +57,20 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from platforms import PLATFORMS, platform_of  # noqa: E402
 import verify  # noqa: E402  (the iOS starter's fixture parser, pointed at the project below)
 SKIP = {'.build', '.tools', 'Derived'}
+PLACEHOLDER_OWNER = '@OWNER'
+
+
+def owned_by_project(edit: dict, text: str) -> dict:
+    """A case edit written against the starter's CODEOWNERS placeholder, aimed at a new app's CODEOWNERS instead: the
+    new-project skill replaces `@OWNER` with the owner's handle, so the edit uses that handle (the first owner in the
+    file) wherever it says `@OWNER`."""
+    if PLACEHOLDER_OWNER not in edit['find'] or PLACEHOLDER_OWNER in text:
+        return edit
+    owner = re.search(r'(?m)^[^#\s]\S*\s+(@\S+)', text)
+    if owner is None:
+        return edit
+    return {**edit, 'find': edit['find'].replace(PLACEHOLDER_OWNER, owner[1]),
+            'replace': edit['replace'].replace(PLACEHOLDER_OWNER, owner[1])}
 
 
 def default_jobs() -> int:
@@ -192,6 +206,7 @@ class Worker:
         for edit in case.get('edits', []):
             path = self.work / edit['file']
             text = path.read_text()
+            edit = owned_by_project(edit, text)
             if edit['file'] not in EDITABLE or text.count(edit['find']) != 1:
                 raise ValueError(f'edit of {edit["file"]}: "{edit["find"]}" must occur exactly once in an editable file')
             path.write_text(text.replace(edit['find'], edit['replace']))

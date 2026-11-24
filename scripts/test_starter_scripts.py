@@ -880,7 +880,8 @@ class AndroidWorkflowTests(unittest.TestCase):
         ours = (ROOT / '.github/workflows/ci.yml').read_text()
         job = ours[ours.index('\n  android:'):]
         job = job[:re.search(r'\n  [a-z-]+:\n', job[1:]).start() + 1]
-        for command in ('sudo udevadm trigger --name-match=kvm', 'BSTACK_CACHE_DIR=/mnt/bstack-cache',
+        for command in ('sudo udevadm trigger --name-match=kvm', 'echo "BSTACK_CACHE_DIR=$dir" >> "$GITHUB_ENV"',
+                        'sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup',
                         'python3 scripts/check.py --only compiler --only detekt --only lint --only konsist --only deps && exit 0',
                         'run: python3 scripts/check.py\n', 'python3 scripts/package.py\n', 'runs-on: ubuntu-24.04'):
             self.assertIn(command, starter)
