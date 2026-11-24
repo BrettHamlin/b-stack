@@ -77,12 +77,13 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [no-io-in-logic](no-io-in-logic/rule.toml) | 2 | Harmonize | compiler, arch | compiler, oxlint, arch | compiler, Konsist, arch | Feature logic does no I/O; effects call injected clients (Rust: `no_std`; TypeScript: no Node.js or DOM types) |
 | [io-only-in-platform](io-only-in-platform/rule.toml) | 2 | Harmonize |  |  | compiler, Konsist | Only Platform (and test mode's Fixtures) does network, disk, preferences, keychain or environment I/O |
 | [thin-app](thin-app/rule.toml) | 2 | Harmonize |  |  | Konsist | The shipped App only composes screens and services; no decisions, functions or tasks |
+| [thin-api](thin-api/rule.toml) | 2 |  |  |  | Konsist | A feature's api module holds declarations only; behaviour goes in its logic |
 | [views-hold-no-clients](views-hold-no-clients/rule.toml) | 1+2 | compiler, Harmonize |  |  | compiler, Konsist | A feature's view gets only its store; clients go into the reducer |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize |  | oxlint | Konsist | TCA tests stay exhaustive (no exhaustivity off or skips; TypeScript: whole-value assertions) |
 | [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch, settings | tests, oxlint, arch | tests, Konsist, arch | Every test target runs in the tests gate |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist |  | arch, oxlint | compiler | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |
 | [allowed-dependencies](allowed-dependencies/rule.toml) | 2 |  | arch, cargo-deny | arch, deps | compiler, deps | Third-party packages only from each role's list, the registry, allowed licenses |
-| [verified-features](verified-features/rule.toml) | 3 | verify | verify, release | verify (Playwright) | verify, release (UiAutomator) | Every feature is in the feature map and its journeys pass in the running app |
+| [verified-features](verified-features/rule.toml) | 3 | verify | verify, release | verify (Playwright) | detekt, verify, release (UiAutomator) | Every feature is in the feature map and its journeys pass in the running app |
 | [minimum-os-apis](minimum-os-apis/rule.toml) | 2 |  |  |  | Android Lint | Code calls only APIs the oldest supported OS has, or checks the version first |
 | [listed-permissions](listed-permissions/rule.toml) | 2 |  |  |  | deps | The shipped app asks only for the permissions, and exports only the components, its owner listed |
 | [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | settings | settings | settings | Enforcement files need a human code owner to change |

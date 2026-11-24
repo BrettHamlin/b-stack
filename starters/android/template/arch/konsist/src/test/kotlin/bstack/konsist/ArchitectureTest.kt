@@ -142,6 +142,57 @@ class ArchitectureTest {
     }
 
     @Test
+    fun thinApi() {
+        val found = mutableListOf<String>()
+        val advice = "a feature's api module holds declarations only: data types, enums and their values, client " +
+            "interfaces with abstract members, the <Feature>Ui object and constants. Behaviour goes in the feature's " +
+            "logic module, where its tests run it (journeys check what it does through the screen). The one function an " +
+            "api may hold is a validated value type's `companion object { fun parse(raw: ...): <Type>? }`."
+        files.filter { it.role == "api" && !it.test }.forEach { source ->
+            source.file.functions(includeNested = true).filter { hasBody(it.text) && !validatingParse(it) }.forEach {
+                found += "${source.relative}: [thin-api] fun ${it.name} has a body: $advice"
+            }
+            source.file.properties(includeNested = true).forEach { property ->
+                val declared = declaration(property.text)
+                if (Regex("""(?<![.\w])(?:get\s*\(\s*\)|set\s*\()""").containsMatchIn(declared)) {
+                    found += "${source.relative}: [thin-api] ${property.name} has a custom getter or setter, code run on " +
+                        "each read: $advice"
+                } else if (Regex("""\{""").containsMatchIn(declared)) {
+                    found += "${source.relative}: [thin-api] ${property.name} holds a lambda, an object body or a " +
+                        "builder, code in a value: $advice"
+                }
+            }
+            found += matches(listOf(source), Regex("""\binit\s*\{""")) { "[thin-api] an init block runs code: $advice" }
+        }
+        check(found)
+    }
+
+    /** A function with a body (`= ...` or `{ ... }` after its parameter list), not an abstract member. */
+    private fun hasBody(text: String): Boolean {
+        val code = code(text)
+        val start = Regex("""\bfun\b""").find(code)?.range?.last ?: return false
+        var i = code.indexOf('(', start)
+        if (i < 0) return false
+        var depth = 0
+        while (i < code.length) {
+            when (code[i]) {
+                '(' -> depth++
+                ')' -> if (--depth == 0) break
+            }
+            i++
+        }
+        return Regex("""[={]""").containsMatchIn(code.substring(minOf(i + 1, code.length)))
+    }
+
+    /** `fun parse(...)` in the companion object of a value or data class: the validated type's one way in. */
+    private fun validatingParse(fn: com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration): Boolean {
+        if (fn.name != "parse") return false
+        val companion = fn.containingDeclaration as? com.lemonappdev.konsist.api.declaration.KoObjectDeclaration ?: return false
+        val outer = companion.containingDeclaration as? com.lemonappdev.konsist.api.declaration.KoClassDeclaration ?: return false
+        return companion.hasCompanionModifier && (outer.hasValueModifier || outer.hasDataModifier)
+    }
+
+    @Test
     fun viewsHoldNoClients() {
         // Interfaces declared in api and logic modules are the clients platform implements; a view never sees one.
         val clients = files.filter { !it.test && it.role in setOf("api", "logic") }
@@ -167,16 +218,32 @@ class ArchitectureTest {
     }
 
     @Test
-    fun typedIdentifiers() = check(
-        matches(
+    fun typedIdentifiers() {
+        val aliases = matches(
             files.filter { it.role in setOf("core", "api") && !it.test },
             Regex("""\btypealias\s+(\w+)\s*=\s*(String|Int|Long|Short|Byte|Double|Float|Boolean|Char|UInt|ULong)\b"""),
         ) {
             "[typed-identifiers] `typealias ${it.groupValues[1]} = ${it.groupValues[2]}` is the same type to the " +
                 "compiler, so any ${it.groupValues[2]} passes for it. Declare `@JvmInline value class " +
                 "${it.groupValues[1]}(val value: ${it.groupValues[2]})`."
-        },
-    )
+        }
+        // A property or parameter named as an ID (`id`, `shipId`, `playerIDs`) typed as a raw primitive, nullable or in
+        // a collection. The value class's own field (`value class ShipId(val id: Int)`) is the one place it belongs.
+        val raw = """(?:Int|Long|Short|Byte|UInt|ULong|UShort|UByte|String)"""
+        val collection = """(?:List|Set|Collection|Iterable|Sequence|Array|MutableList|MutableSet|MutableCollection)"""
+        val ids = Regex("""(?<![\w.])(id|ids|[a-z]\w*(?:Id|ID|Ids|IDs))\s*:\s*((?:$collection\s*<\s*$raw\s*\??\s*>|$raw|(?:Int|Long|Short|Byte)Array)\s*\??)""")
+        val wrapper = Regex("""\bvalue\s+class\s+\w+\s*(?:<[^>]*>)?\s*(?:(?:private|internal)\s+constructor\s*)?\(\s*(?:(?:private|internal)\s+)?val\s+$""")
+        val raws = files.filter { it.role in setOf("core", "api", "logic") && !it.test }.flatMap { source ->
+            val code = code(source.text)
+            ids.findAll(code).filterNot { wrapper.containsMatchIn(code.substring(maxOf(0, it.range.first - 200), it.range.first)) }.map {
+                "${source.relative}:${line(code, it.range.first)}: [typed-identifiers] `${it.groupValues[1]}: " +
+                    "${it.groupValues[2].trim()}` is a raw primitive, so any number or string passes for this ID (another " +
+                    "type's ID, a count, an index). Declare `@JvmInline value class <Thing>Id(val value: ...)` in the " +
+                    "feature's api module (or core, if features share it) and use it here."
+            }.toList()
+        }
+        check(aliases + raws)
+    }
 
     @Test
     fun explicitDependencies() {
@@ -419,6 +486,18 @@ class ArchitectureTest {
                 }
             }
         }
+        val projections = Regex("""\.\s*(size|length|count|isEmpty|isNotEmpty|isNullOrEmpty|contains\w*|any|all|none|filter\w*|map\w*|flatMap\w*|groupBy|groupingBy|eachCount|associate\w*|sumOf|partition)\b""")
+        tests.forEach { source ->
+            val code = code(source.text)
+            Regex("""\bassertEquals\s*(?:<[^()]*>)?\s*\(""").findAll(code).forEach { call ->
+                val actual = actualArgument(code, call.range.last + 1) ?: return@forEach
+                val projection = projections.find(topLevel(actual)) ?: return@forEach
+                found += "${source.relative}:${line(code, call.range.first)}: [exhaustive-tests] the actual value is " +
+                    "`.${projection.groupValues[1]}` of something, a projection: a change in what it counts, drops or " +
+                    "maps away passes. Assert the whole value (`assertEquals(<whole expected value>, value)`), or a " +
+                    "property test of the whole value against a model of the spec."
+            }
+        }
         files.filter { it.role == "logic" && !it.test }.forEach { source ->
             source.file.classes(includeNested = true).forEach { cls ->
                 cls.properties(includeNested = false)
@@ -444,6 +523,45 @@ class ArchitectureTest {
                 "state.${it.groupValues[1]}, so every state it emits is asserted."
         }
         check(found)
+    }
+
+    /** The actual argument of the call whose arguments start at [start] (just after its `(`): the one named
+     * `actual =`, else the second positional one. Null if there is none. */
+    private fun actualArgument(code: String, start: Int): String? {
+        val arguments = mutableListOf<String>()
+        var depth = 0
+        var angles = 0 // type arguments (`mapOf<String, Int>()`), whose commas don't split arguments
+        var from = start
+        var i = start
+        val typeArguments = Regex("""^<[\w\s,.<>?*]*>""")
+        while (i < code.length) {
+            val c = code[i]
+            when {
+                c == '(' || c == '[' || c == '{' -> depth++
+                c == '<' && i > 0 && code[i - 1].isLetterOrDigit() && typeArguments.containsMatchIn(code.substring(i)) -> angles++
+                c == '>' && angles > 0 && code[i - 1] != '-' -> angles--
+                (c == ')' || c == ']' || c == '}') && depth == 0 -> { arguments += code.substring(from, i); break }
+                c == ')' || c == ']' || c == '}' -> depth--
+                c == ',' && depth == 0 && angles == 0 -> { arguments += code.substring(from, i); from = i + 1 }
+            }
+            i++
+        }
+        val named = arguments.firstOrNull { Regex("""^\s*actual\s*=""").containsMatchIn(it) }
+        return named?.substringAfter('=') ?: arguments.filterNot { Regex("""^\s*\w+\s*=[^=]""").containsMatchIn(it) }.getOrNull(1)
+    }
+
+    /** [text] with what's inside its brackets, parentheses and lambdas blanked: the call chain at the top level only. */
+    private fun topLevel(text: String): String {
+        val out = StringBuilder()
+        var depth = 0
+        text.forEach { c ->
+            when (c) {
+                '(', '[', '{' -> { if (depth == 0) out.append(c); depth++ }
+                ')', ']', '}' -> { depth--; if (depth == 0) out.append(c) }
+                else -> if (depth == 0) out.append(c)
+            }
+        }
+        return out.toString()
     }
 
     /** A property declared `: StateFlow<...>` (or Mutable) or made with asStateFlow()/stateIn(...). */

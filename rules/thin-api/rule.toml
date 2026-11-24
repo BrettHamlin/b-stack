@@ -1,0 +1,10 @@
+id = "thin-api"
+layer = "2"
+summary = "A feature's api module holds declarations only; behaviour goes in its logic."
+problem = "A feature's api is the one module its logic, ui, platform, fixtures and journeys all see, so an agent puts shared behaviour there (a board's neighbours, a terrain's movement rule). It compiles, every gate passes, and the rule now lives where only the logic's tests should run it."
+message = "Keep the api to declarations: data types, enums and their values, client interfaces with abstract members, the <Feature>Ui object and constants. Move functions, custom getters and init blocks into the feature's logic module. A validated value type keeps its `companion object { fun parse(raw): T? }`. If a journey or platform module seems to need the behaviour, stop and report."
+escape_hatches = ["A top-level value computed by a plain call (`val board = makeBoard()`) where makeBoard is declared elsewhere: the call is in api, the function isn't; review.", "A `parse` in a value or data class's companion that does more than validate: review.", "Enum entries' constructor values (`Asteroids(entryCost = 2)`) are data, and allowed; a `when` over them belongs in logic."]
+origin = "Hexfleet for Android (the first real app on the Android starter), 2026-11-24: Battle.kt put Hex.neighbors in features/battle/api with every gate passing."
+
+[android]
+konsist = "ArchitectureTest.thinApi (Konsist 0.18.1), every main file in a features/*/api module: no function with a body (member, extension, top-level or an interface's default), except `parse` in the companion object of a value or data class; no property with a custom getter or setter, or whose value holds a lambda, object body or builder (`{`); no init block."

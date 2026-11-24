@@ -1,6 +1,8 @@
 package probe.api
 
-@Deprecated("Use saveAll, which writes every change at once and can be cancelled.", ReplaceWith("saveAll(items)"), DeprecationLevel.ERROR)
-fun saveEach(items: List<String>): Int = items.size
+interface ItemStore {
+    @Deprecated("Use saveAll, which writes every change at once and can be cancelled.", ReplaceWith("saveAll(items)"), DeprecationLevel.ERROR)
+    suspend fun saveEach(items: List<String>): Int
 
-fun saveAll(items: List<String>): Int = items.size
+    suspend fun saveAll(items: List<String>): Int
+}

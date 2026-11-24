@@ -9,21 +9,27 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
+import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
 import org.jetbrains.kotlin.psi.KtCatchClause
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtForExpression
+import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtReferenceExpression
 import org.jetbrains.kotlin.psi.KtThrowExpression
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import java.net.URI
 
 /** b-stack's own detekt rules, for what detekt's built-in rules don't cover. Configured in arch/detekt.yml. */
 class BstackRules : RuleSetProvider {
     override val ruleSetId = RuleSetId("bstack")
 
-    override fun instance(): RuleSet = RuleSet(ruleSetId, listOf(::NoForceCast, ::NoThrow, ::NoPlatformTypeCall))
+    override fun instance(): RuleSet = RuleSet(ruleSetId, listOf(::NoForceCast, ::NoThrow, ::NoPlatformTypeCall, ::NoSemanticsText))
 }
 
 /** `x as T` throws when x isn't a T: a force cast. `as?` with a fallback is the safe form. */
@@ -112,6 +118,46 @@ class NoPlatformTypeCall(config: Config) : Rule(
                     "as if it can't be null; if it is, this crashes, as `!!` would. Give it a type first: " +
                     "`val files: Array<File>? = dir.listFiles()`, then handle null (`?.`, `?:`, `orEmpty()`).",
             ),
+        )
+    }
+}
+
+/** UiAutomator reads an element's text semantics, and can't tell text Compose drew from text code set: `semantics {
+ * text = ... }` (or `clearAndSetSemantics`, or `SemanticsProperties.Text`) replaces what a journey's shows() reads with a
+ * string of the code's own, so a wrong number or emoji on screen still passes. Resolved by symbol, so a variable of
+ * the app's own named `text` is fine. */
+class NoSemanticsText(config: Config) : Rule(
+    config,
+    "No setting the text semantics: journeys read it as what the user sees.",
+    URI("https://github.com/BrettHamlin/b-stack/blob/main/rules/verified-features/rule.toml"),
+), RequiresAnalysisApi {
+    override fun visitReferenceExpression(expression: KtReferenceExpression) {
+        super.visitReferenceExpression(expression)
+        if (expression !is KtNameReferenceExpression || expression.getReferencedName() !in NAMES) return
+        if (expression.getParentOfType<KtImportDirective>(strict = true) != null) return
+        val name = analyze(expression) {
+            (expression.mainReference.resolveToSymbol() as? KaCallableSymbol)?.callableId?.asSingleFqName()?.asString()
+        }
+        if (name !in BANNED) return
+        report(
+            Finding(
+                Entity.from(expression),
+                "[verified-features] `${expression.getReferencedName()}` sets the text semantics, which is what journeys " +
+                    "read as the text on screen (UiAutomator can't tell it from drawn text), so a journey passes even " +
+                    "when what's drawn is wrong. Draw the text with Text(...) and let journeys read that (merge a group " +
+                    "with Modifier.semantics(mergeDescendants = true) { }); describe drawing for screen readers with " +
+                    "contentDescription. If what a journey must check isn't drawn as text, stop and report.",
+            ),
+        )
+    }
+
+    private companion object {
+        val NAMES = setOf("text", "editableText", "Text", "EditableText")
+        val BANNED = setOf(
+            "androidx.compose.ui.semantics.text",
+            "androidx.compose.ui.semantics.editableText",
+            "androidx.compose.ui.semantics.SemanticsProperties.Text",
+            "androidx.compose.ui.semantics.SemanticsProperties.EditableText",
         )
     }
 }

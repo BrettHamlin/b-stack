@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[exhaustive-tests] the actual value is `.count` of something"
+uses_example = false
+adds_targets = ["probe"]

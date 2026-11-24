@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[typed-identifiers] `selectedShipId: Int?` is a raw primitive"
+uses_example = false
+adds_targets = ["probe"]

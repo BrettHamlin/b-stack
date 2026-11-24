@@ -12,4 +12,8 @@ value class PlayerName private constructor(val value: String) {
     }
 }
 
-fun describe(id: PlayerId, name: PlayerName): String = "${id.value}: ${name.value}"
+/** A wrapper's own field may be a primitive, whatever it's called. */
+@JvmInline
+value class ShipId(val id: Int)
+
+data class Fleet(val id: ShipId, val shipIds: Set<ShipId>, val leaderId: PlayerId?, val size: Int)

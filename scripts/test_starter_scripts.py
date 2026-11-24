@@ -872,6 +872,17 @@ class RustWorkflowTests(unittest.TestCase):
             self.assertIn(command, job)
 
 
+class AndroidAgentsTemplateTests(unittest.TestCase):
+    """The new-project skill has the agent delete the tally example, so the AGENTS.md it leaves behind (and the verify
+    skill it points at) must not send the agent to tally's files as the pattern to follow."""
+
+    def test_agent_guidance_names_no_example_files(self) -> None:
+        example = re.compile(r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files')
+        for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md'):
+            found = example.findall((ANDROID_TEMPLATE / path).read_text())
+            self.assertEqual(found, [], f'{path} names the example the new project deletes')
+
+
 class AndroidWorkflowTests(unittest.TestCase):
     """The Android starter's own CI workflow runs what b-stack's CI proves on the starter (its android job)."""
 
