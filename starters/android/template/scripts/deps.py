@@ -116,8 +116,8 @@ def manifest(env: dict) -> list[str]:
             if element.get(ANDROID + 'exported') in (None, 'false'):
                 continue
             name = element.get(ANDROID + 'name', '')
-            # The permission that guards it: its own, else the application's.
-            guard = element.get(ANDROID + 'permission') or inherited
+            # The permission that guards it: its own, else the application's (not for an alias since Android 12).
+            guard = element.get(ANDROID + 'permission') or ('' if tag == 'activity-alias' else inherited)
             if tag == 'provider':  # a provider's read and write permissions override its permission
                 read, write = element.get(ANDROID + 'readPermission'), element.get(ANDROID + 'writePermission')
                 if read or write:

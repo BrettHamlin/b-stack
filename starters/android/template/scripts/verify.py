@@ -37,7 +37,7 @@ JOURNEYS = ROOT / 'verify/journeys/src/commonMain/kotlin'
 RUNNER = ROOT / 'verify/runner/src/main/kotlin/runner'
 ADAPTERS = RUNNER / 'Journeys.kt'
 JOURNEY = re.compile(r'^fun\s+Journey\s*\.\s*(\w+)\s*\(\s*\)', re.MULTILINE)
-TOP_LEVEL = re.compile(r'^[^\s}/]', re.MULTILINE)
+TOP_LEVEL = re.compile(r'^[^\s{}/]', re.MULTILINE)
 ANY_JOURNEY = re.compile(r'^[ \t]*(?!private\b)(?:[\w@]+[ \t]+)*fun\s+Journey\s*\.\s*(\w+)', re.MULTILINE)  # however it's declared; private helpers aren't journeys
 
 
@@ -56,7 +56,7 @@ def load_map() -> tuple[list[dict], list[str]]:
 
 def journey_bodies() -> dict[str, str]:
     """Each journey's body text, from its `fun Journey.<name>()` to the next top-level declaration (a journey, a
-    private helper, anything that starts a line at column 0 other than its closing brace)."""
+    private helper, anything that starts a line at column 0 other than its braces)."""
     bodies = {}
     for path in sorted(JOURNEYS.rglob('*.kt')):
         text = path.read_text()
