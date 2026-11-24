@@ -96,11 +96,12 @@ class NoPlatformTypeCall(config: Config) : Rule(
         if (isPlatformType(range)) report(range, "`for (... in ${range.text})`")
     }
 
-    /** A flexible type Kotlin treats as non-null (`File!`); after `?.` its lower bound is nullable, which the
-     * compiler already makes code handle. */
+    /** A flexible type that may be null but is used as non-null (`File!`). After `?.` its lower bound is nullable,
+     * which the compiler already makes code handle; a type flexible only in mutability or variance
+     * (`(Mutable)List<T>` from a non-null Java collection) has a non-null upper bound and is fine. */
     private fun isPlatformType(expression: KtExpression): Boolean = analyze(expression) {
         val type = expression.expressionType
-        type is KaFlexibleType && !type.lowerBound.isMarkedNullable
+        type is KaFlexibleType && !type.lowerBound.isMarkedNullable && type.upperBound.isMarkedNullable
     }
 
     private fun report(expression: KtExpression, use: String) {

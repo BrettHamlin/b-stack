@@ -37,6 +37,7 @@ JOURNEYS = ROOT / 'verify/journeys/src/commonMain/kotlin'
 RUNNER = ROOT / 'verify/runner/src/main/kotlin/runner'
 ADAPTERS = RUNNER / 'Journeys.kt'
 JOURNEY = re.compile(r'^fun\s+Journey\s*\.\s*(\w+)\s*\(\s*\)', re.MULTILINE)
+TOP_LEVEL = re.compile(r'^[^\s}/]', re.MULTILINE)
 ANY_JOURNEY = re.compile(r'^[ \t]*(?!private\b)(?:[\w@]+[ \t]+)*fun\s+Journey\s*\.\s*(\w+)', re.MULTILINE)  # however it's declared; private helpers aren't journeys
 
 
@@ -54,14 +55,14 @@ def load_map() -> tuple[list[dict], list[str]]:
 
 
 def journey_bodies() -> dict[str, str]:
-    """Each journey's body text, from its `fun Journey.<name>()` to the next top-level declaration."""
+    """Each journey's body text, from its `fun Journey.<name>()` to the next top-level declaration (a journey, a
+    private helper, anything that starts a line at column 0 other than its closing brace)."""
     bodies = {}
     for path in sorted(JOURNEYS.rglob('*.kt')):
         text = path.read_text()
-        starts = list(JOURNEY.finditer(text))
-        for i, m in enumerate(starts):
-            end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-            bodies[m.group(1)] = text[m.end():end]
+        for m in JOURNEY.finditer(text):
+            end = TOP_LEVEL.search(text, m.end())
+            bodies[m.group(1)] = text[m.end():end.start() if end else len(text)]
     return bodies
 
 
@@ -199,17 +200,18 @@ def smoke(env: dict, serial: str) -> list[str]:
         return [f'[verified-features] installing the shipped app (app) failed:\n{out[-2000:]}']
     adb(env, 'shell', 'pm', 'clear', shipped, serial=serial)
     adb(env, 'logcat', '-b', 'crash', '-c', serial=serial)
-    activity = adb(env, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-c', 'android.intent.category.LAUNCHER',
-                   shipped, serial=serial).strip().splitlines()[-1:]
+    launcher = ['-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER']  # what the icon sends
+    activity = adb(env, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', *launcher, shipped,
+                   serial=serial).strip().splitlines()[-1:]
     if not activity or '/' not in activity[0]:
         return [f'[verified-features] the shipped app ({shipped}) has no launcher activity, so users can\'t open it. Its '
                 'manifest (app/src/main/AndroidManifest.xml) needs one activity with MAIN and LAUNCHER.']
-    started = adb(env, 'shell', 'am', 'start', '-W', '-n', activity[0], serial=serial, timeout=60)
+    started = adb(env, 'shell', 'am', 'start', '-W', *launcher, '-n', activity[0], serial=serial, timeout=60)
     time.sleep(3)  # a crash in the first frames, or in work started at launch
     crash = adb(env, 'logcat', '-b', 'crash', '-d', serial=serial).strip()
     alive = adb(env, 'shell', 'pidof', shipped, serial=serial).strip()
     focus = adb(env, 'shell', 'dumpsys', 'window', 'displays', serial=serial)
-    shown = any(shipped in line for line in focus.splitlines() if 'mCurrentFocus' in line or 'mFocusedApp' in line)
+    shown = any(f' {shipped}/' in line for line in focus.splitlines() if 'mCurrentFocus' in line)  # has input focus
     folder = EVIDENCE / 'shipped-app'
     folder.mkdir(parents=True, exist_ok=True)
     with (folder / 'launched.png').open('wb') as png:

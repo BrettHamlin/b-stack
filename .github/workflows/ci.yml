@@ -67,6 +67,19 @@ jobs:
         run: |
           sudo mkdir -p /mnt/bstack-cache && sudo chown "$USER" /mnt/bstack-cache
           echo "BSTACK_CACHE_DIR=/mnt/bstack-cache" >> "$GITHUB_ENV"
+      - name: Gradle's downloads from earlier runs (keyed by the pinned checksums)
+        uses: actions/cache@v6.1.0
+        with:
+          path: /mnt/bstack-cache/tools/gradle-home/caches/modules-2
+          key: android-gradle-${{ hashFiles('starters/android/template/gradle/verification-metadata.xml') }}
+      - name: Download every library, retried (Maven Central answers 429 to busy shared runners)
+        working-directory: starters/android/template
+        run: |
+          for attempt in 1 2 3 4 5; do
+            python3 scripts/check.py --only compiler --only detekt --only lint --only konsist --only deps && exit 0
+            echo "attempt $attempt failed; retrying in $((attempt * 60)) s"; sleep $((attempt * 60))
+          done
+          exit 1
       - name: The starter's own gates (check.py), journeys and the shipped app's launch on the emulator
         working-directory: starters/android/template
         run: python3 scripts/check.py

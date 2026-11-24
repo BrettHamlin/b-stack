@@ -2,7 +2,7 @@
 
   - no-suppressions: no @Suppress, @SuppressWarnings, @SuppressLint, @TargetApi (which switches off Lint's NewApi) or
     @OptIn (with any use-site target or
-    qualifier), no import of them, no tools:ignore, and no -opt-in or -Xsuppress flag, in any project file outside
+    qualifier), no import of them, no tools:ignore or tools:targetApi, and no -opt-in or -Xsuppress flag, in any project file outside
     build-logic/ and arch/ (a text match, so the words in a string fail too). Kotlin lets @Suppress switch off
     compiler errors such as DEPRECATION_ERROR and OPT_IN_USAGE_ERROR, and detekt and Konsist both honor it, so none
     of them can hold this ban.
@@ -28,7 +28,7 @@ OWN_FILES = {'settings.gradle.kts', 'build.gradle.kts', 'gradle.properties', 'to
 SUPPRESSION = re.compile(
     r'@\s*(?:[a-zA-Z]+\s*:\s*)?(?:\[\s*)?(?:[\w.]+\.)?(Suppress|SuppressWarnings|SuppressLint|TargetApi|OptIn)\b'
     r'|\bimport\s+[\w.]*\b(Suppress|SuppressWarnings|SuppressLint|TargetApi|OptIn)\b'
-    r'|\btools:ignore\b|-X?opt-in\b|-Xsuppress|\bkotlin\.OptIn\b|\bkotlin\.Suppress\b'
+    r'|\btools:(?:ignore|targetApi)\b|-X?opt-in\b|-Xsuppress|\bkotlin\.OptIn\b|\bkotlin\.Suppress\b'
     # Annotating a declaration with an opt-in marker passes the requirement on instead of opting in.
     r'|@\s*(?:[\w.]+\.)?(?:Experimental\w*Api|Delicate\w*Api|Internal\w*Api|\w+Preview\w*Api)\b')
 TEXT = ('.kt', '.kts', '.xml', '.properties', '.toml', '.java', '.pro', '.yml', '.yaml', '.json')

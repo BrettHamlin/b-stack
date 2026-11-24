@@ -9,7 +9,8 @@
     copyleft licenses below (JUnit's EPL, and the MPL and EPL parts of the Android Gradle Plugin's own tools). An unknown or missing license fails: add it to the table here
     (a code-owned change) once someone has read it.
   - Manifest: the shipped app's merged release manifest (its own and every library's) requests only the permissions,
-    and exports only the components, listed in arch/manifest.toml, each exported one guarded by its listed permission.
+    and exports only the components, listed in arch/manifest.toml, each exported one guarded by its listed permission
+    (its own, else the application's; a provider's read and write permissions are listed as `P (read R, write W)`).
 
 Usage: python3 scripts/deps.py
 """
@@ -107,11 +108,20 @@ def manifest(env: dict) -> list[str]:
             if name not in allowed:
                 found.append(f'[listed-permissions] the shipped app requests {name} (merged manifest, {tag}), which '
                              f'isn\'t in arch/manifest.toml. {tell}')
+    application = root.find('application')
+    inherited = application.get(ANDROID + 'permission', '') if application is not None else ''
     for tag in ('activity', 'activity-alias', 'service', 'receiver', 'provider'):
         for element in root.iter(tag):
-            if element.get(ANDROID + 'exported') != 'true':
+            # Only a literal false keeps it private; `@bool/...` may resolve to true. Unset is private on targetSdk 31+.
+            if element.get(ANDROID + 'exported') in (None, 'false'):
                 continue
-            name, guard = element.get(ANDROID + 'name', ''), element.get(ANDROID + 'permission', '')
+            name = element.get(ANDROID + 'name', '')
+            # The permission that guards it: its own, else the application's.
+            guard = element.get(ANDROID + 'permission') or inherited
+            if tag == 'provider':  # a provider's read and write permissions override its permission
+                read, write = element.get(ANDROID + 'readPermission'), element.get(ANDROID + 'writePermission')
+                if read or write:
+                    guard = f'{guard} (read {read or guard or "none"}, write {write or guard or "none"})'.strip()
             if name not in exported:
                 found.append(f'[listed-permissions] the shipped app exports {tag} {name} to other apps (merged '
                              f'manifest), which isn\'t in arch/manifest.toml. Set android:exported="false" unless other '
