@@ -33,12 +33,11 @@ import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from verify import ADAPTERS, JOURNEYS, adapters_text, journeys_in_code  # noqa: E402
+from verify import ADAPTERS, JOURNEYS, adapters_text, journeys_in_code, ui_ids  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r'^[a-z][a-z0-9]{0,29}$')
 FEATURE_ID = re.compile(r'^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
-UI_ID = re.compile(r'^\s*val\s+(\w+)\s*=\s*UiId\s*\(', re.MULTILINE)
 KOTLIN = {'as', 'break', 'class', 'continue', 'do', 'else', 'false', 'for', 'fun', 'if', 'in', 'interface', 'is',
           'null', 'object', 'package', 'return', 'super', 'this', 'throw', 'true', 'try', 'typealias', 'typeof', 'val',
           'var', 'when', 'while'}
@@ -166,7 +165,7 @@ fun Journey.{name}Works() {{
     }
 
 
-def files_in_module(fid: str, module: str, ui: str, element: str) -> dict[Path, str]:
+def files_in_module(fid: str, module: str, package: str, ui: str, element: str) -> dict[Path, str]:
     """A feature that lives in an existing module: its map entry, journey stub and logic test stub."""
     camel = fid.split('-')[0] + ''.join(w[:1].upper() + w[1:] for w in fid.split('-')[1:])
     Camel = camel[0].upper() + camel[1:]
@@ -182,7 +181,7 @@ proves = "Write what this journey shows working in the app, including after the 
         (JOURNEYS / f'journeys/{Camel}Journeys.kt').relative_to(ROOT): f'''package journeys
 
 import journeykit.Journey
-import {module}.api.{ui}
+import {package}.{ui}
 
 fun Journey.{camel}Works() {{
     val screen = launch()
@@ -217,12 +216,14 @@ def add_in_module(fid: str, module: str) -> int:
               f'For a feature with modules of its own, run python3 scripts/new_feature.py <name>.', file=sys.stderr)
         return 1
     Module = module[0].upper() + module[1:]
-    ui_file = ROOT / f'features/{module}/api/src/commonMain/kotlin/{module}/api/{Module}Ui.kt'
-    elements = UI_ID.findall(ui_file.read_text()) if ui_file.is_file() else []
+    elements = [(where, obj, element) for where, obj, element in ui_ids() if where.startswith(f'features/{module}/api/')]
     if not elements:
-        print(f'Not created: {ui_file.relative_to(ROOT)} declares no UiId for the journey stub to find.', file=sys.stderr)
+        print(f'Not created: features/{module}/api declares no UiId (in a <Feature>Ui object) for the journey stub to '
+              'find.', file=sys.stderr)
         return 1
-    planned = files_in_module(fid, module, f'{Module}Ui', elements[0])
+    where, obj, element = elements[0]
+    package = re.search(r'^\s*package\s+([\w.]+)', (ROOT / where).read_text(), re.MULTILINE)
+    planned = files_in_module(fid, module, package.group(1) if package else f'{module}.api', obj, element)
     taken = [str(path) for path in planned if (ROOT / path).exists()]
     if taken:
         print(f'Not created: {", ".join(taken)} already exist.', file=sys.stderr)

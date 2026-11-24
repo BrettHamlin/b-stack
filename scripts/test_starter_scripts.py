@@ -893,6 +893,16 @@ class AndroidFeatureInModuleTests(unittest.TestCase):
         self.assertIn('[verified-features] journey `undoMoveWorks` is still the stub new_feature.py wrote.', check.stdout)
         self.assertNotIn('modules', check.stdout)  # sharing tally's module is fine
 
+    def test_finds_the_modules_ids_however_they_are_declared(self) -> None:
+        ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
+        ui.unlink()
+        (ui.parent / 'Screens.kt').write_text('package tally.api.screens\n\nimport core.UiId\n\nobject ListUi {\n'
+                                             '    public val rows: UiId = UiId("tally.rows")\n}\n')
+        self.assertEqual(self.run_new('undo', '--in', 'tally').returncode, 0)
+        journey = (self.root / 'verify/journeys/src/commonMain/kotlin/journeys/UndoJourneys.kt').read_text()
+        self.assertIn('import tally.api.screens.ListUi\n', journey)
+        self.assertIn('screen.find(ListUi.rows).shows(', journey)
+
     def test_refuses_a_missing_module_a_bad_id_and_an_existing_entry(self) -> None:
         missing = self.run_new('combat', '--in', 'battle')
         self.assertEqual(missing.returncode, 1)
@@ -956,6 +966,26 @@ class AndroidNewClientTests(unittest.TestCase):
                          'class StarterApp : Application() {\n'
                          '    val tallyNotes: TallyNotes by lazy { FileTallyNotes(this, Dispatchers.IO) }\n}\n')
 
+    def test_refuses_a_client_whose_names_are_taken(self) -> None:
+        before = files_in(self.root)
+        taken = self.run_new('tally', 'store')  # tally's api already declares TallyStore, and both apps a tallyStore
+        self.assertEqual(taken.returncode, 1)
+        self.assertIn('features/tally/api/src/commonMain/kotlin/tally/api/Tally.kt (it declares TallyStore)', taken.stderr)
+        self.assertEqual(files_in(self.root), before)
+
+    def test_fixtures_with_arguments_and_an_application_with_more_supertypes(self) -> None:
+        fixtures = self.root / 'fixtures/src/main/kotlin/fixtures/Fixtures.kt'
+        fixtures.write_text(fixtures.read_text().replace('enum class Fixture {', 'enum class Fixture(val strength: Int = 8, val sound: Boolean = true) {')
+                            .replace('    Standard,', '    Standard(8, true),').replace('    Saved,', '    Saved(strength = 3) {\n        override fun toString() = "s"\n    },'))
+        app = self.root / 'app/src/main/kotlin/app/StarterApp.kt'
+        app.write_text(app.read_text().replace('class StarterApp : Application() {', 'class StarterApp : Application(), Comparable<StarterApp> {\n    override fun compareTo(other: StarterApp) = 0\n'))
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        setup = (self.root / 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt').read_text()
+        self.assertIn('    Fixture.Standard -> TallyNotesSetup.Empty\n    Fixture.Saved -> TallyNotesSetup.Empty\n', setup)
+        self.assertNotIn('Fixture.true', setup)
+        self.assertIn('class StarterApp : Application(), Comparable<StarterApp> {\n    val tallyNotes: TallyNotes by lazy',
+                      app.read_text())
+
     def test_refuses_and_writes_nothing_without_a_feature_fixtures_or_an_application(self) -> None:
         before = files_in(self.root)
         missing = self.run_new('battle', 'store')
@@ -1002,6 +1032,17 @@ class AndroidFeatureMapTests(unittest.TestCase):
         self.entry('["tally"]')
         result = self.run_verify('map')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_an_id_no_journey_names_fails_even_if_a_string_mentions_it(self) -> None:
+        ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
+        ui.write_text(ui.read_text().replace('    val add = ', '    public val total: UiId = UiId("tally.total")\n    val add = '))
+        journeys = self.root / 'verify/journeys/src/commonMain/kotlin/journeys/HistoryJourneys.kt'
+        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total")'))
+        self.entry('["tally"]')
+        result = self.run_verify('map')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('TallyUi.total isn\'t named by any journey', result.stdout)
+        self.assertEqual(result.stdout.count("isn't named by any journey"), 1, result.stdout)
 
     def test_a_feature_naming_no_modules_fails(self) -> None:
         self.entry('[]')

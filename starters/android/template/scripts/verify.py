@@ -108,10 +108,12 @@ def adapters_text(names: list[str]) -> str:
 
 
 UI_OBJECT = re.compile(r'\bobject\s+(\w+Ui)\s*\{')
-UI_ID = re.compile(r'^\s*val\s+(\w+)\s*(?::\s*UiId\s*)?=\s*UiId\s*\(', re.MULTILINE)
+UI_ID = re.compile(r'^\s*(?:public\s+)?val\s+(\w+)\s*(?::\s*UiId\s*)?=\s*UiId\s*\(', re.MULTILINE)
 
 
 def without_comments(text: str) -> str:
+    """Kotlin text without comments, and with string contents blanked, so a name in either doesn't count."""
+    text = re.sub(r'"""(?:.|\n)*?"""|"(?:\\.|[^"\\\n])*"', '""', text)
     return re.sub(r'//[^\n]*', '', re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL))
 
 

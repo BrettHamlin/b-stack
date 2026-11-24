@@ -46,7 +46,8 @@ interface Element {
     /** Waits until the element is selected (a chosen tab, option or piece: Modifier.selectable's or Tab's `selected`). */
     fun isSelected()
 
-    /** Waits until the element is gone from the screen (a dismissed dialog, a removed piece). */
+    /** Waits until the element is gone from the screen (a dismissed dialog, a removed piece). Find it while it's still
+     * shown (`val dialog = screen.find(...)`, then act, then `dialog.isGone()`): find() fails on one that isn't there. */
     fun isGone()
 
     /** Waits until the element can't be used (a disabled button or field). */

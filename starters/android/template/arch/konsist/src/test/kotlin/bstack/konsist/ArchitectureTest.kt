@@ -613,7 +613,7 @@ class ArchitectureTest {
     fun everySendIsAsserted() = check(
         files.filter { it.test && it.role == "logic" }.flatMap { source ->
             val send = Regex("""\b(\w+)\s*\.\s*send\s*\(""")
-            val subscribe = Regex("""\b(\w+)\s*\.\s*state\s*\.\s*test\s*\{""")
+            val subscribe = Regex("""\b(\w+)\s*\.\s*state\s*\.\s*test\s*(?:\([^()]*\)\s*)?\{""")
             val asserted = Regex("""\b(awaitItem|expectNoEvents)\s*\(""")
             source.file.functions(includeNested = true).filter { fn -> fn.annotations.any { it.name == "Test" } }
                 .flatMap { fn ->
@@ -621,7 +621,8 @@ class ArchitectureTest {
                     val start = source.text.indexOf(fn.text).coerceAtLeast(0)
                     subscribe.findAll(body).flatMap { test ->
                         val end = closingBrace(body, test.range.last)
-                        val sends = send.findAll(body.substring(0, end)).filter { it.range.first > test.range.last }.toList()
+                        val sends = send.findAll(body.substring(0, end))
+                            .filter { it.range.first > test.range.last && it.groupValues[1] == test.groupValues[1] }.toList()
                         sends.filterIndexed { i, sent ->
                             sent.groupValues[1] == test.groupValues[1] &&
                                 !asserted.containsMatchIn(body.substring(sent.range.last, sends.getOrNull(i + 1)?.range?.first ?: end))

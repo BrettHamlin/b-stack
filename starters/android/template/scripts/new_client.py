@@ -24,7 +24,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r'^[a-z][a-z0-9]{0,29}$')
-APPLICATION = re.compile(r'\bclass\s+(\w+)\s*:\s*Application\s*\(\s*\)(\s*\{)?')
+APPLICATION = re.compile(r'\bclass\s+(\w+)\s*:\s*Application\s*\(\s*\)(?:\s*,\s*[\w.]+(?:<[^>{}]*>)?(?:\s*\([^(){}]*\))?)*(\s*\{)?')
 FIXTURE_ENUM = re.compile(r'\benum\s+class\s+Fixture\b[^{]*\{')
 
 
@@ -71,16 +71,20 @@ import {f}.api.{client}
 import {f}.api.{client}Data
 import {f}.api.{client}Result
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
 
 /** Keeps {client}Data in [file] as JSON. A save writes a new file and renames it into place, so a failed save leaves
- * what was there. File work runs on [io]. */
+ * what was there; saves take turns, so two at once never share the new file. File work runs on [io]. */
 class File{client}(private val file: File, private val io: CoroutineDispatcher) : {client} {{
     /** The client on the app's own files folder. */
     constructor(context: Context, io: CoroutineDispatcher) : this(File(context.filesDir, "{filename}"), io)
+
+    private val writing = Mutex()
 
     override suspend fun load(): {client}Result<{client}Data?> = withContext(io) {{
         try {{
@@ -93,7 +97,9 @@ class File{client}(private val file: File, private val io: CoroutineDispatcher) 
         }}
     }}
 
-    override suspend fun save(data: {client}Data): {client}Result<Unit> = withContext(io) {{
+    override suspend fun save(data: {client}Data): {client}Result<Unit> = writing.withLock {{ write(data) }}
+
+    private suspend fun write(data: {client}Data): {client}Result<Unit> = withContext(io) {{
         try {{
             val staged = File(file.parentFile, "${{file.name}}.new")
             staged.writeText(json.encodeToString({client}Data.serializer(), data))
@@ -275,10 +281,25 @@ def fixture_cases() -> tuple[list[str] | None, str]:
         if not match:
             continue
         body = text[match.end():]
-        body = body[:min(i for i in (body.find(';'), body.find('}'), len(body)) if i >= 0)]
-        cases = [re.match(r'\s*(?:@\w+\s*)*(\w+)', part).group(1) for part in body.split(',') if part.strip()]
-        return cases, str(path.relative_to(ROOT))
+        return [re.match(r'\s*(?:@\w+\s*)*(\w+)', part).group(1) for part in top_level(body) if part.strip()], \
+            str(path.relative_to(ROOT))
     return None, ''
+
+
+def top_level(body: str) -> list[str]:
+    """An enum body's entries: split at commas outside brackets, up to the `;` or `}` that ends them."""
+    parts, depth, start = [], 0, 0
+    for i, c in enumerate(body):
+        if c in '([{':
+            depth += 1
+        elif c in ')]' or (c == '}' and depth):
+            depth -= 1
+        elif depth == 0 and c in ',;}':
+            parts.append(body[start:i])
+            start = i + 1
+            if c != ',':
+                return parts
+    return parts + [body[start:]]
 
 
 def with_imports(text: str, imports: list[str]) -> str:
@@ -358,6 +379,14 @@ def main(argv: list[str]) -> int:
         Path(f'fixtures/src/main/kotlin/fixtures/{client}Fixtures.kt'): fixtures_file(f, name, client, filename, cases),
     }
     taken = [str(p) for p in planned if (ROOT / p).exists()]
+    declared = re.compile(rf'\b(?:class|interface|object|typealias)\s+({client}(?:Data|Result|Setup)?|File{client}|Memory{client})\b')
+    member = re.compile(rf'\b(?:val|var|fun)\s+{lower}(?:Setup|InUse)?\b')
+    for source in sorted(ROOT.glob('**/src/**/*.kt')):
+        if '.build' in source.parts:
+            continue
+        text = code(source.read_text())
+        found = declared.findall(text) + (member.findall(text) if source in apps.values() else [])
+        taken += [f'{source.relative_to(ROOT)} (it declares {", ".join(dict.fromkeys(found))})'] if found else []
     if taken:
         print(f'Not created: {", ".join(taken)} already exist.', file=sys.stderr)
         return 1
