@@ -117,15 +117,15 @@ def compiled() -> tuple[list[dict], dict[str, str], dict[str, set[str]]]:
     for profile, flag in (('dev', []), ('release', ['--release'])):
         # Clean the workspace's own crates, so cargo compiles each one again and the wrapper sees it.
         subprocess.run(['cargo', 'clean', '--quiet', *flag, *members], cwd=ROOT, env=env, capture_output=True)
-        proc = subprocess.run(['cargo', 'clippy', '--quiet', '--message-format', 'json', '--workspace', '--all-targets',
+        proc = subprocess.run(['cargo', 'clippy', '--quiet', '--message-format', 'json-render-diagnostics', '--workspace', '--all-targets',
                                *flag], cwd=ROOT, env={**env, 'BSTACK_SETTINGS_PROFILE': profile}, capture_output=True,
                               text=True)
         messages = [json.loads(line) for line in proc.stdout.splitlines() if line.startswith('{')]
         built[profile] = {target_key(m['manifest_path'], m['target']) for m in messages
                           if m.get('reason') == 'compiler-artifact'}
         if proc.returncode != 0:
-            sys.exit(f'[protected-enforcement] Couldn\'t read the compiler settings ({profile} profile): the workspace '
-                     f'doesn\'t check. Run the clippy gate.\n{proc.stderr.strip()[-3000:]}')
+            sys.exit(f'[protected-enforcement] Couldn\'t read the compiler settings: the workspace doesn\'t build in the '
+                     f'{profile} profile. Fix the code.\n{proc.stderr.strip()[-3000:]}')
     return ([json.loads(line) for line in log.read_text().splitlines()] if log.is_file() else []), listed, built
 
 
