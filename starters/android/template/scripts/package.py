@@ -50,6 +50,7 @@ def main() -> int:
             ([f'-Pbstack.versionCode={args.version_code}'] if args.version_code else [])
     # Staged, checked and launched in a folder of its own, then moved to .build/package/out/ only if every check
     # passes, so nothing unchecked is ever left there.
+    (ROOT / '.build').mkdir(exist_ok=True)  # android_env() linked it into the cache folder, if one is configured
     staging = Path(tempfile.mkdtemp(dir=ROOT / '.build', prefix='package-'))
     try:
         return build_check_and_keep(env, props, signing, test_signed, staging)

@@ -36,6 +36,7 @@ import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from emulator import adb, boot, in_use  # noqa: E402
+from paths import link_build_dirs  # noqa: E402
 from tools import android_env, gradle_command  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -336,6 +337,7 @@ if __name__ == '__main__':
         sys.exit(__doc__)
     folder = RELEASE_EVIDENCE if mode == 'release' else EVIDENCE
     if mode != 'map':
+        link_build_dirs(ROOT)  # .build/ points into the cache folder before anything (evidence, locks) is made there
         shutil.rmtree(folder, ignore_errors=True)  # never leave an earlier run's evidence as the latest
     features, errors = load_map()
     errors += map_errors(features)
