@@ -22,9 +22,12 @@ import json
 import re
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from verify import without_comments  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r'^[a-z][a-z0-9]{0,29}$')
-APPLICATION = re.compile(r'\bclass\s+(\w+)\s*:\s*Application\s*\(\s*\)(?:\s*,\s*[\w.]+(?:<[^>{}]*>)?(?:\s*\([^(){}]*\))?)*(\s*\{)?')
+APPLICATION = re.compile(r'\bclass\s+(\w+)\s*:\s*Application\s*\(\s*\)')
 FIXTURE_ENUM = re.compile(r'\benum\s+class\s+Fixture\b[^{]*\{')
 
 
@@ -268,10 +271,7 @@ def verify_members(client: str) -> str:
 '''
 
 
-def code(text: str) -> str:
-    """Kotlin text with comments blanked (offsets kept)."""
-    out = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group()), text, flags=re.DOTALL)
-    return re.sub(r'//[^\n]*', lambda m: ' ' * len(m.group()), out)
+code = without_comments
 
 
 def fixture_cases() -> tuple[list[str] | None, str]:
@@ -312,12 +312,34 @@ def with_imports(text: str, imports: list[str]) -> str:
     return '\n'.join(lines[:package + 1] + [''] + wanted + lines[package + 1:])
 
 
+def header_end(text: str, start: int) -> tuple[int, bool] | None:
+    """Where the class header that continues at [start] (after `Application()`) ends, and whether a body `{` opens
+    there: the rest of the supertype list is skipped bracket by bracket. None if the brackets don't balance."""
+    depth = 0
+    for i in range(start, len(text)):
+        c = text[i]
+        if c in '(<':
+            depth += 1
+        elif c in ')>':
+            depth -= 1
+            if depth < 0:
+                return None
+        elif depth == 0 and c == '{':
+            return i + 1, True
+        elif depth == 0 and c == '\n':
+            continued = text[start:i].rstrip().endswith(',') or text[i:].lstrip().startswith(('{', ','))
+            if not continued:
+                return len(text[:i].rstrip()), False
+    return (len(text.rstrip()), False) if depth == 0 else None
+
+
 def with_members(text: str, members: str) -> str | None:
     match = APPLICATION.search(code(text))
-    if not match:
+    header = header_end(code(text), match.end()) if match else None
+    if header is None:
         return None
-    end = match.end()
-    if match.group(2):
+    end, body = header
+    if body:
         rest = text[end:].lstrip(' \n')
         return text[:end] + '\n' + members + ('' if rest.startswith('}') else '\n    ') + rest
     return text[:end].rstrip() + ' {\n' + members + '}' + text[end:]
@@ -398,7 +420,10 @@ def main(argv: list[str]) -> int:
     app_text = with_members(apps['app'].read_text(), app_members(client, name))
     verify_text = with_members(apps['app-verify'].read_text(), verify_members(client))
     if unreadable or app_text is None or verify_text is None:
-        print(f'Not created: {", ".join(unreadable)} has no `uses = [...]` list.', file=sys.stderr)
+        bad = [f'{p} has no `uses = [...]` list' for p in unreadable] + [
+            f'{apps[m].relative_to(ROOT)}: can\'t read the class header after `Application()`'
+            for m, text in (('app', app_text), ('app-verify', verify_text)) if text is None]
+        print(f'Not created: {"; ".join(bad)}.', file=sys.stderr)
         return 1
     edits[apps['app'].relative_to(ROOT)] = with_imports(
         app_text, [f'{f}.api.{client}', 'kotlinx.coroutines.Dispatchers', f'platform.{name}.File{client}'])

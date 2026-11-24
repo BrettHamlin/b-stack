@@ -976,14 +976,14 @@ class AndroidNewClientTests(unittest.TestCase):
     def test_fixtures_with_arguments_and_an_application_with_more_supertypes(self) -> None:
         fixtures = self.root / 'fixtures/src/main/kotlin/fixtures/Fixtures.kt'
         fixtures.write_text(fixtures.read_text().replace('enum class Fixture {', 'enum class Fixture(val strength: Int = 8, val sound: Boolean = true) {')
-                            .replace('    Standard,', '    Standard(8, true),').replace('    Saved,', '    Saved(strength = 3) {\n        override fun toString() = "s"\n    },'))
+                            .replace('    Standard,', '    Standard(8, true), // "a quote in a comment\n    /** https://example.test */').replace('    Saved,', '    Saved(strength = 3) {\n        override fun toString() = "s"\n    },'))
         app = self.root / 'app/src/main/kotlin/app/StarterApp.kt'
-        app.write_text(app.read_text().replace('class StarterApp : Application() {', 'class StarterApp : Application(), Comparable<StarterApp> {\n    override fun compareTo(other: StarterApp) = 0\n'))
+        app.write_text(app.read_text().replace('class StarterApp : Application() {', 'class StarterApp : Application(),\n    Comparable<List<StarterApp>> {\n    override fun compareTo(other: List<StarterApp>) = 0\n'))
         self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
         setup = (self.root / 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt').read_text()
         self.assertIn('    Fixture.Standard -> TallyNotesSetup.Empty\n    Fixture.Saved -> TallyNotesSetup.Empty\n', setup)
         self.assertNotIn('Fixture.true', setup)
-        self.assertIn('class StarterApp : Application(), Comparable<StarterApp> {\n    val tallyNotes: TallyNotes by lazy',
+        self.assertIn('class StarterApp : Application(),\n    Comparable<List<StarterApp>> {\n    val tallyNotes: TallyNotes by lazy',
                       app.read_text())
 
     def test_refuses_and_writes_nothing_without_a_feature_fixtures_or_an_application(self) -> None:
@@ -1037,7 +1037,7 @@ class AndroidFeatureMapTests(unittest.TestCase):
         ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
         ui.write_text(ui.read_text().replace('    val add = ', '    public val total: UiId = UiId("tally.total")\n    val add = '))
         journeys = self.root / 'verify/journeys/src/commonMain/kotlin/journeys/HistoryJourneys.kt'
-        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total")'))
+        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total") // say \"\"\"'))
         self.entry('["tally"]')
         result = self.run_verify('map')
         self.assertEqual(result.returncode, 1)

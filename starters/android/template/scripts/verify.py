@@ -112,9 +112,44 @@ UI_ID = re.compile(r'^\s*(?:public\s+)?val\s+(\w+)\s*(?::\s*UiId\s*)?=\s*UiId\s*
 
 
 def without_comments(text: str) -> str:
-    """Kotlin text without comments, and with string contents blanked, so a name in either doesn't count."""
-    text = re.sub(r'"""(?:.|\n)*?"""|"(?:\\.|[^"\\\n])*"', '""', text)
-    return re.sub(r'//[^\n]*', '', re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL))
+    """Kotlin text with comments and string contents blanked, read in source order (a `//` in a string is text, a quote
+    in a comment is comment), keeping offsets and line breaks, so a name in either doesn't count."""
+    out, i, n = list(text), 0, len(text)
+
+    def blank(start: int, end: int) -> None:
+        for k in range(start, min(end, n)):
+            if out[k] != '\n':
+                out[k] = ' '
+    while i < n:
+        if text.startswith('//', i):
+            end = text.find('\n', i)
+            end = n if end < 0 else end
+            blank(i, end)
+            i = end
+        elif text.startswith('/*', i):
+            end = text.find('*/', i + 2)
+            end = n if end < 0 else end + 2
+            blank(i, end)
+            i = end
+        elif text.startswith('"""', i):
+            end = text.find('"""', i + 3)
+            end = n if end < 0 else end
+            blank(i + 3, end)
+            i = end + 3
+        elif text[i] == '"':
+            j = i + 1
+            while j < n and text[j] not in '"\n':
+                j += 2 if text[j] == '\\' else 1
+            blank(i + 1, j)
+            i = j + 1
+        elif text[i] == "'":
+            j = text.find("'", i + 1 + (text[i + 1:i + 2] == '\\'))
+            j = i if j < 0 or j - i > 8 else j
+            blank(i + 1, j)
+            i = j + 1
+        else:
+            i += 1
+    return ''.join(out)
 
 
 def ui_ids() -> list[tuple[str, str, str]]:

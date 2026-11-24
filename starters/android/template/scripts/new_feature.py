@@ -33,7 +33,7 @@ import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from verify import ADAPTERS, JOURNEYS, adapters_text, journeys_in_code, ui_ids  # noqa: E402
+from verify import ADAPTERS, JOURNEYS, adapters_text, journeys_in_code, ui_ids, without_comments  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r'^[a-z][a-z0-9]{0,29}$')
@@ -222,7 +222,7 @@ def add_in_module(fid: str, module: str) -> int:
               'find.', file=sys.stderr)
         return 1
     where, obj, element = elements[0]
-    package = re.search(r'^\s*package\s+([\w.]+)', (ROOT / where).read_text(), re.MULTILINE)
+    package = re.search(r'^\s*package\s+([\w.]+)', without_comments((ROOT / where).read_text()), re.MULTILINE)
     planned = files_in_module(fid, module, package.group(1) if package else f'{module}.api', obj, element)
     taken = [str(path) for path in planned if (ROOT / path).exists()]
     if taken:

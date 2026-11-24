@@ -613,16 +613,17 @@ class ArchitectureTest {
     fun everySendIsAsserted() = check(
         files.filter { it.test && it.role == "logic" }.flatMap { source ->
             val send = Regex("""\b(\w+)\s*\.\s*send\s*\(""")
-            val subscribe = Regex("""\b(\w+)\s*\.\s*state\s*\.\s*test\s*(?:\([^()]*\)\s*)?\{""")
+            val subscribe = Regex("""\b(\w+)\s*\.\s*state\s*\.\s*test\b""")
             val asserted = Regex("""\b(awaitItem|expectNoEvents)\s*\(""")
             source.file.functions(includeNested = true).filter { fn -> fn.annotations.any { it.name == "Test" } }
                 .flatMap { fn ->
                     val body = code(fn.text)
                     val start = source.text.indexOf(fn.text).coerceAtLeast(0)
-                    subscribe.findAll(body).flatMap { test ->
-                        val end = closingBrace(body, test.range.last)
+                    subscribe.findAll(body).mapNotNull { test -> lambdaAfter(body, test.range.last + 1)?.let { test to it } }
+                        .flatMap { (test, open) ->
+                        val end = closingBrace(body, open)
                         val sends = send.findAll(body.substring(0, end))
-                            .filter { it.range.first > test.range.last && it.groupValues[1] == test.groupValues[1] }.toList()
+                            .filter { it.range.first > open && it.groupValues[1] == test.groupValues[1] }.toList()
                         sends.filterIndexed { i, sent ->
                             sent.groupValues[1] == test.groupValues[1] &&
                                 !asserted.containsMatchIn(body.substring(sent.range.last, sends.getOrNull(i + 1)?.range?.first ?: end))
@@ -637,6 +638,23 @@ class ArchitectureTest {
                 }
         },
     )
+
+    /** The offset of the lambda's `{` after `test` at [from]: past optional arguments (`test(timeout = ...)`), or null. */
+    private fun lambdaAfter(code: String, from: Int): Int? {
+        var i = from
+        while (i < code.length && code[i].isWhitespace()) i++
+        if (i < code.length && code[i] == '(') {
+            var depth = 0
+            while (i < code.length) {
+                if (code[i] == '(') depth++
+                if (code[i] == ')' && --depth == 0) break
+                i++
+            }
+            i++
+            while (i < code.length && code[i].isWhitespace()) i++
+        }
+        return if (i < code.length && code[i] == '{') i else null
+    }
 
     /** The offset of the `}` closing the `{` at [open] in [code] (or the end). */
     private fun closingBrace(code: String, open: Int): Int {
