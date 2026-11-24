@@ -42,7 +42,7 @@ FIX = ('Restore it. If the change is meant, it needs the owner: they change the 
 VALUED = {'-C', '-L', '-l', '-D', '-A', '-W', '-F', '-Z', '-o', '--crate-name', '--crate-type', '--cfg', '--check-cfg',
           '--extern', '--out-dir', '--cap-lints', '--target', '--emit', '--json', '--error-format', '--edition',
           '--force-warn', '--sysroot', '--remap-path-prefix', '--print'}
-OWNER = re.compile(r'^@[A-Za-z0-9-]+(/[A-Za-z0-9._-]+)?$|^[^@\s]+@[^@\s]+\.[^@\s]+$')
+OWNER = re.compile(r'^@[A-Za-z0-9_-]+(/[A-Za-z0-9._-]+)?$|^[^@\s]+@[^@\s]+\.[^@\s]+$')
 LEVELS = {'-D': '--deny', '-A': '--allow', '-W': '--warn', '-F': '--forbid', '--force-warn': '--force-warn'}
 # Where output goes, which build it is, how it links and how much debug info it keeps: none of it changes a check.
 IGNORED = re.compile(r'^(--crate-name|--crate-type|--error-format|--json|--emit|--out-dir|-L|-l|--extern|--check-cfg|'
@@ -89,7 +89,7 @@ def normalized(args: list[str]) -> tuple[list[str], str, str, bool]:
     return kept, source, crate_type, test
 
 
-def compiled() -> tuple[list[dict], list[str]]:
+def compiled() -> tuple[list[dict], dict[str, str]]:
     """Every workspace target's compile, dev and release, as cargo runs it under check.py's environment, and every
     target cargo metadata lists (build scripts aside), by source file."""
     env = rust_env()
@@ -106,7 +106,10 @@ def compiled() -> tuple[list[dict], list[str]]:
         sys.exit(f'[protected-enforcement] cargo metadata failed:\n{meta.stderr.strip()[-3000:]}')
     packages = json.loads(meta.stdout)['packages']
     members = [a for p in packages for a in ('-p', p['name'])]
-    listed = sorted({relative(t['src_path']) for p in packages for t in p['targets'] if 'custom-build' not in t['kind']})
+    # By package and target name (rustc's --crate-name): two targets may share a source file.
+    listed = {f'{relative(str(Path(p["manifest_path"]).parent))} {t["name"].replace("-", "_")}':
+              f'{relative(t["src_path"])} (target `{t["name"]}`)'
+              for p in packages for t in p['targets'] if 'custom-build' not in t['kind']}
     for profile, flag in (('dev', []), ('release', ['--release'])):
         # Clean the workspace's own crates, so cargo compiles each one again and the wrapper sees it.
         subprocess.run(['cargo', 'clean', '--quiet', *flag, *members], cwd=ROOT, env=env, capture_output=True)
@@ -139,7 +142,9 @@ def effective() -> dict:
         args, source, crate_type, test = normalized(run['argv'][2:] if Path(run['argv'][0]).name == 'clippy-driver'
                                                     else run['argv'][1:])
         where = relative(str(ROOT / source)) if source else relative(run['dir'])  # cargo runs rustc in the root
-        targets.append({'where': where, 'profile': run['profile'], 'kind': 'tests' if test else crate_type, 'args': args})
+        name = run['argv'][run['argv'].index('--crate-name') + 1] if '--crate-name' in run['argv'] else ''
+        targets.append({'where': where, 'id': f'{relative(run["dir"])} {name}', 'profile': run['profile'],
+                        'kind': 'tests' if test else crate_type, 'args': args})
         clippy.append({'driver': Path(run['argv'][0]).name, 'conf_dir': relative(run['clippy_conf_dir']),
                        'args': run['clippy_args']})
     conf_dirs = {c['conf_dir'] for c in clippy if c['conf_dir'] is not None}
@@ -246,8 +251,8 @@ def findings() -> list[str]:
     found = effective()
     out = compiler_findings(expected['compiler'], found['targets'])
     for profile in sorted(expected['compiler']):
-        seen = {t['where'] for t in found['targets'] if t['profile'] == profile}
-        missing = [where for where in found['listed'] if where not in seen]
+        seen = {t['id'] for t in found['targets'] if t['profile'] == profile}
+        missing = [shown for target, shown in sorted(found['listed'].items()) if target not in seen]
         if missing:
             out.append(f'[protected-enforcement] compiler arguments ({profile} profile): cargo never compiled '
                        f'{", ".join(missing)} (`required-features`, say), so no gate checks or tests it. Remove what '

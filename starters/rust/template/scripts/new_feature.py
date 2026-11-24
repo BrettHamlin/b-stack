@@ -115,7 +115,7 @@ def problems(name: str, planned: dict[Path, str]) -> list[str]:
     out = [f'{path} already exists' for path in [folder, *(p for p in planned if not p.is_relative_to(folder))]
            if (ROOT / path).exists()]
     out += [f'{path} can\'t be written' for path in (JOURNEYS, APP, Path('crates/features'), Path('feature-map'))
-            if (ROOT / path).exists() and not os.access(ROOT / path, os.W_OK)]
+            if (ROOT / path).exists() and not os.access(ROOT / path, os.W_OK | (os.X_OK if (ROOT / path).is_dir() else 0))]
     if name in packages():
         out.append(f'a crate named `{name}` is already in the workspace')
     journeys = ROOT / JOURNEYS
