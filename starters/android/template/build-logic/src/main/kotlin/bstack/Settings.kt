@@ -37,6 +37,8 @@ private fun effective(root: Project): Map<String, Any?> {
             "initScripts" to (start.allInitScripts.map { it.name } +
                 (gradle.gradleUserHomeDir.resolve("init.d").listFiles()?.map { "init.d/${it.name}" } ?: emptyList())).sorted(),
             "offline" to start.isOffline,
+            // detekt skips every analysis when this property is set (detekt 2.0.0-alpha.6).
+            "detektDryRun" to root.providers.gradleProperty("detekt-dry-run").orNull,
         ),
         "modules" to root.subprojects.filter { it.tasks.withType(KotlinCompilationTask::class.java).isNotEmpty() }
             .associate { it.projectDir.relativeTo(root.rootDir).invariantSeparatorsPath to module(it) }
@@ -90,6 +92,7 @@ private fun module(project: Project): Map<String, Any?> = buildMap {
             "disableDefaultRuleSets" to task.disableDefaultRuleSets.get(),
             "autoCorrect" to task.autoCorrect.get(),
             "baseline" to task.baseline.orNull?.asFile?.name,
+            "failOnSeverity" to task.failOnSeverity.orNull?.name,
         )
     })
     put("tests", project.tasks.withType(Test::class.java).sortedBy { it.name }.associate { task ->
@@ -97,6 +100,8 @@ private fun module(project: Project): Map<String, Any?> = buildMap {
             "ignoreFailures" to task.ignoreFailures,
             "include" to task.filter.includePatterns.sorted(),
             "exclude" to task.filter.excludePatterns.sorted(),
+            "includes" to task.includes.sorted(),
+            "excludes" to task.excludes.sorted(),
             "failOnNoMatchingTests" to task.filter.isFailOnNoMatchingTests,
         )
     })

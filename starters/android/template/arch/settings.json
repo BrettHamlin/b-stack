@@ -4,7 +4,8 @@
   "dependencyVerification": "STRICT",
   "buildCache": false,
   "initScripts": [],
-  "offline": false
+  "offline": false,
+  "detektDryRun": null
  },
  "roles": {
   "api": {
@@ -94,7 +95,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektCommonMainSourceSet": {
      "ignoreFailures": false,
@@ -105,7 +107,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektCommonTestSourceSet": {
      "ignoreFailures": false,
@@ -116,7 +119,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsMainSourceSet": {
      "ignoreFailures": false,
@@ -127,7 +131,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsTestSourceSet": {
      "ignoreFailures": false,
@@ -138,7 +143,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmMainSourceSet": {
      "ignoreFailures": false,
@@ -149,7 +155,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmTestSourceSet": {
      "ignoreFailures": false,
@@ -160,7 +167,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektMainJvm": {
      "ignoreFailures": false,
@@ -171,7 +179,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTestJvm": {
      "ignoreFailures": false,
@@ -182,7 +191,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebMainSourceSet": {
      "ignoreFailures": false,
@@ -193,7 +203,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebTestSourceSet": {
      "ignoreFailures": false,
@@ -204,7 +215,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -212,6 +224,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -313,7 +327,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -324,7 +339,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTest": {
      "ignoreFailures": false,
@@ -335,7 +351,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTestSourceSet": {
      "ignoreFailures": false,
@@ -346,7 +363,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -357,7 +375,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTest": {
      "ignoreFailures": false,
@@ -368,7 +387,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTestSourceSet": {
      "ignoreFailures": false,
@@ -379,7 +399,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektRelease": {
      "ignoreFailures": false,
@@ -390,7 +411,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektReleaseSourceSet": {
      "ignoreFailures": false,
@@ -401,7 +423,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -409,6 +432,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -508,7 +533,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -519,7 +545,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTest": {
      "ignoreFailures": false,
@@ -530,7 +557,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTestSourceSet": {
      "ignoreFailures": false,
@@ -541,7 +569,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -552,7 +581,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTest": {
      "ignoreFailures": false,
@@ -563,7 +593,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTestSourceSet": {
      "ignoreFailures": false,
@@ -574,7 +605,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektRelease": {
      "ignoreFailures": false,
@@ -585,7 +617,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektReleaseSourceSet": {
      "ignoreFailures": false,
@@ -596,7 +629,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -604,6 +638,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -685,7 +721,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektCommonMainSourceSet": {
      "ignoreFailures": false,
@@ -696,7 +733,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektCommonTestSourceSet": {
      "ignoreFailures": false,
@@ -707,7 +745,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsMainSourceSet": {
      "ignoreFailures": false,
@@ -718,7 +757,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsTestSourceSet": {
      "ignoreFailures": false,
@@ -729,7 +769,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmMainSourceSet": {
      "ignoreFailures": false,
@@ -740,7 +781,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmTestSourceSet": {
      "ignoreFailures": false,
@@ -751,7 +793,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektMainJvm": {
      "ignoreFailures": false,
@@ -762,7 +805,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTestJvm": {
      "ignoreFailures": false,
@@ -773,7 +817,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebMainSourceSet": {
      "ignoreFailures": false,
@@ -784,7 +829,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebTestSourceSet": {
      "ignoreFailures": false,
@@ -795,7 +841,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -803,6 +850,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -894,7 +943,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -905,7 +955,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTest": {
      "ignoreFailures": false,
@@ -916,7 +967,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTestSourceSet": {
      "ignoreFailures": false,
@@ -927,7 +979,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -938,7 +991,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTest": {
      "ignoreFailures": false,
@@ -949,7 +1003,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTestSourceSet": {
      "ignoreFailures": false,
@@ -960,7 +1015,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektRelease": {
      "ignoreFailures": false,
@@ -971,7 +1027,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektReleaseSourceSet": {
      "ignoreFailures": false,
@@ -982,7 +1039,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -990,6 +1048,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1023,6 +1083,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1107,7 +1169,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -1118,7 +1181,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTest": {
      "ignoreFailures": false,
@@ -1129,7 +1193,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTestSourceSet": {
      "ignoreFailures": false,
@@ -1140,7 +1205,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -1151,7 +1217,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTest": {
      "ignoreFailures": false,
@@ -1162,7 +1229,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTestSourceSet": {
      "ignoreFailures": false,
@@ -1173,7 +1241,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektRelease": {
      "ignoreFailures": false,
@@ -1184,7 +1253,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektReleaseSourceSet": {
      "ignoreFailures": false,
@@ -1195,7 +1265,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -1203,6 +1274,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1284,7 +1357,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektCommonMainSourceSet": {
      "ignoreFailures": false,
@@ -1295,7 +1369,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektCommonTestSourceSet": {
      "ignoreFailures": false,
@@ -1306,7 +1381,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsMainSourceSet": {
      "ignoreFailures": false,
@@ -1317,7 +1393,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsTestSourceSet": {
      "ignoreFailures": false,
@@ -1328,7 +1405,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmMainSourceSet": {
      "ignoreFailures": false,
@@ -1339,7 +1417,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmTestSourceSet": {
      "ignoreFailures": false,
@@ -1350,7 +1429,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektMainJvm": {
      "ignoreFailures": false,
@@ -1361,7 +1441,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTestJvm": {
      "ignoreFailures": false,
@@ -1372,7 +1453,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebMainSourceSet": {
      "ignoreFailures": false,
@@ -1383,7 +1465,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebTestSourceSet": {
      "ignoreFailures": false,
@@ -1394,7 +1477,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -1402,6 +1486,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1483,7 +1569,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektCommonMainSourceSet": {
      "ignoreFailures": false,
@@ -1494,7 +1581,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektCommonTestSourceSet": {
      "ignoreFailures": false,
@@ -1505,7 +1593,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsMainSourceSet": {
      "ignoreFailures": false,
@@ -1516,7 +1605,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsTestSourceSet": {
      "ignoreFailures": false,
@@ -1527,7 +1617,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmMainSourceSet": {
      "ignoreFailures": false,
@@ -1538,7 +1629,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmTestSourceSet": {
      "ignoreFailures": false,
@@ -1549,7 +1641,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektMainJvm": {
      "ignoreFailures": false,
@@ -1560,7 +1653,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTestJvm": {
      "ignoreFailures": false,
@@ -1571,7 +1665,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebMainSourceSet": {
      "ignoreFailures": false,
@@ -1582,7 +1677,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebTestSourceSet": {
      "ignoreFailures": false,
@@ -1593,7 +1689,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -1601,6 +1698,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1638,7 +1737,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektMain": {
      "ignoreFailures": false,
@@ -1649,7 +1749,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektMainSourceSet": {
      "ignoreFailures": false,
@@ -1660,7 +1761,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTest": {
      "ignoreFailures": false,
@@ -1671,7 +1773,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTestSourceSet": {
      "ignoreFailures": false,
@@ -1682,7 +1785,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -1690,6 +1794,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1771,7 +1877,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektCommonMainSourceSet": {
      "ignoreFailures": false,
@@ -1782,7 +1889,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektCommonTestSourceSet": {
      "ignoreFailures": false,
@@ -1793,7 +1901,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsMainSourceSet": {
      "ignoreFailures": false,
@@ -1804,7 +1913,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJsTestSourceSet": {
      "ignoreFailures": false,
@@ -1815,7 +1925,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmMainSourceSet": {
      "ignoreFailures": false,
@@ -1826,7 +1937,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektJvmTestSourceSet": {
      "ignoreFailures": false,
@@ -1837,7 +1949,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektMainJvm": {
      "ignoreFailures": false,
@@ -1848,7 +1961,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektTestJvm": {
      "ignoreFailures": false,
@@ -1859,7 +1973,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebMainSourceSet": {
      "ignoreFailures": false,
@@ -1870,7 +1985,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektWebTestSourceSet": {
      "ignoreFailures": false,
@@ -1881,7 +1997,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -1889,6 +2006,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -1973,7 +2092,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -1984,7 +2104,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTest": {
      "ignoreFailures": false,
@@ -1995,7 +2116,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTestSourceSet": {
      "ignoreFailures": false,
@@ -2006,7 +2128,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -2017,7 +2140,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTest": {
      "ignoreFailures": false,
@@ -2028,7 +2152,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTestSourceSet": {
      "ignoreFailures": false,
@@ -2039,7 +2164,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektRelease": {
      "ignoreFailures": false,
@@ -2050,7 +2176,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektReleaseSourceSet": {
      "ignoreFailures": false,
@@ -2061,7 +2188,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -2069,6 +2197,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }
@@ -2104,7 +2234,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -2115,7 +2246,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -2126,7 +2258,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {}
@@ -2218,7 +2351,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": "detekt-baseline.xml"
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
     },
     "detektDebug": {
      "ignoreFailures": false,
@@ -2229,7 +2363,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTest": {
      "ignoreFailures": false,
@@ -2240,7 +2375,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugAndroidTestSourceSet": {
      "ignoreFailures": false,
@@ -2251,7 +2387,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugSourceSet": {
      "ignoreFailures": false,
@@ -2262,7 +2399,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTest": {
      "ignoreFailures": false,
@@ -2273,7 +2411,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektDebugUnitTestSourceSet": {
      "ignoreFailures": false,
@@ -2284,7 +2423,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektRelease": {
      "ignoreFailures": false,
@@ -2295,7 +2435,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     },
     "detektReleaseSourceSet": {
      "ignoreFailures": false,
@@ -2306,7 +2447,8 @@
      "allRules": false,
      "disableDefaultRuleSets": false,
      "autoCorrect": false,
-     "baseline": null
+     "baseline": null,
+     "failOnSeverity": "Error"
     }
    },
    "tests": {
@@ -2314,6 +2456,8 @@
      "ignoreFailures": false,
      "include": [],
      "exclude": [],
+     "includes": [],
+     "excludes": [],
      "failOnNoMatchingTests": true
     }
    }

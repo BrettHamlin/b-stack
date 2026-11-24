@@ -10,13 +10,14 @@
      fails.
   3. The release APK is installed on the emulator with no data and launched from its icon's intent (verify.py's smoke
      launch): code R8 broke usually crashes here, and nowhere else before users see it.
-Outputs in .build/package/out/: starter-<version>.aab (for Play), starter-<version>.apk, mapping-<version>.txt (to
+Outputs in .build/package/out/, named starter-<versionName>-<versionCode>: .aab (for Play), .apk, -mapping.txt (to
 read obfuscated crash reports; keep it with each upload). Evidence: .build/evidence/release/launched.png.
 
 Usage: python3 scripts/package.py [--version-name 0.2.0 --version-code 2]
 """
 from pathlib import Path
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -54,11 +55,14 @@ def main() -> int:
     if given and len(given) != len(KEYS):
         sys.exit(f'Signing needs all of {", ".join(KEYS)}; only {", ".join(given)} set.')
     test_signed = not given
-    env.update(throwaway_key(env) if test_signed else {k: os.environ[k] for k in KEYS})
+    signing = throwaway_key(env) if test_signed else {k: os.environ[k] for k in KEYS}
+    # A path from where package.py was run, not from app/ (where Gradle would resolve a relative one).
+    signing['BSTACK_UPLOAD_KEYSTORE'] = str(Path(signing['BSTACK_UPLOAD_KEYSTORE']).resolve())
     props = ([f'-Pbstack.versionName={args.version_name}'] if args.version_name else []) + \
             ([f'-Pbstack.versionCode={args.version_code}'] if args.version_code else [])
-    build = subprocess.run(gradle_command('-q', *props, ':app:bundleRelease', ':app:assembleRelease'), cwd=ROOT, env=env,
-                           capture_output=True, text=True)
+    # Only Gradle sees the key's passwords; the emulator package.py may boot doesn't.
+    build = subprocess.run(gradle_command('-q', *props, ':app:bundleRelease', ':app:assembleRelease'), cwd=ROOT,
+                           env={**env, **signing}, capture_output=True, text=True)
     if build.returncode != 0:
         print((build.stdout + build.stderr)[-4000:])
         return 1
@@ -83,13 +87,13 @@ def main() -> int:
     if failed:
         print('\n'.join(failed).replace('[verified-features] ', '[release] '))
         return 1
-    version = args.version_name or next(l.split('=', 1)[1].strip() for l in (ROOT / 'gradle.properties').read_text().splitlines()
-                                        if l.startswith('bstack.versionName='))
+    built = json.loads((outputs / 'apk/release/output-metadata.json').read_text())['elements'][0]
+    version = f'{built["versionName"]}-{built["versionCode"]}'
     name = f'starter-{version}' + ('-test-signed' if test_signed else '')
     OUT.mkdir(parents=True, exist_ok=True)
     shutil.copy(aab, OUT / f'{name}.aab')
     shutil.copy(apk, OUT / f'{name}.apk')
-    shutil.copy(outputs / 'mapping/release/mapping.txt', OUT / f'mapping-{version}.txt')
+    shutil.copy(outputs / 'mapping/release/mapping.txt', OUT / f'{name}-mapping.txt')
     print(f'package: {app_id("app", "release")} {version}, signed{" with a throwaway test key (not for upload)" if test_signed else ""}; '
           f'the release build started and stayed up on the emulator. Outputs: {OUT}')
     return 0

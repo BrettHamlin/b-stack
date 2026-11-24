@@ -141,6 +141,9 @@ def map_errors(features: list[dict]) -> list[str]:
             errors.append(f'[verified-features] {feature["file"]}: none of its journeys has the app\'s process end in the '
                           'background (screen.returnAfterProcessDeath()). Each feature has one that does, checking its '
                           'state and half-done input come back in a new process (keep input in the model\'s Saved).')
+    errors += [f'[verified-features] journey `{n}` is still the stub new_feature.py wrote. Write it: use the feature as '
+               'a user would, check what they\'d see, and that it survives the device turning and the process ending.'
+               for n, body in bodies.items() if 'Write this journey' in body]
     other = sorted({m.group(1) for path in sorted(JOURNEYS.rglob('*.kt')) for m in ANY_JOURNEY.finditer(path.read_text())} - set(code))
     errors += [f'[verified-features] journey `{n}` in verify/journeys isn\'t declared as a plain top-level '
                f'`fun Journey.{n}()`, so it never runs (a helper for journeys: make it private).' for n in other]
@@ -201,6 +204,13 @@ def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENC
     out = adb(env, 'install', str(apk('app', variant)), serial=serial, timeout=300)
     if 'Success' not in out:
         return [f'[verified-features] installing the shipped app (app, {variant}) failed:\n{out[-2000:]}']
+    try:
+        return launched(env, serial, shipped, variant, folder)
+    finally:
+        adb(env, 'uninstall', shipped, serial=serial)
+
+
+def launched(env: dict, serial: str, shipped: str, variant: str, folder: Path) -> list[str]:
     adb(env, 'logcat', '-b', 'crash', '-c', serial=serial)
     launcher = ['-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER']  # what the icon sends
     activity = adb(env, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', *launcher, shipped,
@@ -218,7 +228,6 @@ def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENC
     with (folder / 'launched.png').open('wb') as png:
         subprocess.run([str(Path(env['ANDROID_HOME']) / 'platform-tools/adb'), '-s', serial, 'exec-out', 'screencap', '-p'],
                        env=env, stdout=png, timeout=60)
-    adb(env, 'uninstall', shipped, serial=serial)
     if 'Status: ok' in started and alive and shown and not crash:
         return []
     return [f'[verified-features] the shipped app (app {variant}, {shipped}) didn\'t start and stay up on a fresh install: '

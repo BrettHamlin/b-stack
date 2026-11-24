@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] Gradle detektDryRun: arch/settings.json records null, in effect \"true\""
+uses_example = false
+
+[[edits]]
+file = "gradle.properties"
+find = "org.gradle.problems.report=false"
+replace = "org.gradle.problems.report=false\ndetekt-dry-run=true"

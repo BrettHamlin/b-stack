@@ -157,16 +157,15 @@ fun Journey.{name}Works() {{
 LINKS = {'verify/journeys': ('api',), 'app': ('api', 'logic', 'ui'), 'app-verify': ('api', 'logic', 'ui')}
 
 
-def link(module: str, name: str, parts: tuple[str, ...]) -> None:
-    """Adds the feature's modules to the module's `uses` list."""
-    path = ROOT / module / 'module.toml'
-    text = path.read_text()
-    match = re.search(r'^uses\s*=\s*\[(.*?)\]', text, re.MULTILINE | re.DOTALL)
+def linked(module: str, name: str, parts: tuple[str, ...]) -> str | None:
+    """The module's module.toml with the feature's modules added to its `uses` list, or None if it has no such list."""
+    text = (ROOT / module / 'module.toml').read_text()
+    match = re.search(r'^\s*uses\s*=\s*\[(.*?)\]', text, re.MULTILINE | re.DOTALL)
     if not match:
-        sys.exit(f'{module}/module.toml has no `uses = [...]` list.')
+        return None
     uses = re.findall(r'"([^"]+)"', match.group(1))
     uses += [f'features/{name}/{part}' for part in parts if f'features/{name}/{part}' not in uses]
-    path.write_text(text[:match.start()] + 'uses = [' + ', '.join(f'"{u}"' for u in uses) + ']' + text[match.end():])
+    return text[:match.start()] + 'uses = [' + ', '.join(f'"{u}"' for u in uses) + ']' + text[match.end():]
 
 
 def main(argv: list[str]) -> int:
@@ -181,11 +180,17 @@ def main(argv: list[str]) -> int:
     if taken:
         print(f'Not created: {", ".join(taken)} already exist.', file=sys.stderr)
         return 1
+    links = {module: linked(module, name, parts) for module, parts in LINKS.items()}
+    unreadable = [module for module, text in links.items() if text is None]
+    if unreadable:
+        print(f'Not created: {", ".join(f"{m}/module.toml" for m in unreadable)} has no `uses = [...]` list.',
+              file=sys.stderr)
+        return 1
     for path, text in planned.items():
         (ROOT / path).parent.mkdir(parents=True, exist_ok=True)
         (ROOT / path).write_text(text)
-    for module, parts in LINKS.items():
-        link(module, name, parts)
+    for module, text in links.items():
+        (ROOT / module / 'module.toml').write_text(text)
     ADAPTERS.write_text(adapters_text(journeys_in_code()))
     print('\n'.join(f'created {path}' for path in planned))
     print('\n'.join(f'updated {module}/module.toml' for module in LINKS))

@@ -65,7 +65,8 @@ jobs:
           BSTACK_UPLOAD_KEY_PASSWORD: ${{ github.event_name == 'push' && secrets.UPLOAD_KEY_PASSWORD || '' }}
         run: |
           if [ -n "$UPLOAD_KEYSTORE" ]; then
-            echo "$UPLOAD_KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            (umask 077 && echo "$UPLOAD_KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks")
+            unset UPLOAD_KEYSTORE
             export BSTACK_UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.jks"
           else
             unset BSTACK_UPLOAD_KEYSTORE_PASSWORD BSTACK_UPLOAD_KEY_ALIAS BSTACK_UPLOAD_KEY_PASSWORD
