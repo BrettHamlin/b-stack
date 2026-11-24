@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "journey `badNameIsRefused` (feature-map/tally.toml on the base branch"
+uses_example = "deletes one of tally's journeys, with its map entry and adapter"

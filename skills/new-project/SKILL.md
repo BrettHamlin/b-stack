@@ -52,7 +52,7 @@ Steps 1, 2 and 5 are the same. In step 2, each feature is a package in `packages
 - copy `starters/typescript/template/` into the new repo, leaving out `node_modules/`, `dist/` and `.build/`; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, and add `CLAUDE.md` containing `@AGENTS.md`
 - replace the tally example (`packages/features/tally`, `packages/platform/files`, the tally parts of `packages/contracts`, `apps/desktop/src`, `apps/web/src`, `apps/desktop/journeys/tally.journey.ts`, `apps/desktop/journeys/smoke.json`, `feature-map/`) with the agreed features. `smoke.json` is what the Windows and Linux smoke jobs check: a start state, a few steps by test id, and the result, which must survive a relaunch. Don't edit the root `package.json`, `pnpm-workspace.yaml`, `vite.config.ts`, the tsconfig files or `arch/`. A third-party package needs the owner: list the ones the features need and ask before adding them to `arch/shape.json`
 - add each agreed feature with `python3 scripts/new_feature.py <name>`, then write its logic, test and journey
-- replace `@OWNER` in `CODEOWNERS`; `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer; after the first push, make the `check` and `installers` jobs required status checks, and for signed packages and updates add the signing secrets and the UPDATE_URL variable the workflow names
+- replace `@OWNER` in `CODEOWNERS`; `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer; after the first push, the owner sets up code-owner review ([GitHub](#github-code-owner-review)), and for signed packages and updates add the signing secrets and the UPDATE_URL variable the workflow names
 - check `starters/typescript/README.md` for what the template doesn't include yet, and list it in your report
 
 Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (it installs the packages first), and the screenshots and `.build/evidence/latest/evidence.md` must show each journey doing what it claims, and `python3 scripts/package.py` must build the app and pass every journey against it. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
@@ -62,15 +62,38 @@ Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (it in
 Steps 1, 2 and 5 are the same. In step 2, each feature is three modules in `features/<name>/`: `api` (types, client interfaces, `<Feature>Ui` identifiers), `logic` (common code: the model, with Turbine tests of every state and a property test) and `ui` (Compose screens and the entry point both apps call), with real I/O in `platform/<name>` and wiring in `app` (real services) and `app-verify` (fixtures), following the tally example. Then:
 - copy `starters/android/template/` into the new repo, leaving out `.build/`; rename `AGENTS.template.md` → `AGENTS.md`, fill in its placeholders, add `CLAUDE.md` containing `@AGENTS.md`, and set `bstack.applicationId` in `gradle.properties`
 - replace the tally example (`features/tally`, `platform/files`, the tally parts of `fixtures`, `app`, `app-verify`, `verify/journeys`, `feature-map/`) with the agreed features: `python3 scripts/new_feature.py <name>` creates each feature's three modules, its map entry and a journey stub, and links them; show its entry point in `app` and `app-verify`, then write its logic, test and journey (run `python3 scripts/verify.py adapters` after adding journeys). Each module declares what it uses in its `module.toml`. Don't edit `arch/`, `build-logic/`, `gradle/`, the root Gradle files or `tools.toml`. A library needs the owner: list the ones the features need and ask before adding them to `gradle/libs.versions.toml` and `arch/shape.json` (and regenerating `gradle/verification-metadata.xml`)
-- replace `@OWNER` in `CODEOWNERS`; `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer; after the first push, make the `check` job (`.github/workflows/check.yml`) a required status check. For signed release builds of `main`, the user adds an upload key as the repository secrets the workflow names; until then `python3 scripts/package.py` signs with a throwaway test key
+- replace `@OWNER` in `CODEOWNERS`; `git init`, then `git config core.hooksPath .githooks` so every commit gets a `Checked:` trailer; after the first push, the owner sets up code-owner review ([GitHub](#github-code-owner-review)). For signed release builds of `main`, the user adds an upload key as the repository secrets the workflow names; until then `python3 scripts/package.py` signs with a throwaway test key
 - check `starters/android/README.md` for what the template doesn't include yet, and list it in your report
 
 Prove it: `python3 scripts/check.py` must PASS every gate in the new repo (the first run downloads the JDK, Gradle, the Android SDK and an emulator image into the cache folder), and `.build/evidence/latest/evidence.md` must show each journey doing what it claims. Then, from b-stack, `python3 scripts/test_rules.py --project <new-repo>` must give zero FAIL.
+
+## GitHub: code-owner review
+
+`CODEOWNERS` protects nothing until GitHub requires code-owner review, and GitHub never counts a pull request author's own approval. So agents act as a separate GitHub user, and the default branch gets a ruleset. The owner does both; agents never change repository settings. The Android and TypeScript workflows' first step (`scripts/branch_rules.py`) fails until the ruleset is in place, so CI on the first push fails until then; re-run it after.
+
+1. **The machine user.** The owner creates a GitHub account for agents (any name; it isn't the code owner), invites it to the repository with the Write role (not Maintain or Admin), and on that account creates a classic personal access token with the `repo` and `workflow` scopes. Agents run with `GH_TOKEN` set to that token (`gh auth setup-git` makes `git push` use it). The owner keeps Admin, and `@OWNER` in `CODEOWNERS` is the owner's handle, so the owner's approval is a second person's.
+2. **The ruleset**, run by the owner (`<owner>/<repo>` is the new repository). It requires a pull request on the default branch with code-owner review and no other approvals, so a pull request that touches no code-owned file merges once the checks pass, and one that does waits for the owner; and it requires the CI checks. Nobody bypasses it. Android:
+
+   ```sh
+   gh api -X POST repos/<owner>/<repo>/rulesets --input - <<'EOF'
+   {"name": "code owners review enforcement changes", "target": "branch", "enforcement": "active",
+    "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}}, "bypass_actors": [],
+    "rules": [
+     {"type": "pull_request", "parameters": {"required_approving_review_count": 0, "require_code_owner_review": true,
+      "dismiss_stale_reviews_on_push": true, "require_last_push_approval": false, "required_review_thread_resolution": false}},
+     {"type": "required_status_checks", "parameters": {"strict_required_status_checks_policy": false,
+      "required_status_checks": [{"context":"check"}]}}]}
+   EOF
+   ```
+
+   TypeScript: the same, with `"required_status_checks": [{"context":"check"}, {"context":"installers win-x64"}, {"context":"installers win-arm64"}, {"context":"installers linux-x64"}, {"context":"installers linux-arm64"}]`. iOS and Rust: the same rules with their workflow's job names; their workflows don't check the ruleset yet. A private repository needs a paid GitHub plan for rulesets to apply; on the free plan, `branch_rules.py` finds no rules and CI fails.
+
+Paths every feature edits (the feature map, journeys, fixtures, the composition roots) aren't code-owned, so features don't wait for the owner. Instead, the verify gate fails when a journey or feature the base branch has is gone, unless `arch/retired.toml` (code-owned) lists it.
 
 ## 5. Report
 
 - what was created
 - the gate results and the rule-test summary line
-- what's still missing (CI, branch protection)
+- what's still missing (CI, the ruleset)
 - the evidence path from the verify gate
-- what the user must do by hand (GitHub branch protection, code owners)
+- what the user must do by hand: the machine user and the ruleset ([GitHub](#github-code-owner-review))

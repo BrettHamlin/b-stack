@@ -11,7 +11,7 @@
 
 Everything compiles and passes detekt, Lint, Konsist, arch and deps as created. The logic test and the journey fail
 until you write them, with a message saying so: a feature isn't done until both prove it works. The apps don't show
-the feature until you add its entry point to each (app/ and app-verify/, code-owned):
+the feature until you add its entry point to each (app/ and app-verify/):
   <Name>Route(rememberModel("<name>") { scope, saved -> <Name>Model(scope, saved) })
 Then run python3 scripts/check.py.
 
@@ -196,7 +196,7 @@ def main(argv: list[str]) -> int:
     print('\n'.join(f'updated {module}/module.toml' for module in LINKS))
     print(f'updated {ADAPTERS.relative_to(ROOT)}')
     Name = name[0].upper() + name[1:]
-    print(f'Next: show the feature in both apps (app/ and app-verify/, code-owned), e.g.\n'
+    print(f'Next: show the feature in both apps (app/ and app-verify/), e.g.\n'
           f'  {Name}Route(rememberModel("{name}") {{ scope, saved -> {Name}Model(scope, saved) }})\n'
           'then write the logic, the test and the journey, and run python3 scripts/check.py.')
     return 0

@@ -1,6 +1,6 @@
 # Runs every gate on each pull request and on main, then packages the app for every platform and proves each package
-# runs. Make `check` and the four `installers` jobs required status checks in branch protection, with "Require review
-# from Code Owners" (CODEOWNERS covers this file).
+# runs. The default branch's ruleset requires `check`, the four `installers` jobs and code-owner review (the new-project
+# skill sets it; the first step fails without it). CODEOWNERS covers this file.
 #
 # Signing: add the repository secrets MAC_CSC_LINK (base64 of a Developer ID Application .p12) and
 # MAC_CSC_KEY_PASSWORD, for notarizing APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, and for Windows
@@ -40,15 +40,24 @@ jobs:
       BSTACK_UPDATE_URL: ${{ vars.UPDATE_URL }}
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0  # the verify gate compares the feature map with the pull request's base branch
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
+      - name: The default branch requires code-owner review and these checks (without that, CODEOWNERS protects nothing)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: python3 scripts/branch_rules.py check 'installers win-x64' 'installers win-arm64' 'installers linux-x64' 'installers linux-arm64'
       - name: Cache folder for tools and build output
         run: |
           mkdir -p "$RUNNER_TEMP/bstack-cache"
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
       # CI=true (set by GitHub): pnpm refuses to change pnpm-lock.yaml, so a package.json edited without its lockfile fails.
       - name: compiler, lint, deps, arch, settings, tests, verify
+        env:
+          BSTACK_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
         run: python3 scripts/check.py
       - name: Installers for every target; journeys on the Apple silicon app, smoke on its .dmg and on the Intel app (Rosetta)
         run: python3 scripts/package.py --all
@@ -71,6 +80,7 @@ jobs:
 
   installers:
     # Each Windows and Linux installer installed the way a user would, on its own system, then smoke-tested.
+    name: installers ${{ matrix.target }}  # the required check's name
     needs: check
     strategy:
       fail-fast: false

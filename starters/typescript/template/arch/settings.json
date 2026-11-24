@@ -645,9 +645,10 @@
   "/AGENTS.md",
   "/CLAUDE.md",
   "/.claude/",
+  "/.agents/",
+  "/.githooks/",
   "/package.json",
   "/pnpm-workspace.yaml",
-  "/pnpm-lock.yaml",
   "/tools.toml",
   "/tsconfig.base.json",
   "/tsconfig.effect.json",
@@ -656,12 +657,8 @@
   "/apps/web/vite.config.ts",
   "/arch/",
   "/scripts/",
-  "/feature-map/",
-  "/apps/desktop/journeys/",
-  "/packages/fixtures/",
-  "/.githooks/",
-  "/.agents/",
-  "/apps/desktop/src/",
-  "/apps/web/src/main.tsx"
+  "/apps/desktop/journeys/support/",
+  "/apps/desktop/journeys/tsconfig.json",
+  "/apps/desktop/journeys/smoke.json"
  ]
 }

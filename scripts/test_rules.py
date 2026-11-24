@@ -152,10 +152,13 @@ work_root = (cache / 'rule-tests' if cache else ROOT / '.build/rule-tests') / \
 class Worker:
     work: Path
     simulator: str | None
+    base: str | None = None  # the commit of the untouched project in this copy (platform.base_commit)
 
     def env(self) -> dict:
         # One simulator per worker, and verify inside a case runs on that one only (no clones).
         env = {**base_env, 'BSTACK_VERIFY_WORKERS': '1'}
+        if self.base:
+            env['BSTACK_BASE_REF'] = self.base  # a case's changes are a pull request against the untouched project
         if self.simulator:
             env['BSTACK_SIMULATOR_ID'] = self.simulator
             env.update(held_env)  # this run holds the simulator's lock: the case's check.py must not wait for it
@@ -173,6 +176,9 @@ class Worker:
                     shutil.copytree(item, self.work / item.name, symlinks=True, ignore=NOT_COPIED)
                 else:
                     shutil.copy2(item, self.work / item.name)
+        if platform.base_commit:
+            self.base = commit_base(self.work)
+
 
     def check(self, *gates: str) -> tuple[bool, str]:
         cmd = [sys.executable, 'scripts/check.py'] + [a for g in gates for a in ('--only', g)]
@@ -224,6 +230,20 @@ class Worker:
                                   capture_output=True, text=True)
             if proc.returncode != 0:
                 raise ValueError(f'verify.py adapters failed: {(proc.stdout + proc.stderr).strip()[-500:]}')
+
+
+def commit_base(work: Path) -> str:
+    """Commits the copy as it is (the untouched project) and returns the commit: the base the verify gate compares a
+    case's feature map with, as CI compares a pull request with its base branch. A copied project's own .git (an app's)
+    gets the commit on top of its history."""
+    def git(*cmd: str) -> str:
+        return subprocess.run(['git', *cmd], cwd=work, check=True, capture_output=True, text=True).stdout.strip()
+    if not (work / '.git').exists():
+        git('init', '-q')
+    git('add', '-A')
+    git('-c', 'user.name=test_rules', '-c', 'user.email=test_rules@localhost', '-c', 'commit.gpgsign=false',
+        'commit', '-q', '--allow-empty', '--no-verify', '-m', 'untouched project')
+    return git('rev-parse', 'HEAD')
 
 
 def declared_features(case: dict) -> list[str]:

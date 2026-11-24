@@ -20,9 +20,13 @@ Use the `verify` skill (`.agents/skills/verify`) to explore the running app and 
 
 ## Never weaken enforcement
 
-Never suppress, disable, weaken or bypass a check. That includes `// oxlint-disable`, `// eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@effect-diagnostics`, `any`, `as` casts, `!`, `declare`, `.skip`/`.only`, and editing the root config files, `arch/`, `tools.toml`, `scripts/`, the journeys, or CI.
+Never suppress, disable, weaken or bypass a check. That includes `// oxlint-disable`, `// eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@effect-diagnostics`, `any`, `as` casts, `!`, `declare`, `.skip`/`.only`, and editing the root config files, `arch/`, `tools.toml`, `scripts/` or CI, and loosening, deleting or renaming a journey or feature-map entry (the verify gate fails when one the base branch has is gone; only the owner can retire one, in `arch/retired.toml`).
 
 **If the right fix isn't possible within the rules, stop and report:** what you were trying to do, which rule blocks it, and what you'd change. A clear report is a successful outcome.
+
+## GitHub
+
+You act as the project's machine user (`GH_TOKEN` is its token), never as the owner, so the owner's review is a real second person's. A pull request that touches a code-owned file (`CODEOWNERS` lists them: the gates, their settings, the module shape, CI, this file) waits for the owner's review; one that touches none merges once CI passes. Keep a change to a code-owned file in its own pull request and say why it's needed. Never change the repository's settings or rules, and never ask for the owner's credentials.
 
 ## Don't write unrequested docs
 

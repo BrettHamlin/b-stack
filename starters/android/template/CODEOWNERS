@@ -1,5 +1,6 @@
 # Enforcement surface: changes need a human code owner.
-# Pair with branch protection: "Require review from Code Owners".
+# GitHub enforces this only with the default branch's ruleset requiring code-owner review (the new-project skill sets
+# it; CI fails without it, scripts/branch_rules.py). Agents act as a separate GitHub user, so the owner's approval counts.
 # Replace @OWNER with a real GitHub user or team.
 
 /CODEOWNERS               @OWNER
@@ -26,12 +27,10 @@
 /core/src/commonMain/kotlin/core/UiId.kt  @OWNER
 /core-ui/                 @OWNER
 
-# Verification: journeys, what they prove, the driver and the test-mode setups
-/feature-map/             @OWNER
+# Verification: what journeys can do and the driver that runs them
 /verify/journeykit/       @OWNER
-/verify/journeys/         @OWNER
-/verify/runner/           @OWNER
-/fixtures/                @OWNER
-# The composition roots: which real services each app wires in
-/app/                     @OWNER
-/app-verify/              @OWNER
+/verify/runner/src/main/kotlin/runner/Driver.kt  @OWNER
+
+# Not owned, because every feature edits them: feature-map/, verify/journeys/, fixtures/, app/, app-verify/ and the
+# generated adapters (verify/runner/.../Journeys.kt, which the verify gate requires to be exactly what it generates).
+# The verify gate fails if a journey or feature the base branch has is gone, unless arch/retired.toml lists it.
