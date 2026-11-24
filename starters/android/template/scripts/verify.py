@@ -127,8 +127,14 @@ def without_comments(text: str) -> str:
             blank(i, end)
             i = end
         elif text.startswith('/*', i):
-            end = text.find('*/', i + 2)
-            end = n if end < 0 else end + 2
+            depth, end = 1, i + 2  # Kotlin block comments nest
+            while end < n and depth:
+                if text.startswith('/*', end):
+                    depth, end = depth + 1, end + 2
+                elif text.startswith('*/', end):
+                    depth, end = depth - 1, end + 2
+                else:
+                    end += 1
             blank(i, end)
             i = end
         elif text.startswith('"""', i):

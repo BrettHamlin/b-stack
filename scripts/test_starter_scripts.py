@@ -1037,7 +1037,7 @@ class AndroidFeatureMapTests(unittest.TestCase):
         ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
         ui.write_text(ui.read_text().replace('    val add = ', '    public val total: UiId = UiId("tally.total")\n    val add = '))
         journeys = self.root / 'verify/journeys/src/commonMain/kotlin/journeys/HistoryJourneys.kt'
-        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total") // say \"\"\"'))
+        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total") // say \"\"\"\n    /* old: /* nested */ screen.find(TallyUi.total) */'))
         self.entry('["tally"]')
         result = self.run_verify('map')
         self.assertEqual(result.returncode, 1)
