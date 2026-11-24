@@ -222,6 +222,10 @@ bstack:
   NoSemanticsText:
     active: true
     excludes: ['**/commonTest/**', '**/src/test/**', '**/verify/runner/**']
+  # In tests, a property test's model of the spec above all, if/else on an enum hides a new case (exhaustive-states).
+  NoIfElseOnEnum:
+    active: true
+    includes: ['**/commonTest/**', '**/src/test/**']
 
 console-reports:
   exclude: ['ProjectStatisticsReport', 'ComplexityReport', 'NotificationReport', 'FindingsReport']

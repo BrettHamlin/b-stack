@@ -124,6 +124,18 @@ class Driver(private val journey: String) : Journey {
             throw AssertionError("[verify] ${id.value} $what:\n$seen\nexpected:\n$expected")
         }
 
+        override fun isSelected() {
+            if (!device.wait(Until.hasObject(By.res(id.value).selected(true)), WAIT_MS)) {
+                throw AssertionError("[verify] ${id.value} isn't selected after ${WAIT_MS / 1000} s")
+            }
+        }
+
+        override fun isGone() {
+            if (!device.wait(Until.gone(By.res(id.value)), WAIT_MS)) {
+                throw AssertionError("[verify] ${id.value} is still on screen after ${WAIT_MS / 1000} s")
+            }
+        }
+
         override fun isDisabled() {
             if (!node(id).wait(Until.enabled(false), WAIT_MS)) throw AssertionError("[verify] ${id.value} is still enabled")
         }

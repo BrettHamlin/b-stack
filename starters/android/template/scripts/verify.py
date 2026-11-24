@@ -8,6 +8,8 @@ Map check (feature-map/*.toml):
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
   - the journeys in verify/journeys (top-level `fun Journey.<name>()`) are exactly the mapped ones
   - verify/runner holds only Driver.kt and the generated adapters (Journeys.kt), which match what `adapters` writes
+  - every UI identifier a feature's api declares (`val <element> = UiId(...)` in its <Feature>Ui object) is named by a
+    journey (`<Feature>Ui.<element>`, with or without `.at(...)`), so no element the screen tags goes unchecked
 Run: app-verify and the runner are built, then the journeys run on the emulator (scripts/emulator.py, holding its
 lock): the runner drives app-verify through UiAutomator, one JUnit test per journey.
   - every mapped journey runs once and passes, and saves at least one screenshot (Screen.checkpoint)
@@ -105,6 +107,38 @@ def adapters_text(names: list[str]) -> str:
             '@RunWith(AndroidJUnit4::class)\nclass Journeys {' + tests + '}\n')
 
 
+UI_OBJECT = re.compile(r'\bobject\s+(\w+Ui)\s*\{')
+UI_ID = re.compile(r'^\s*val\s+(\w+)\s*(?::\s*UiId\s*)?=\s*UiId\s*\(', re.MULTILINE)
+
+
+def without_comments(text: str) -> str:
+    return re.sub(r'//[^\n]*', '', re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL))
+
+
+def ui_ids() -> list[tuple[str, str, str]]:
+    """(file, <Feature>Ui object, element) for every UiId the feature api modules declare in a <Feature>Ui object."""
+    found = []
+    for path in sorted((ROOT / 'features').glob('*/api/src/**/*.kt')):
+        text = without_comments(path.read_text())
+        for obj in UI_OBJECT.finditer(text):
+            depth, end = 1, obj.end()
+            while end < len(text) and depth:
+                depth += {'{': 1, '}': -1}.get(text[end], 0)
+                end += 1
+            found += [(str(path.relative_to(ROOT)), obj.group(1), m.group(1)) for m in UI_ID.finditer(text[obj.end():end])]
+    return found
+
+
+def unchecked_ui_ids() -> list[str]:
+    journeys = '\n'.join(without_comments(p.read_text()) for p in sorted(JOURNEYS.rglob('*.kt')))
+    return [f'[verified-features] {where}: {obj}.{element} isn\'t named by any journey in verify/journeys, so what the '
+            f'screen shows there is never checked. Find it in the journey that proves its feature and check it (shows, '
+            f'describes, isSelected, isGone, isDisabled); for a list or grid, find its items with '
+            f'`{obj}.{element}.at(...)`. If no view tags it any more, remove it.'
+            for where, obj, element in ui_ids()
+            if not re.search(rf'\b{obj}\s*\.\s*{element}\b', journeys)]
+
+
 def map_errors(features: list[dict]) -> list[str]:
     errors = []
     folders = sorted(p.name for p in (ROOT / 'features').iterdir() if p.is_dir()) if (ROOT / 'features').is_dir() else []
@@ -154,7 +188,9 @@ def map_errors(features: list[dict]) -> list[str]:
                           'background (screen.returnAfterProcessDeath()). Each feature has one that does, checking its '
                           'state and half-done input come back in a new process: what the app keeps from its store, '
                           'the screen\'s session that isn\'t stored anywhere else (a selection, half-typed input, a '
-                          'turn in progress) from the model\'s Saved.')
+                          'turn in progress) from the model\'s Saved. A turn in progress is that session until a store '
+                          'keeps it: before the feature has a store, keep it in Saved; once a store keeps it, it comes '
+                          'back from the store, and Saved holds only what isn\'t stored.')
     errors += [f'[verified-features] journey `{n}` is still the stub new_feature.py wrote. Write it: use the feature as '
                'a user would, check what they\'d see, and that it survives the device turning and the process ending.'
                for n, body in bodies.items() if 'Write this journey' in body]
@@ -167,6 +203,7 @@ def map_errors(features: list[dict]) -> list[str]:
                'it proves.' for n in dict.fromkeys(code) if n not in seen]
     errors += [f'[verified-features] {seen[n]}: journey `{n}` isn\'t in verify/journeys (as `fun Journey.{n}()`), so it '
                'never runs.' for n in seen if n not in code]
+    errors += unchecked_ui_ids()
     allowed = {RUNNER / 'Driver.kt', ADAPTERS}
     extra = sorted(str(p.relative_to(ROOT)) for p in (ROOT / 'verify/runner').rglob('*') if p.is_file() and p not in allowed)
     if extra:

@@ -79,6 +79,7 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [thin-app](thin-app/rule.toml) | 2 | Harmonize |  |  | Konsist | The shipped App only composes screens and services; no decisions, functions or tasks |
 | [thin-api](thin-api/rule.toml) | 2 |  |  |  | Konsist | A feature's api module holds declarations only; behaviour goes in its logic |
 | [views-hold-no-clients](views-hold-no-clients/rule.toml) | 1+2 | compiler, Harmonize |  |  | compiler, Konsist | A feature's view gets only its store; clients go into the reducer |
+| [animations-from-state](animations-from-state/rule.toml) | 2 |  |  |  | Konsist | Animation lives in a feature's ui, derived from state; nothing times itself by hand |
 | [exhaustive-tests](exhaustive-tests/rule.toml) | 2 | Harmonize |  | oxlint | Konsist | TCA tests stay exhaustive (no exhaustivity off or skips; TypeScript: whole-value assertions) |
 | [tests-always-run](tests-always-run/rule.toml) | 2 | tests | tests, arch, settings | tests, oxlint, arch | tests, Konsist, arch | Every test target runs in the tests gate |
 | [no-fixtures-in-release](no-fixtures-in-release/rule.toml) | 2 | Harmonize, Tuist |  | arch, oxlint | compiler | Only the test-mode app (AppVerify) can use fixtures (TypeScript: only journeys and tests) |

@@ -29,14 +29,14 @@ fun fixtureNamed(name: String?): Fixture? = Fixture.entries.firstOrNull { it.nam
  * (a relaunch), it keeps what the last launch saved. */
 fun tallyStore(fixture: Fixture, context: Context, io: CoroutineDispatcher, reset: Boolean): TallyStore {
     val dir = File(context.filesDir, "fixture")
-    val file = File(dir, "tally.txt")
+    val file = File(dir, "tally.json")
     if (reset) {
         dir.deleteRecursively()
         dir.mkdirs()
         when (fixture) {
             Fixture.Standard -> Unit
-            Fixture.Saved -> file.writeText("apple\t2\npear\t1\n")
-            Fixture.FailingSaves -> file.writeText("apple\t2\n")
+            Fixture.Saved -> file.writeText("""{"counts":{"apple":2,"pear":1}}""")
+            Fixture.FailingSaves -> file.writeText("""{"counts":{"apple":2}}""")
             Fixture.Unreadable -> file.writeText("not a tally\n")
         }
     }

@@ -43,6 +43,12 @@ interface Element {
      * here. */
     fun describes(expected: String)
 
+    /** Waits until the element is selected (a chosen tab, option or piece: Modifier.selectable's or Tab's `selected`). */
+    fun isSelected()
+
+    /** Waits until the element is gone from the screen (a dismissed dialog, a removed piece). */
+    fun isGone()
+
     /** Waits until the element can't be used (a disabled button or field). */
     fun isDisabled()
 }
