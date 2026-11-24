@@ -1,0 +1,15 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "kotlin.compileKotlinJvm.allWarningsAsErrors: arch/settings.json records true, in effect false"
+uses_example = false
+
+[[edits]]
+file = "settings.gradle.kts"
+find = "rootProject.name = \"starter\""
+replace = """rootProject.name = "starter"
+
+gradle.beforeProject {
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask::class.java).configureEach {
+        compilerOptions.allWarningsAsErrors.set(false)
+    }
+}"""

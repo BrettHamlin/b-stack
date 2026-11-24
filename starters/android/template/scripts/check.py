@@ -12,6 +12,8 @@ Gates:
   arch      module folders, source sets and files against the module shape; no suppressions or opt-ins (arch.py)
   deps      every library from Google's or Maven Central's repository, checked against gradle/verification-metadata.xml,
             with an allowed license (deps.py)
+  settings  the enforcement settings in effect (Gradle, Kotlin, Android, Lint, detekt, test tasks) are the ones recorded
+            in arch/settings.json, and CODEOWNERS covers every enforcement path (settings.py)
   tests     every unit and property test in every module; a module whose tests didn't run, or a skipped test, fails
   verify    the feature map is complete, and every journey passes in app-verify on the emulator (verify.py)
 
@@ -34,7 +36,7 @@ from handback import record_check, snapshot  # noqa: E402
 from tools import android_env, gradle_command  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'tests', 'verify']
+GATES = ['compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify']
 RESULTS = ROOT / '.build/gradle'
 
 
@@ -108,6 +110,8 @@ def tests(env: dict) -> tuple[bool, str]:
                             'gate (jvmTest, testDebugUnitTest); if they can\'t, stop and report.')
         problems += [f'[tests-always-run] {folder}: {name} was skipped. Every test runs: fix the code or the test, or '
                      'stop and report.' for name, status, _ in results if status == 'skipped']
+        problems += [f'{folder}: {name} failed: {message.strip()[:500]}' for name, status, message in results
+                     if status == 'failed']
     if problems:
         return False, '\n'.join([output, *problems])
     return ok, output
@@ -126,8 +130,8 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
     if name == 'arch':
         found = arch_findings()
         return not found, '\n'.join(found)
-    if name == 'deps':
-        proc = subprocess.run([sys.executable, str(ROOT / 'scripts/deps.py')], cwd=ROOT, env=env, capture_output=True,
+    if name in ('deps', 'settings'):
+        proc = subprocess.run([sys.executable, str(ROOT / f'scripts/{name}.py')], cwd=ROOT, env=env, capture_output=True,
                               text=True)
         return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
     if name == 'tests':

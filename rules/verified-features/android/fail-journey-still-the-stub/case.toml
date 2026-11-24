@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verified-features] journey `probeShowsGo` is still the stub new_feature.py wrote."
+uses_example = false
+adds_targets = ["probe"]

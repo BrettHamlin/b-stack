@@ -1,0 +1,2492 @@
+{
+ "about": "The enforcement settings in effect, recorded by `python3 scripts/settings.py record` (protected). The settings gate fails when what Gradle, Kotlin, the Android plugin and detekt will use differs from this, or when CODEOWNERS stops covering a path listed here.",
+ "build": {
+  "dependencyVerification": "STRICT",
+  "buildCache": false,
+  "initScripts": [],
+  "offline": false,
+  "detektDryRun": null
+ },
+ "roles": {
+  "api": {
+   "kotlin": {
+    "compileCommonMainKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "core.DeclaresUiId"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "core.DeclaresUiId"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "core.DeclaresUiId"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "core.DeclaresUiId"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "core.DeclaresUiId",
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "core.DeclaresUiId",
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektCommonMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektCommonTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektMainJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTestJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "jvmTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "app": {
+   "kotlin": {
+    "compileDebugAndroidTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers",
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers",
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugUnitTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileReleaseKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "targetSdk": 37,
+    "lint": {
+     "checkOnly": [
+      "NewApi"
+     ],
+     "error": [
+      "NewApi"
+     ],
+     "disable": [],
+     "enable": [],
+     "abortOnError": true,
+     "warningsAsErrors": true,
+     "ignoreWarnings": false,
+     "checkTestSources": false,
+     "baseline": null,
+     "lintConfig": null
+    },
+    "release": {
+     "minify": true,
+     "shrinkResources": true,
+     "proguardFiles": [
+      "proguard-android-optimize.txt-9.5.2"
+     ],
+     "debuggable": false
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektRelease": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektReleaseSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "testDebugUnitTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "app-verify": {
+   "kotlin": {
+    "compileDebugAndroidTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers",
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers",
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugUnitTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileReleaseKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "targetSdk": 37,
+    "lint": {
+     "checkOnly": [
+      "NewApi"
+     ],
+     "error": [
+      "NewApi"
+     ],
+     "disable": [],
+     "enable": [],
+     "abortOnError": true,
+     "warningsAsErrors": true,
+     "ignoreWarnings": false,
+     "checkTestSources": false,
+     "baseline": null,
+     "lintConfig": null
+    },
+    "release": {
+     "minify": false,
+     "shrinkResources": false,
+     "proguardFiles": [],
+     "debuggable": false
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektRelease": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektReleaseSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "testDebugUnitTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "core": {
+   "kotlin": {
+    "compileCommonMainKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektCommonMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektCommonTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektMainJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTestJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "jvmTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "core-ui": {
+   "kotlin": {
+    "compileDebugAndroidTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers",
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugUnitTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileReleaseKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "lint": {
+     "checkOnly": [
+      "NewApi"
+     ],
+     "error": [
+      "NewApi"
+     ],
+     "disable": [],
+     "enable": [],
+     "abortOnError": true,
+     "warningsAsErrors": true,
+     "ignoreWarnings": false,
+     "checkTestSources": false,
+     "baseline": null,
+     "lintConfig": null
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektRelease": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektReleaseSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "testDebugUnitTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "detekt-rules": {
+   "kotlin": {
+    "compileKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {},
+   "tests": {
+    "test": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "fixtures": {
+   "kotlin": {
+    "compileDebugAndroidTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugUnitTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileReleaseKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "lint": {
+     "checkOnly": [
+      "NewApi"
+     ],
+     "error": [
+      "NewApi"
+     ],
+     "disable": [],
+     "enable": [],
+     "abortOnError": true,
+     "warningsAsErrors": true,
+     "ignoreWarnings": false,
+     "checkTestSources": false,
+     "baseline": null,
+     "lintConfig": null
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektRelease": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektReleaseSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "testDebugUnitTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "journeykit": {
+   "kotlin": {
+    "compileCommonMainKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektCommonMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektCommonTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektMainJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTestJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "jvmTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "journeys": {
+   "kotlin": {
+    "compileCommonMainKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektCommonMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektCommonTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektMainJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTestJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "jvmTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "konsist": {
+   "kotlin": {
+    "compileKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektMain": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "test": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "logic": {
+   "kotlin": {
+    "compileCommonMainKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileKotlinMetadata": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJs": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": null
+    },
+    "compileTestKotlinJvm": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektCommonMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektCommonTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJsTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektJvmTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektMainJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektTestJvm": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebMainSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektWebTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "jvmTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "platform": {
+   "kotlin": {
+    "compileDebugAndroidTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugUnitTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileReleaseKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "lint": {
+     "checkOnly": [
+      "NewApi"
+     ],
+     "error": [
+      "NewApi"
+     ],
+     "disable": [],
+     "enable": [],
+     "abortOnError": true,
+     "warningsAsErrors": true,
+     "ignoreWarnings": false,
+     "checkTestSources": false,
+     "baseline": null,
+     "lintConfig": null
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektRelease": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektReleaseSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "testDebugUnitTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  },
+  "runner": {
+   "kotlin": {
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "targetSdk": 37
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {}
+  },
+  "ui": {
+   "kotlin": {
+    "compileDebugAndroidTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xuse-inline-scopes-numbers",
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileDebugUnitTestKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [
+      "kotlinx.coroutines.ExperimentalCoroutinesApi"
+     ],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    },
+    "compileReleaseKotlin": {
+     "allWarningsAsErrors": true,
+     "suppressWarnings": false,
+     "progressiveMode": true,
+     "optIn": [],
+     "freeCompilerArgs": [
+      "-Xallow-unstable-dependencies"
+     ],
+     "languageVersion": null,
+     "apiVersion": null,
+     "jvmTarget": "17"
+    }
+   },
+   "android": {
+    "compileSdk": 37,
+    "compileSdkMinor": 2,
+    "minSdk": 29,
+    "lint": {
+     "checkOnly": [
+      "NewApi"
+     ],
+     "error": [
+      "NewApi"
+     ],
+     "disable": [],
+     "enable": [],
+     "abortOnError": true,
+     "warningsAsErrors": true,
+     "ignoreWarnings": false,
+     "checkTestSources": false,
+     "baseline": null,
+     "lintConfig": null
+    }
+   },
+   "detekt": {
+    "detekt": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": "detekt-baseline.xml",
+     "failOnSeverity": "Error"
+    },
+    "detektDebug": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugAndroidTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTest": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektDebugUnitTestSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektRelease": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    },
+    "detektReleaseSourceSet": {
+     "ignoreFailures": false,
+     "config": [
+      "arch/detekt.yml"
+     ],
+     "buildUponDefaultConfig": false,
+     "allRules": false,
+     "disableDefaultRuleSets": false,
+     "autoCorrect": false,
+     "baseline": null,
+     "failOnSeverity": "Error"
+    }
+   },
+   "tests": {
+    "testDebugUnitTest": {
+     "ignoreFailures": false,
+     "include": [],
+     "exclude": [],
+     "includes": [],
+     "excludes": [],
+     "failOnNoMatchingTests": true
+    }
+   }
+  }
+ },
+ "codeowners": [
+  "/CODEOWNERS",
+  "/.github/",
+  "/AGENTS.md",
+  "/CLAUDE.md",
+  "/.claude/",
+  "/.agents/",
+  "/.githooks/",
+  "/settings.gradle.kts",
+  "/build.gradle.kts",
+  "/gradle.properties",
+  "/gradle/",
+  "/build-logic/",
+  "/tools.toml",
+  "/arch/",
+  "/scripts/",
+  "/core/src/commonMain/kotlin/core/UiId.kt",
+  "/core-ui/",
+  "/feature-map/",
+  "/verify/journeykit/",
+  "/verify/journeys/",
+  "/verify/runner/",
+  "/fixtures/",
+  "/app/",
+  "/app-verify/"
+ ]
+}

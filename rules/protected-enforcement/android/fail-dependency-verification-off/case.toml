@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] Gradle dependencyVerification: arch/settings.json records \"STRICT\", in effect \"OFF\""
+uses_example = false
+
+[[edits]]
+file = "gradle.properties"
+find = "org.gradle.problems.report=false"
+replace = "org.gradle.problems.report=false\norg.gradle.dependency.verification=off"

@@ -12,6 +12,7 @@ class SettingsPlugin : Plugin<Settings> {
         settings.gradle.beforeProject {
             if (this == rootProject) {
                 layout.buildDirectory.set(root.resolve(".build/gradle/root"))
+                registerSettingsDump(this)
             } else {
                 pluginManager.apply(ModulePlugin::class.java)
             }

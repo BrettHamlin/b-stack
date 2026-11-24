@@ -1,0 +1,9 @@
+expect = "fail"
+enforced_by = "settings"
+diagnostic = "[protected-enforcement] Gradle buildCache: arch/settings.json records false, in effect true"
+uses_example = false
+
+[[edits]]
+file = "gradle.properties"
+find = "org.gradle.caching=false"
+replace = "org.gradle.caching=true"
