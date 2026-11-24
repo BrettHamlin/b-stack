@@ -50,12 +50,14 @@ def main() -> int:
     parser.add_argument('--version-name')
     parser.add_argument('--version-code', type=int)
     args = parser.parse_args()
+    # The key's settings leave this process's environment, so only the release Gradle run gets them: not the emulator,
+    # adb or the signature checks.
+    supplied = {k: v for k in KEYS if (v := os.environ.pop(k, ''))}
+    if supplied and len(supplied) != len(KEYS):
+        sys.exit(f'Signing needs all of {", ".join(KEYS)}; only {", ".join(supplied)} set.')
     env = android_env()
-    given = [k for k in KEYS if os.environ.get(k)]
-    if given and len(given) != len(KEYS):
-        sys.exit(f'Signing needs all of {", ".join(KEYS)}; only {", ".join(given)} set.')
-    test_signed = not given
-    signing = throwaway_key(env) if test_signed else {k: os.environ[k] for k in KEYS}
+    test_signed = not supplied
+    signing = throwaway_key(env) if test_signed else supplied
     # A path from where package.py was run, not from app/ (where Gradle would resolve a relative one).
     signing['BSTACK_UPLOAD_KEYSTORE'] = str(Path(signing['BSTACK_UPLOAD_KEYSTORE']).resolve())
     props = ([f'-Pbstack.versionName={args.version_name}'] if args.version_name else []) + \
