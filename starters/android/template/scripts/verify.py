@@ -1,7 +1,8 @@
 """The verify gate: every feature is in the feature map, and every journey it names passes in the running app.
 
 Map check (feature-map/*.toml):
-  - every feature folder (features/<name>) is in exactly one feature's `modules`, and every module named is one
+  - every feature folder (features/<name>) is in at least one feature's `modules` (features may share one), every
+    feature names at least one, and every module named is one
   - each feature has a journey that turns the device (Screen.rotate), so its state must survive recreation, and one
     that has the app's process end in the background (Screen.returnAfterProcessDeath), so it must survive that too
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
@@ -113,14 +114,15 @@ def map_errors(features: list[dict]) -> list[str]:
         for key in ('id', 'summary', 'modules', 'journeys'):
             if key not in feature:
                 errors.append(f'[verified-features] {where}: missing `{key}`')
+        if 'modules' in feature and not feature['modules']:
+            errors.append(f'[verified-features] {where}: `modules` is empty. Name the feature folders (features/<name>) '
+                          'this feature\'s code is in; features that share a module each name it.')
         for module in feature.get('modules', []):
             if module not in folders:
                 errors.append(f'[verified-features] {where}: module `{module}` isn\'t a feature (features/{module}). '
                               'Name the feature folders this feature is made of.')
-            elif module in claimed:
-                errors.append(f'[verified-features] {where}: module `{module}` is already in {claimed[module]}')
             else:
-                claimed[module] = where
+                claimed.setdefault(module, where)
         if not feature.get('journeys'):
             errors.append(f'[verified-features] {where}: no journeys. Each feature needs at least one journey that '
                           'runs the app and shows the feature working.')
@@ -150,7 +152,9 @@ def map_errors(features: list[dict]) -> list[str]:
         if names and all(n in bodies for n in names) and not any(takes('returnAfterProcessDeath', bodies[n]) for n in names):
             errors.append(f'[verified-features] {feature["file"]}: none of its journeys has the app\'s process end in the '
                           'background (screen.returnAfterProcessDeath()). Each feature has one that does, checking its '
-                          'state and half-done input come back in a new process (keep input in the model\'s Saved).')
+                          'state and half-done input come back in a new process: what the app keeps from its store, '
+                          'the screen\'s session that isn\'t stored anywhere else (a selection, half-typed input, a '
+                          'turn in progress) from the model\'s Saved.')
     errors += [f'[verified-features] journey `{n}` is still the stub new_feature.py wrote. Write it: use the feature as '
                'a user would, check what they\'d see, and that it survives the device turning and the process ending.'
                for n, body in bodies.items() if 'Write this journey' in body]

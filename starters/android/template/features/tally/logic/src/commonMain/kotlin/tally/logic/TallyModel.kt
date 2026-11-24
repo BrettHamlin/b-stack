@@ -23,6 +23,10 @@ data class TallyState(
 ) {
     /** Whether Add (and the name field) can be used: not while loading or saving, nor after a failed load. */
     val canAdd: Boolean get() = !loading && !saving && problem != TallyProblem.LoadFailed
+
+    /** Every item and its count, sorted by name: what the list shows. */
+    val entries: List<Pair<ItemName, Int>>
+        get() = tally.counts.entries.sortedBy { it.key.value }.map { it.key to it.value }
 }
 
 sealed interface TallyAction {
@@ -86,8 +90,3 @@ private const val NAME = "name"
 /** The tally after recording [name] once more. */
 fun recorded(tally: Tally, name: ItemName): Tally =
     Tally(tally.counts + (name to (tally.counts[name] ?: 0) + 1))
-
-/** Every item and its count, sorted by name. */
-fun entries(tally: Tally): List<Pair<ItemName, Int>> = tally.counts.entries
-    .sortedBy { it.key.value }
-    .map { it.key to it.value }

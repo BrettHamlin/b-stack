@@ -102,6 +102,47 @@ class ArchitectureTest {
     )
 
     @Test
+    fun uiImportsOnlyTheModelsTypes() {
+        val packageLine = Regex("""^\s*package\s+([\w.]+)""", RegexOption.MULTILINE)
+        val logic = files.filter { it.role == "logic" && !it.test }
+            .groupBy { packageLine.find(it.text)?.groupValues?.get(1).orEmpty() }
+            .mapValues { (_, sources) -> modelTypes(sources) }
+        val import = Regex("""^[ \t]*import\s+([\w.]+(?:\.\*)?)""", RegexOption.MULTILINE)
+        val found = files.filter { it.role == "ui" && !it.test }.flatMap { source ->
+            import.findAll(source.text).mapNotNull { match ->
+                val name = match.groupValues[1]
+                val (pkg, allowed) = logic.entries.firstOrNull { name.startsWith("${it.key}.") } ?: return@mapNotNull null
+                if (name.removePrefix("$pkg.").substringBefore('.') in allowed) return@mapNotNull null
+                "${source.relative}:${line(source.text, match.range.first)}: [module-boundaries] a feature's ui module " +
+                    "imports from its logic only the model, its state and action types and the types they're made of " +
+                    "(${allowed.sorted().joinToString()}); `$name` isn't one. What the view needs worked out (what's " +
+                    "allowed, reachable or done) belongs on the state, set or computed there, so the logic's tests " +
+                    "cover it."
+            }.toList()
+        }
+        check(found)
+    }
+
+    /** In one logic package: its `<Feature>Model`, `<Feature>State` and `<Feature>Action` types (any top-level class or
+     * interface named so), and every top-level class or interface the state and action types name, transitively. Not
+     * functions, properties or objects: those are logic the view would run itself. */
+    private fun modelTypes(sources: List<Source>): Set<String> {
+        val types = sources.flatMap { source ->
+            source.file.classes(includeNested = false).map { it.name to code(it.text) } +
+                source.file.interfaces(includeNested = false).map { it.name to code(it.text) }
+        }.toMap()
+        val allowed = types.keys.filter { name -> listOf("Model", "State", "Action").any { name.endsWith(it) } }.toMutableSet()
+        var reached = allowed.filterNot { it.endsWith("Model") }
+        while (reached.isNotEmpty()) {
+            reached = types.keys.filter { name ->
+                name !in allowed && reached.any { Regex("""\b${Regex.escape(name)}\b""").containsMatchIn(types.getValue(it)) }
+            }
+            allowed += reached
+        }
+        return allowed
+    }
+
+    @Test
     fun ioOnlyInPlatform() = check(
         matches(
             files.filter { !it.test && it.role in setOf("app", "app-verify", "ui", "core-ui", "core", "api", "logic") },
@@ -524,6 +565,29 @@ class ArchitectureTest {
         }
         check(found)
     }
+
+    @Test
+    fun testsSubscribeBeforeSending() = check(
+        files.filter { it.test && it.role == "logic" }.flatMap { source ->
+            val send = Regex("""\b(\w+)\s*\.\s*send\s*\(""")
+            val subscribe = Regex("""\b(\w+)\s*\.\s*state\s*\.\s*test\s*[({]""")
+            source.file.functions(includeNested = true).filter { fn -> fn.annotations.any { it.name == "Test" } }
+                .flatMap { fn ->
+                    val body = code(fn.text)
+                    val start = source.text.indexOf(fn.text).coerceAtLeast(0)
+                    subscribe.findAll(body).map { it.groupValues[1] }.distinct().mapNotNull { model ->
+                        val subscribed = subscribe.findAll(body).first { it.groupValues[1] == model }.range.first
+                        val early = send.findAll(body).firstOrNull { it.groupValues[1] == model && it.range.first < subscribed }
+                            ?: return@mapNotNull null
+                        "${source.relative}:${line(source.text, start + early.range.first)}: [exhaustive-tests] test " +
+                            "`${fn.name}` sends `$model` an action before `$model.state.test { }`: Turbine starts from " +
+                            "the state when it subscribes, so the states those actions made are never asserted. " +
+                            "Subscribe first, then send each action and assert the state it makes; to start from a " +
+                            "later state, build the model in it (a fixture, its saved values, its constructor)."
+                    }.toList()
+                }
+        },
+    )
 
     /** The actual argument of the call whose arguments start at [start] (just after its `(`): the one named
      * `actual =`, else the second positional one. Null if there is none. */

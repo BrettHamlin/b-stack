@@ -3,8 +3,10 @@
 Journeys and feature-map entries aren't code-owned, so a feature's change merges without the owner. This keeps that
 from removing proof. Against the base (the merge base of HEAD and $BSTACK_BASE_REF, else origin/HEAD, else
 origin/main), it fails when
-  - a journey the base's feature map names is no longer in the map (deleted or renamed), unless its feature is gone
-  - a feature the base's map has (by `id`) is no longer in the map while any of its modules is still here
+  - a journey the base's feature map names is no longer in the map (deleted or renamed), unless its feature is gone,
+    modules and all
+  - a feature the base's map has (by `id`) is no longer in the map while any of its modules is still here (or it
+    named none), and with it the journeys it named; modules can be shared, so another entry naming one isn't enough
 unless the journey or feature is listed in arch/retired.toml, which is code-owned: removing proof needs the owner.
 With no base (not a git checkout, or no such branch and $BSTACK_BASE_REF unset) it says so and passes; with
 $BSTACK_BASE_REF set (CI on a pull request sets it), a base it can't find fails.
@@ -81,13 +83,15 @@ def removed(root: Path, features: list[dict], feature_folder: str) -> list[str]:
         fid = feature.get('id')
         if fid in gone_features:
             continue
-        here = [m for m in feature.get('modules', []) if (root / feature_folder / m).is_dir()]
-        if not here and fid not in current_ids:
-            continue  # the feature was removed, modules and all
+        named = feature.get('modules', [])
+        here = [m for m in named if (root / feature_folder / m).is_dir()]
+        if named and not here and fid not in current_ids:
+            continue  # the feature was removed, modules and all (an entry that named none never counts as removed)
         if fid not in current_ids:
+            still = f'its modules ({", ".join(here)}) are still here' if here else 'it named no modules to remove with it'
             errors.append(f'[verified-features] feature `{fid}` ({feature["file"]} on the base branch, {short}) is gone '
-                          f'from the feature map, but its modules ({", ".join(here)}) are still here. Put its entry '
-                          f'back. Retiring or renaming a feature needs the owner: list it in {RETIRED} (code-owned).')
+                          f'from the feature map, but {still}. Put its entry back. Retiring or renaming a feature '
+                          f'needs the owner: list it in {RETIRED} (code-owned).')
         for journey in feature.get('journeys', []):
             name = journey.get('name')
             if name and name not in current_journeys and name not in gone_journeys:

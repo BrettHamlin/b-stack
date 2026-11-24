@@ -146,7 +146,8 @@ class NoSemanticsText(config: Config) : Rule(
                     "read as the text on screen (UiAutomator can't tell it from drawn text), so a journey passes even " +
                     "when what's drawn is wrong. Draw the text with Text(...) and let journeys read that (merge a group " +
                     "with Modifier.semantics(mergeDescendants = true) { }); describe drawing for screen readers with " +
-                    "contentDescription. If what a journey must check isn't drawn as text, stop and report.",
+                    "contentDescription. A mark a journey must check that isn't drawn as text (a highlight, an icon) gets a " +
+                    "contentDescription saying what it means, which the journey checks with describes().",
             ),
         )
     }

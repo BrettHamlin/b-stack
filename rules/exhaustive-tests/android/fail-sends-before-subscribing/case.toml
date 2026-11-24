@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[exhaustive-tests] test `picksTwice` sends `model` an action before `model.state.test { }`"
+uses_example = false
+adds_targets = ["probe"]
