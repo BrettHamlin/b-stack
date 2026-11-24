@@ -70,8 +70,8 @@ PLATFORMS = {
         tools=('node', 'pnpm'), marker='pnpm-workspace.yaml', installed=('node_modules', 'dist')),
     'android': Platform(
         name='android', starter=ROOT / 'starters/android/template',
-        gates=('compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'tests', 'verify'),
-        pass_gates=('compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'tests'),
+        gates=('compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests', 'verify'),
+        pass_gates=('compiler', 'detekt', 'lint', 'konsist', 'arch', 'deps', 'settings', 'tests'),
         overlays=('core', 'core-ui', 'features', 'platform', 'fixtures', 'app', 'app-verify', 'verify', 'feature-map'),
         editable=('gradle/libs.versions.toml', 'settings.gradle.kts', 'gradle.properties', 'CODEOWNERS'),
         targets='features',
@@ -80,7 +80,7 @@ PLATFORMS = {
         example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|ItemName|Stored)[\w.-]*'), example_name='tally',
         simulator_kinds=frozenset(),  # verify.py takes the emulator's lock itself (scripts/emulator.py)
         cost={'untouched': 1.5, 'verify': 1, 'pass': 0.5, 'compiler': 0.2, 'detekt': 0.2, 'konsist': 0.2, 'lint': 0.2,
-              'tests': 0.2, 'deps': 0.1, 'arch': 0.05},
+              'tests': 0.2, 'deps': 0.1, 'settings': 0.1, 'arch': 0.05},
         tools=('jdk', 'gradle', 'cmdline-tools', 'sdk'), marker='build-logic/settings.gradle.kts',
         installed=('build', '.gradle', '.kotlin')),
 }

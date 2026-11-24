@@ -1,0 +1,86 @@
+# Runs every gate on each pull request and on main, then builds the release app bundle and APK and proves the release
+# build starts. Make `check` a required status check in branch protection, with "Require review from Code Owners"
+# (CODEOWNERS covers this file).
+#
+# Linux, not macOS: GitHub's Linux runners give the emulator KVM; its macOS runners can't run it. tools.toml pins the
+# Linux tools and an x86_64 emulator image for this (linux-x64).
+#
+# Signing: add the repository secrets UPLOAD_KEYSTORE (base64 of your upload key's .jks), UPLOAD_KEYSTORE_PASSWORD,
+# UPLOAD_KEY_ALIAS and UPLOAD_KEY_PASSWORD. Builds of main are signed with them; pull-request builds, and every build
+# without them, are signed with a throwaway test key and named -test-signed (never upload those).
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Cache folder for tools and build output (on /mnt, the runner's larger disk)
+        run: |
+          sudo mkdir -p /mnt/bstack-cache && sudo chown "$USER" /mnt/bstack-cache
+          echo "BSTACK_CACHE_DIR=/mnt/bstack-cache" >> "$GITHUB_ENV"
+      - name: Gradle's downloads from earlier runs (keyed by the pinned checksums)
+        uses: actions/cache@v6.1.0
+        with:
+          path: /mnt/bstack-cache/tools/gradle-home/caches/modules-2
+          key: android-gradle-${{ hashFiles('gradle/verification-metadata.xml') }}
+      - name: Download every library, retried (Maven Central answers 429 to busy shared runners)
+        run: |
+          for attempt in 1 2 3 4 5; do
+            python3 scripts/check.py --only compiler --only detekt --only lint --only konsist --only deps && exit 0
+            echo "attempt $attempt failed; retrying in $((attempt * 60)) s"; sleep $((attempt * 60))
+          done
+          exit 1
+      - name: Every gate (check.py), journeys and the shipped app's launch on the emulator
+        run: python3 scripts/check.py
+      - name: The release app bundle and APK (signed with the upload key on main), and the release build's launch
+        env:
+          UPLOAD_KEYSTORE: ${{ github.event_name == 'push' && secrets.UPLOAD_KEYSTORE || '' }}
+          BSTACK_UPLOAD_KEYSTORE_PASSWORD: ${{ github.event_name == 'push' && secrets.UPLOAD_KEYSTORE_PASSWORD || '' }}
+          BSTACK_UPLOAD_KEY_ALIAS: ${{ github.event_name == 'push' && secrets.UPLOAD_KEY_ALIAS || '' }}
+          BSTACK_UPLOAD_KEY_PASSWORD: ${{ github.event_name == 'push' && secrets.UPLOAD_KEY_PASSWORD || '' }}
+        run: |
+          if [ -n "$UPLOAD_KEYSTORE" ]; then
+            echo "$UPLOAD_KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            export BSTACK_UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.jks"
+          else
+            unset BSTACK_UPLOAD_KEYSTORE_PASSWORD BSTACK_UPLOAD_KEY_ALIAS BSTACK_UPLOAD_KEY_PASSWORD
+          fi
+          python3 scripts/package.py
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: release
+          path: .build/package/out/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: evidence
+          path: |
+            .build/evidence/
+            .build/emulator.log
+          if-no-files-found: ignore

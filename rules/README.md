@@ -40,14 +40,14 @@ rules/case-feature/ios/       Meter: a small iOS feature any case can bring (cas
 | `message` | What the agent sees: what's wrong, what to use instead, stop and report if blocked |
 | `escape_hatches` | Ways around the rule, and what blocks each |
 | `origin` | Where the rule came from |
-| `[ios]`, `[rust]`, `[typescript]`, `[android]` | One table per platform the rule is enforced on, at least one. One key per enforcing tool saying how (iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`; Rust: `compiler`, `clippy`, `deny`, `arch`, `tests`, `verify`, `repo`; TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests`, `verify`, `repo`; Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `tests`, `verify`, `repo`). `tests_pending` if no cases exist yet, with the reason. Optional `layer` and `message` when they differ on that platform. |
+| `[ios]`, `[rust]`, `[typescript]`, `[android]` | One table per platform the rule is enforced on, at least one. One key per enforcing tool saying how (iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests`, `verify`, `repo`; Rust: `compiler`, `clippy`, `deny`, `arch`, `tests`, `verify`, `repo`; TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests`, `verify`, `repo`; Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `settings`, `tests`, `verify`, `repo`). `tests_pending` if no cases exist yet, with the reason. Optional `layer` and `message` when they differ on that platform. |
 
 ### case.toml
 
 | Key | Meaning |
 |---|---|
 | `expect` | `fail` (must be rejected) or `pass` (must be accepted by every gate except `verify`, which runs on the untouched project: on iOS it drives a simulator, and a case's code isn't a mapped feature) |
-| `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `tests` or `verify`. TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests` or `verify`. Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `tests` or `verify` |
+| `enforced_by` | The gate that must reject a fail case. iOS: `compiler`, `tuist`, `swiftlint`, `harmonize`, `tests` or `verify`. Rust: `compiler`, `clippy`, `deny`, `arch`, `tests` or `verify`. TypeScript: `compiler`, `lint`, `deps`, `arch`, `settings`, `tests` or `verify`. Android: `compiler`, `detekt`, `lint`, `konsist`, `arch`, `deps`, `settings`, `tests` or `verify` |
 | `diagnostic` | Fail cases: text the gate's output must contain |
 | `uses_example` | `false` if the case applies to any app, or a short reason it uses the starter's example (iOS: Settings; Rust, TypeScript and Android: tally; its modules, identifiers, journeys, fixtures or feature map). Required. Example cases run only on the starter; `test_rules.py --project <app>` lists them as OUT with the reason. `check_repo.py` fails a `false` case whose files mention the example, or (iOS) that replaces Features.swift, which would drop the app's own features |
 | `adds_targets` | Optional: targets (iOS) or folders directly under `crates/` (Rust), `packages/` (TypeScript) or `features/` (Android) the case adds that the project doesn't have (otherwise a missing one is a SKIP) |
@@ -84,4 +84,4 @@ Every rule needs at least one `fail` case, unless `tests_pending` explains why.
 | [verified-features](verified-features/rule.toml) | 3 | verify | verify | verify (Playwright) | verify (UiAutomator) | Every feature is in the feature map and its journeys pass in the running app |
 | [minimum-os-apis](minimum-os-apis/rule.toml) | 2 |  |  |  | Android Lint | Code calls only APIs the oldest supported OS has, or checks the version first |
 | [listed-permissions](listed-permissions/rule.toml) | 2 |  |  |  | deps | The shipped app asks only for the permissions, and exports only the components, its owner listed |
-| [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | (not tested yet) | settings | (not tested yet) | Enforcement files need a human code owner to change |
+| [protected-enforcement](protected-enforcement/rule.toml) | foundation | (not tested yet) | (not tested yet) | settings | settings | Enforcement files need a human code owner to change |

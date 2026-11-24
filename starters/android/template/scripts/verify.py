@@ -161,13 +161,13 @@ def map_errors(features: list[dict]) -> list[str]:
     return errors
 
 
-def app_id(module: str) -> str:
-    metadata = ROOT / f'.build/gradle/{module}/outputs/apk/debug/output-metadata.json'
+def app_id(module: str, variant: str = 'debug') -> str:
+    metadata = ROOT / f'.build/gradle/{module}/outputs/apk/{variant}/output-metadata.json'
     return json.loads(metadata.read_text())['applicationId']
 
 
-def apk(module: str) -> Path:
-    found = sorted((ROOT / f'.build/gradle/{module}/outputs/apk/debug').glob('*.apk'))
+def apk(module: str, variant: str = 'debug') -> Path:
+    found = sorted((ROOT / f'.build/gradle/{module}/outputs/apk/{variant}').glob('*.apk'))
     return found[0]
 
 
@@ -192,13 +192,15 @@ def parse_instrumentation(output: str) -> dict[str, tuple[str, str]]:
     return results
 
 
-def smoke(env: dict, serial: str) -> list[str]:
-    """Launches the shipped app as a user would on a fresh install; it must start and stay up."""
-    shipped = app_id('app')
-    out = adb(env, 'install', '-r', str(apk('app')), serial=serial, timeout=300)
+def smoke(env: dict, serial: str, variant: str = 'debug', folder: Path = EVIDENCE / 'shipped-app') -> list[str]:
+    """Launches the shipped app's build (debug here; package.py passes release) as a user would on a fresh install:
+    it must start and stay up. The app is uninstalled before and after, since its builds are signed with different
+    keys."""
+    shipped = app_id('app', variant)
+    adb(env, 'uninstall', shipped, serial=serial)
+    out = adb(env, 'install', str(apk('app', variant)), serial=serial, timeout=300)
     if 'Success' not in out:
-        return [f'[verified-features] installing the shipped app (app) failed:\n{out[-2000:]}']
-    adb(env, 'shell', 'pm', 'clear', shipped, serial=serial)
+        return [f'[verified-features] installing the shipped app (app, {variant}) failed:\n{out[-2000:]}']
     adb(env, 'logcat', '-b', 'crash', '-c', serial=serial)
     launcher = ['-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER']  # what the icon sends
     activity = adb(env, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', *launcher, shipped,
@@ -212,15 +214,14 @@ def smoke(env: dict, serial: str) -> list[str]:
     alive = adb(env, 'shell', 'pidof', shipped, serial=serial).strip()
     focus = adb(env, 'shell', 'dumpsys', 'window', 'displays', serial=serial)
     shown = any(f' {shipped}/' in line for line in focus.splitlines() if 'mCurrentFocus' in line)  # has input focus
-    folder = EVIDENCE / 'shipped-app'
     folder.mkdir(parents=True, exist_ok=True)
     with (folder / 'launched.png').open('wb') as png:
         subprocess.run([str(Path(env['ANDROID_HOME']) / 'platform-tools/adb'), '-s', serial, 'exec-out', 'screencap', '-p'],
                        env=env, stdout=png, timeout=60)
-    adb(env, 'shell', 'am', 'force-stop', shipped, serial=serial)
+    adb(env, 'uninstall', shipped, serial=serial)
     if 'Status: ok' in started and alive and shown and not crash:
         return []
-    return [f'[verified-features] the shipped app (app, {shipped}) didn\'t start and stay up on a fresh install: '
+    return [f'[verified-features] the shipped app (app {variant}, {shipped}) didn\'t start and stay up on a fresh install: '
             'journeys run app-verify, so this is the only run of app\'s own manifest and composition root '
             '(StarterApp, MainActivity). Fix the app.\n'
             f'{started.strip()[-1500:]}\n{crash[-3000:] or ("not running" if not alive else "its window isn\'t shown")}']

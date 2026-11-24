@@ -11,6 +11,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -691,6 +692,67 @@ class NewFeatureTests(unittest.TestCase):
         again = self.run_new('notes')
         self.assertEqual(again.returncode, 1)
         self.assertIn('already exist', again.stderr)
+
+
+class AndroidNewFeatureTests(unittest.TestCase):
+    """The Android starter's scripts/new_feature.py, in a copy of its scripts, the modules it links and the runner.
+    (That a created feature passes the gates, and its test and journey fail until written, was checked on the starter.)"""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(ANDROID_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        for module in ('app', 'app-verify', 'verify/journeys'):
+            (self.root / module).mkdir(parents=True)
+            shutil.copy2(ANDROID_TEMPLATE / module / 'module.toml', self.root / module / 'module.toml')
+        shutil.copytree(ANDROID_TEMPLATE / 'verify/journeys/src', self.root / 'verify/journeys/src')
+        shutil.copytree(ANDROID_TEMPLATE / 'verify/runner/src', self.root / 'verify/runner/src')
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_feature.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_creates_the_modules_map_entry_journey_links_and_adapters(self) -> None:
+        result = self.run_new('notes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        feature = self.root / 'features/notes'
+        self.assertEqual(sorted(p.name for p in feature.iterdir()), ['api', 'logic', 'ui'])
+        self.assertIn('val title = UiId("notes.title")', (feature / 'api/src/commonMain/kotlin/notes/api/NotesUi.kt').read_text())
+        self.assertIn('fail("Write this test', (feature / 'logic/src/commonTest/kotlin/notes/logic/NotesModelTest.kt').read_text())
+        self.assertIn('fun NotesRoute(model: NotesModel)', (feature / 'ui/src/main/kotlin/notes/ui/NotesScreen.kt').read_text())
+        self.assertIn('modules = ["notes"]', (self.root / 'feature-map/notes.toml').read_text())
+        journey = (self.root / 'verify/journeys/src/commonMain/kotlin/journeys/NotesJourneys.kt').read_text()
+        for step in ('fun Journey.notesWorks()', 'screen.rotate()', 'screen.returnAfterProcessDeath()', '"Write this journey'):
+            self.assertIn(step, journey)
+        self.assertIn('fun notesWorks() = Driver("notesWorks").notesWorks()',
+                      (self.root / 'verify/runner/src/main/kotlin/runner/Journeys.kt').read_text())
+        self.assertIn('"features/notes/api"]', (self.root / 'verify/journeys/module.toml').read_text())
+        for app in ('app', 'app-verify'):
+            self.assertIn('"features/notes/api", "features/notes/logic", "features/notes/ui"]',
+                          (self.root / app / 'module.toml').read_text())
+
+    def test_refuses_a_bad_name_and_an_existing_feature(self) -> None:
+        for bad in ('Notes', 'daily-notes', 'two words', 'object', '1notes'):
+            self.assertEqual(self.run_new(bad).returncode, 2, bad)
+        self.assertEqual(self.run_new('notes').returncode, 0)
+        again = self.run_new('notes')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('already exist', again.stderr)
+
+
+class AndroidWorkflowTests(unittest.TestCase):
+    """The Android starter's own CI workflow runs what b-stack's CI proves on the starter (its android job)."""
+
+    def test_the_starter_workflow_runs_the_commands_b_stack_ci_runs(self) -> None:
+        starter = (ANDROID_TEMPLATE / '.github/workflows/check.yml').read_text()
+        ours = (ROOT / '.github/workflows/ci.yml').read_text()
+        job = ours[ours.index('\n  android:'):]
+        job = job[:re.search(r'\n  [a-z-]+:\n', job[1:]).start() + 1]
+        for command in ('sudo udevadm trigger --name-match=kvm', 'BSTACK_CACHE_DIR=/mnt/bstack-cache',
+                        'python3 scripts/check.py --only compiler --only detekt --only lint --only konsist --only deps && exit 0',
+                        'run: python3 scripts/check.py\n', 'python3 scripts/package.py\n', 'runs-on: ubuntu-24.04'):
+            self.assertIn(command, starter)
+            self.assertIn(command, job)
 
 
 class HandUseTests(SimulatorProcesses):

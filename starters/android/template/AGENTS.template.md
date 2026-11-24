@@ -6,12 +6,14 @@
 - Run Gradle only through the scripts (`python3 scripts/check.py`, or `python3 scripts/tools.py gradle <tasks>`): they use the pinned JDK, Gradle and Android SDK, and keep everything large in the cache folder.
 - Use the existing approved APIs for <persistence, networking, time, background work>. Don't introduce a second way to do the same thing.
 - Dependencies are constructor parameters: a feature's api declares what it needs (an interface), a platform module implements it, and the composition roots pass the real or fixture one in, with the coroutine scope and dispatchers: process-wide services live in each app's `Application` class (`StarterApp`, `VerifyApp`), never in an Activity. No singletons, `object` services or CompositionLocal lookups.
-- Features are shaped like `features/tally`: logic in common code (no JDK or Android there), a model whose `state` is a `StateFlow` and whose `send(action)` is the only way in, tests in `logic/src/commonTest` that assert every state with Turbine (`assertEquals(<state>, awaitItem())`), a property test (random sequences checked against a model of the spec, like `TallyPropertyTest`), a feature entry point both apps call (`TallyRoute(store)`), a `feature-map/<id>.toml` entry, and journeys in `verify/journeys` that drive app-verify and prove it works. A feature's entry point takes only its model (`TallyRoute(model)`); the apps build the model from their services with `rememberModel`, and the shipped app does nothing but compose. Only platform modules do I/O. Views tag elements with `Modifier.uiId(<Feature>Ui.<element>)` (list and grid items with `<element>.at(row, column)`); journeys find them by the same identifiers, and each feature has one journey that turns the device (`rotate()`). Opt-ins come from the build per role (`arch/shape.json`), never `@OptIn`.
+- Start a feature with `python3 scripts/new_feature.py <name>`: it creates the three modules, the map entry and a journey stub, and links them. Its test and journey fail until you write them.
+- Features are shaped like `features/tally`: logic in common code (no JDK or Android there), a model whose `state` is a `StateFlow` and whose `send(action)` is the only way in, tests in `logic/src/commonTest` that assert every state with Turbine (`assertEquals(<state>, awaitItem())`), a property test (random sequences checked against a model of the spec, like `TallyPropertyTest`), a feature entry point both apps call (`TallyRoute(store)`), a `feature-map/<id>.toml` entry, and journeys in `verify/journeys` that drive app-verify and prove it works. A feature's entry point takes only its model (`TallyRoute(model)`); the apps build the model from their services with `rememberModel`, and the shipped app does nothing but compose. Only platform modules do I/O. Views tag elements with `Modifier.uiId(<Feature>Ui.<element>)` (list and grid items with `<element>.at(row, column)`); journeys find them by the same identifiers, and each feature has a journey that turns the device (`rotate()`) and one that has its process end in the background (`returnAfterProcessDeath()`); half-done input goes in the model's `Saved`. Opt-ins come from the build per role (`arch/shape.json`), never `@OptIn`.
 
 ## Checks
 
 ```sh
-python3 scripts/check.py        # compiler, detekt, lint, konsist, arch, deps, tests, verify: all must PASS
+python3 scripts/check.py        # compiler, detekt, lint, konsist, arch, deps, settings, tests, verify: all must PASS
+python3 scripts/package.py      # the release app bundle and APK (R8, signed), and the release build's launch
 ```
 
 Run it before handing back. If it stops because the cache folder is unavailable (e.g. an external drive isn't mounted), report that; don't build elsewhere. A failure names the rule and how to fix it.
@@ -20,7 +22,7 @@ Use the `verify` skill (`.agents/skills/verify`) to explore the running app and 
 
 ## Never weaken enforcement
 
-Never suppress, disable, weaken or bypass a check. That includes `@Suppress`, `@OptIn`, `@SuppressLint`, `tools:ignore`, `!!`, `as` casts, `lateinit`, `@Ignore`, build files in modules, other source sets, and editing `arch/`, `build-logic/`, `gradle/`, `tools.toml`, `scripts/`, the journeys, or CI.
+Never suppress, disable, weaken or bypass a check. That includes `@Suppress`, `@OptIn`, `@SuppressLint`, `tools:ignore`, `!!`, `as` casts, `lateinit`, `@Ignore`, build files in modules, other source sets, and editing `arch/`, `build-logic/`, `gradle/`, `tools.toml`, `scripts/`, the journeys, or CI. The settings gate compares the build settings in effect with `arch/settings.json`, so a weakened setting fails wherever it was changed.
 
 **If the right fix isn't possible within the rules, stop and report:** what you were trying to do, which rule blocks it, and what you'd change. A clear report is a successful outcome.
 

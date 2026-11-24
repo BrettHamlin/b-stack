@@ -83,6 +83,9 @@ jobs:
       - name: The starter's own gates (check.py), journeys and the shipped app's launch on the emulator
         working-directory: starters/android/template
         run: python3 scripts/check.py
+      - name: The release app bundle and APK (test-signed) and the release build's launch, as the starter's workflow runs them
+        working-directory: starters/android/template
+        run: python3 scripts/package.py
       - name: Every Android rule case through the starter's gates
         run: python3 scripts/test_rules.py --platform android
       - uses: actions/upload-artifact@v7.0.2

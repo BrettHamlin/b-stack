@@ -125,11 +125,12 @@ class ModulePlugin : Plugin<Project> {
                     applicationId = if (role.testMode) verifyId(project) else appId
                     minSdk = 29
                     targetSdk = 37
-                    versionCode = 1
-                    versionName = "0.1.0"
+                    versionCode = (project.findProperty("bstack.versionCode") as String).toInt()
+                    versionName = project.findProperty("bstack.versionName") as String
                 }
                 compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
                 lint { lint(this) }
+                if (!role.testMode) release(project, this)
             }
         } else {
             project.pluginManager.apply("com.android.library")
@@ -148,6 +149,26 @@ class ModulePlugin : Plugin<Project> {
             add("testImplementation", kotlinLib("test-junit", project))
             add("testImplementation", catalog.library("junit"))
             add("testImplementation", catalog.library("kotlinx-coroutines-test"))
+        }
+    }
+
+    /** The shipped app's release build (scripts/package.py): R8 shrinks and obfuscates code and drops unused
+     * resources, and it is signed with the upload key named by the BSTACK_UPLOAD_* environment variables. Without
+     * them the release build is unsigned, and package.py refuses to call it done. */
+    private fun release(project: Project, android: ApplicationExtension) {
+        val env = { name: String -> project.providers.environmentVariable(name).orNull }
+        val keystore = env("BSTACK_UPLOAD_KEYSTORE")
+        val upload = if (keystore == null) null else android.signingConfigs.create("upload") {
+            storeFile = project.file(keystore)
+            storePassword = env("BSTACK_UPLOAD_KEYSTORE_PASSWORD")
+            keyAlias = env("BSTACK_UPLOAD_KEY_ALIAS")
+            keyPassword = env("BSTACK_UPLOAD_KEY_PASSWORD")
+        }
+        android.buildTypes.getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(android.getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = upload
         }
     }
 
