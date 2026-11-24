@@ -4,10 +4,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import probe.logic.board.Cell
 
 enum class ProbeMood { Calm, Busy }
 
-data class ProbeState(val picks: Int = 0, val mood: ProbeMood = ProbeMood.Calm) {
+data class ProbeState(val picks: Int = 0, val mood: ProbeMood = ProbeMood.Calm, val cell: Cell = Cell(0)) {
     /** Whether another pick is allowed: worked out on the state, where the logic's tests see it. */
     val canPick: Boolean get() = picks < 3
 }

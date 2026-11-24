@@ -104,18 +104,23 @@ class ArchitectureTest {
     @Test
     fun uiImportsOnlyTheModelsTypes() {
         val packageLine = Regex("""^\s*package\s+([\w.]+)""", RegexOption.MULTILINE)
+        val packageOf = { source: Source -> packageLine.find(source.text)?.groupValues?.get(1).orEmpty() }
         val logic = files.filter { it.role == "logic" && !it.test }
-            .groupBy { packageLine.find(it.text)?.groupValues?.get(1).orEmpty() }
-            .mapValues { (_, sources) -> modelTypes(sources) }
+        val packages = logic.map(packageOf).toSet()
+        val allowed = logic.groupBy { it.module }.values.flatMap { modelTypes(it, packageOf) }.toSet()
         val import = Regex("""^[ \t]*import\s+([\w.]+(?:\.\*)?)""", RegexOption.MULTILINE)
         val found = files.filter { it.role == "ui" && !it.test }.flatMap { source ->
             import.findAll(source.text).mapNotNull { match ->
                 val name = match.groupValues[1]
-                val (pkg, allowed) = logic.entries.firstOrNull { name.startsWith("${it.key}.") } ?: return@mapNotNull null
-                if (name.removePrefix("$pkg.").substringBefore('.') in allowed) return@mapNotNull null
+                val owner = packages.filter { name.startsWith("$it.") }.maxByOrNull { it.length } ?: return@mapNotNull null
+                val path = name.removePrefix("$owner.").split('.')
+                // A nested type (an action's case) is fine; a companion's or a type's member isn't.
+                val nested = path.drop(1).all { it.first().isUpperCase() && it != "Companion" }
+                if ("$owner.${path.first()}" in allowed && nested) return@mapNotNull null
+                val types = allowed.filter { it.substringBeforeLast('.') == owner }.map { it.substringAfterLast('.') }
                 "${source.relative}:${line(source.text, match.range.first)}: [module-boundaries] a feature's ui module " +
                     "imports from its logic only the model, its state and action types and the types they're made of " +
-                    "(${allowed.sorted().joinToString()}); `$name` isn't one. What the view needs worked out (what's " +
+                    "(${types.sorted().joinToString()}); `$name` isn't one. What the view needs worked out (what's " +
                     "allowed, reachable or done) belongs on the state, set or computed there, so the logic's tests " +
                     "cover it."
             }.toList()
@@ -123,24 +128,39 @@ class ArchitectureTest {
         check(found)
     }
 
-    /** In one logic package: its `<Feature>Model`, `<Feature>State` and `<Feature>Action` types (any top-level class or
-     * interface named so), and every top-level class or interface the state and action types name, transitively. Not
-     * functions, properties or objects: those are logic the view would run itself. */
-    private fun modelTypes(sources: List<Source>): Set<String> {
+    /** In one logic module, by full name: its `<Feature>Model`, `<Feature>State` and `<Feature>Action` types (any
+     * top-level class or interface named so), and every top-level class or interface the state and action types
+     * declare (constructor parameters, property types, nested cases), transitively. Not functions, properties or
+     * objects, which are logic the view would run itself, nor types used only inside a getter or function body. */
+    private fun modelTypes(sources: List<Source>, packageOf: (Source) -> String): Set<String> {
         val types = sources.flatMap { source ->
-            source.file.classes(includeNested = false).map { it.name to code(it.text) } +
-                source.file.interfaces(includeNested = false).map { it.name to code(it.text) }
+            val pkg = packageOf(source)
+            source.file.classes(includeNested = false).map { "$pkg.${it.name}" to signature(it) } +
+                source.file.interfaces(includeNested = false).map { "$pkg.${it.name}" to signature(it) }
         }.toMap()
         val allowed = types.keys.filter { name -> listOf("Model", "State", "Action").any { name.endsWith(it) } }.toMutableSet()
         var reached = allowed.filterNot { it.endsWith("Model") }
         while (reached.isNotEmpty()) {
             reached = types.keys.filter { name ->
-                name !in allowed && reached.any { Regex("""\b${Regex.escape(name)}\b""").containsMatchIn(types.getValue(it)) }
+                val simple = Regex("""\b${Regex.escape(name.substringAfterLast('.'))}\b""")
+                name !in allowed && reached.any { simple.containsMatchIn(types.getValue(it)) }
             }
             allowed += reached
         }
         return allowed
     }
+
+    /** The types a class declares it holds: its constructor parameters' and properties' types, and its nested types'. */
+    private fun signature(cls: com.lemonappdev.konsist.api.declaration.KoClassDeclaration): String =
+        (cls.primaryConstructor?.parameters.orEmpty().map { it.type.text } +
+            cls.properties(includeNested = false).mapNotNull { it.type?.text } +
+            cls.classes(includeNested = false).map { signature(it) } +
+            cls.interfaces(includeNested = false).map { signature(it) }).joinToString(" ")
+
+    private fun signature(type: com.lemonappdev.konsist.api.declaration.KoInterfaceDeclaration): String =
+        (type.properties(includeNested = false).mapNotNull { it.type?.text } +
+            type.classes(includeNested = false).map { signature(it) } +
+            type.interfaces(includeNested = false).map { signature(it) }).joinToString(" ")
 
     @Test
     fun ioOnlyInPlatform() = check(
