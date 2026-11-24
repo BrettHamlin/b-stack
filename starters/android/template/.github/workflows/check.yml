@@ -53,6 +53,11 @@ jobs:
           fi
           sudo mkdir -p "$dir" && sudo chown "$USER" "$dir"
           echo "BSTACK_CACHE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Swap, so Gradle, R8 and the emulator fit a private repository's 8 GB runner
+        run: |
+          sudo fallocate -l 8G /swapfile-bstack && sudo chmod 600 /swapfile-bstack
+          sudo mkswap /swapfile-bstack && sudo swapon /swapfile-bstack
+          free -h
       - name: Gradle's downloads from earlier runs (keyed by the pinned checksums)
         uses: actions/cache@v6.1.0
         with:

@@ -110,6 +110,9 @@ def booted(env: dict, proc: subprocess.Popen | None) -> str:
             sys.exit(f'The emulator exited during boot (status {proc.returncode}); see {log}.')
         serial = running(env)
         if serial and adb(env, 'shell', 'getprop', 'sys.boot_completed', serial=serial).strip() == '1':
+            # On a slow machine (a CI runner with two cores and software graphics) the launcher answers late, and its
+            # "isn't responding" dialog covers the app under test. The checks see crashes without the dialogs.
+            adb(env, 'shell', 'settings', 'put', 'global', 'hide_error_dialogs', '1', serial=serial)
             return serial
         time.sleep(2)
     pids = subprocess.run(['pgrep', '-f', '--', f'-avd {AVD}( |$)'], capture_output=True, text=True).stdout.split()

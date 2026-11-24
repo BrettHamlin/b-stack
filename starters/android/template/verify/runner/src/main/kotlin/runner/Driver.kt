@@ -3,6 +3,7 @@ package runner
 import android.os.Bundle
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -106,7 +107,12 @@ class Driver(private val journey: String) : Journey {
             var seen = ""
             val deadline = System.currentTimeMillis() + WAIT_MS
             while (System.currentTimeMillis() < deadline) {
-                seen = device.findObject(By.res(id.value))?.let { texts(it).joinToString("\n") } ?: "(not on screen)"
+                seen = try {
+                    device.findObject(By.res(id.value))?.let { texts(it).joinToString("\n") } ?: "(not on screen)"
+                } catch (_: StaleObjectException) {
+                    // Redrawn while being read (common on a slow emulator): read it again.
+                    "(redrawn while read)"
+                }
                 if (seen == expected) return
                 Thread.sleep(100)
             }
