@@ -11,9 +11,11 @@ Gates:
             path (scripts/settings.py)
   tests     every test: unit, integration, property and doc tests
   verify    the feature map is complete, and every journey passes against the built app (scripts/verify.py)
+  release   every journey passes against the app built with the release profile (verify.py release)
 
 The gates run one after another (compiler, clippy and tests share one build folder). Each gate's output is printed
 when it fails, followed by its result and time; a summary in gate order comes last.
+Every run is recorded against the git tree of the files it saw (scripts/handback.py, observe mode: it never blocks).
 
 Usage: python3 scripts/check.py [--only GATE ...]
 """
@@ -25,10 +27,11 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from arch import findings as arch_findings  # noqa: E402
+from handback import record_check, snapshot  # noqa: E402
 from tools import rust_env, tool_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-GATES = ['compiler', 'clippy', 'deny', 'arch', 'settings', 'tests', 'verify']
+GATES = ['compiler', 'clippy', 'deny', 'arch', 'settings', 'tests', 'verify', 'release']
 NOISE = ('Compiling ', 'Checking ', 'Finished ', 'Running ', 'Doc-tests ', 'Blocking ', 'Locking ', 'Adding ',
          'Downloaded ', 'Downloading ', 'Updating ')
 
@@ -57,11 +60,12 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
         if not ok:
             return ok, output
         return run(['cargo', 'test', '--workspace', '--doc', '--no-fail-fast'], env)
-    return run([sys.executable, str(ROOT / 'scripts/verify.py'), 'run'], env)
+    return run([sys.executable, str(ROOT / 'scripts/verify.py'), 'release' if name == 'release' else 'run'], env)
 
 
 def check(selected: list[str]) -> list[str]:
     env = rust_env()
+    before = snapshot(ROOT)  # observe mode: a run counts only for files that didn't change while it ran
     results: dict[str, bool] = {}
     for name in selected:
         started = time.monotonic()
@@ -72,7 +76,9 @@ def check(selected: list[str]) -> list[str]:
         print(f'{"PASS" if ok else "FAIL"} {name}  ({time.monotonic() - started:.0f}s)', flush=True)
     if len(selected) > 1:
         print('Summary: ' + ', '.join(f'{n} {"PASS" if results[n] else "FAIL"}' for n in selected), flush=True)
-    return [n for n in selected if not results[n]]
+    failed = [n for n in selected if not results[n]]
+    record_check(ROOT, selected, failed, before)  # observe mode: lets scripts/handback.py tell whether hand-backs were checked
+    return failed
 
 
 if __name__ == '__main__':
@@ -82,5 +88,5 @@ if __name__ == '__main__':
     try:
         failed = check([g for g in GATES if g in chosen])
     except KeyboardInterrupt:
-        sys.exit('\nStopped.')
+        sys.exit('\nStopped.')  # an interrupted run isn't a check, so it isn't recorded
     sys.exit(1 if failed else 0)

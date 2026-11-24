@@ -7,6 +7,8 @@
 /AGENTS.md             @OWNER
 /CLAUDE.md             @OWNER
 /.claude/              @OWNER
+/.agents/              @OWNER
+/.githooks/            @OWNER
 
 # Workspace members, lint levels, toolchain, dependency policy
 /Cargo.toml            @OWNER
@@ -26,3 +28,5 @@
 /crates/app/tests/journeys.rs      @OWNER
 # The composition root: which real services the app wires in
 /crates/app/src/                   @OWNER
+# The release build's smoke run
+/crates/app/smoke.toml              @OWNER

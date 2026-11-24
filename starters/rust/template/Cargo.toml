@@ -9,6 +9,11 @@ edition = "2024"
 rust-version = "1.99"
 publish = false
 
+# Release builds keep overflow checks: an arithmetic overflow stops the program, as in debug builds, instead of
+# wrapping silently (a count of 255 + 1 would be saved as 0).
+[profile.release]
+overflow-checks = true
+
 # Every crate inherits these with `[lints] workspace = true`; the arch gate fails a crate that doesn't.
 # check.py also builds with RUSTFLAGS="-D warnings", so every warning is an error.
 [workspace.lints.rust]

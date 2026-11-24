@@ -45,6 +45,9 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/bstack-cache"
           echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: The release binary and its smoke run (before the gates, --locked), as the starter's workflow runs them
+        working-directory: starters/rust/template
+        run: python3 scripts/package.py
       - name: The starter's own gates (check.py), as the starter's workflow runs them
         working-directory: starters/rust/template
         run: python3 scripts/check.py

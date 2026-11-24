@@ -8,8 +8,11 @@ Run: the journeys are the #[test] functions in crates/app/tests/journeys.rs, eac
   - no journey is still the stub scripts/new_feature.py wrote
   - each journey runs on its own; it fails if it doesn't pass
 Evidence (each journey's result and output) goes to .build/evidence/latest/evidence.md.
+Release (the release gate): the same journeys against the app built with the release profile (`cargo test
+--release`: optimized, debug assertions off), so code that behaves only in debug builds fails. Evidence goes to
+.build/evidence/release/evidence.md.
 
-Usage: python3 scripts/verify.py [map|run]     (default: run, which does the map check first)
+Usage: python3 scripts/verify.py [map|run|release]     (default: run, which does the map check first)
 """
 from pathlib import Path
 import re
@@ -21,8 +24,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tools import rust_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-JOURNEYS = ['cargo', 'test', '--package', 'app', '--test', 'journeys', '--']
 EVIDENCE = ROOT / '.build/evidence/latest'
+RELEASE_EVIDENCE = ROOT / '.build/evidence/release'
+
+
+def journeys(release: bool) -> list[str]:
+    return ['cargo', 'test', '--package', 'app', '--test', 'journeys', *(['--release'] if release else []), '--']
 
 
 def load_map() -> tuple[list[dict], list[str]]:
@@ -84,8 +91,10 @@ def stubs() -> list[str]:
             if 'Write this journey' in m.group(2)]
 
 
-def run(env: dict, features: list[dict]) -> list[str]:
-    listed = subprocess.run(JOURNEYS + ['--list', '--format', 'terse'], cwd=ROOT, env=env, capture_output=True, text=True)
+def run(env: dict, features: list[dict], release: bool = False) -> list[str]:
+    command = journeys(release)
+    build = ' in the release build' if release else ''
+    listed = subprocess.run(command + ['--list', '--format', 'terse'], cwd=ROOT, env=env, capture_output=True, text=True)
     if listed.returncode != 0:
         return [f'[verified-features] the journeys didn\'t build:\n{(listed.stdout + listed.stderr).strip()[-4000:]}']
     in_code = re.findall(r'^(\S+): test$', listed.stdout, re.M)
@@ -103,33 +112,37 @@ def run(env: dict, features: list[dict]) -> list[str]:
             name = journey.get('name')
             if name not in in_code:
                 continue
-            proc = subprocess.run(JOURNEYS + ['--exact', name, '--nocapture', '--test-threads', '1'], cwd=ROOT, env=env,
+            proc = subprocess.run(command + ['--exact', name, '--nocapture', '--test-threads', '1'], cwd=ROOT, env=env,
                                   capture_output=True, text=True)
             passed = proc.returncode == 0 and re.search(r'^test result: ok\. 1 passed', proc.stdout, re.M)
             if not passed:
-                errors.append(f'[verified-features] journey `{name}` failed ({feature["file"]}). Fix the app, or if the '
+                errors.append(f'[verified-features] journey `{name}` failed{build} ({feature["file"]}). Fix the app, or if the '
                               f'journey is wrong, say why; never weaken it.\n{(proc.stdout + proc.stderr).strip()[-3000:]}')
             # --nocapture prints the journey's output after `test <name> ... ` and the result after it.
             output = '\n'.join(re.sub(r'^test \S+ \.\.\. ', '', l) for l in proc.stdout.splitlines()
                                if not l.startswith(('running ', 'test result:')) and l.strip() not in ('ok', 'FAILED'))
             lines += [f'### {name}: {"PASS" if passed else "FAIL"}', '', journey.get('proves', ''), '', '```',
                       output.strip(), '```', '']
-    EVIDENCE.mkdir(parents=True, exist_ok=True)
-    (EVIDENCE / 'evidence.md').write_text('\n'.join(lines))
+    folder = RELEASE_EVIDENCE if release else EVIDENCE
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / 'evidence.md').write_text('\n'.join(lines))
     return errors
 
 
 if __name__ == '__main__':
     mode = sys.argv[1] if len(sys.argv) > 1 else 'run'
-    if mode not in ('map', 'run'):
+    if mode not in ('map', 'run', 'release'):
         sys.exit(__doc__)
-    if mode == 'run':
-        (EVIDENCE / 'evidence.md').unlink(missing_ok=True)  # never leave an earlier run's evidence as the latest
+    folder = RELEASE_EVIDENCE if mode == 'release' else EVIDENCE
+    if mode != 'map':
+        (folder / 'evidence.md').unlink(missing_ok=True)  # never leave an earlier run's evidence as the latest
     features, errors = load_map()
     errors += map_errors(features)
-    if mode == 'run' and not errors:
-        errors += run(rust_env(), features)
-    done = (f'verify: every feature mapped; every journey passed. Evidence: {EVIDENCE / "evidence.md"}' if mode == 'run'
-            else 'verify map: every feature mapped (journeys not run)')
+    if mode != 'map' and not errors:
+        errors += run(rust_env(), features, release=mode == 'release')
+    done = {'run': f'verify: every feature mapped; every journey passed. Evidence: {EVIDENCE / "evidence.md"}',
+            'release': 'verify release: every journey passed against the release build. Evidence: '
+                       f'{RELEASE_EVIDENCE / "evidence.md"}',
+            'map': 'verify map: every feature mapped (journeys not run)'}[mode]
     print('\n'.join(errors) if errors else done)
     sys.exit(1 if errors else 0)

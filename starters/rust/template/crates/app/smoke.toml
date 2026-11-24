@@ -1,0 +1,4 @@
+# The release binary's smoke run (scripts/package.py): it is started once with these arguments, `{data}` replaced by a
+# new, empty folder, and must exit 0 printing exactly `stdout`. Keep it to the app's main path. Protected (CODEOWNERS).
+args = ["--data", "{data}", "show"]
+stdout = "(empty)\n"
