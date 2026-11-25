@@ -1,7 +1,8 @@
 """The verify gate: every feature is in the feature map, and every journey it names passes against the built app.
 
 Map check (feature-map/*.toml):
-  - every crate in crates/features/ is in exactly one feature's `modules`, and every module named is such a crate
+  - every crate in crates/features/ is in at least one feature's `modules` (features may share one), every feature
+    names at least one, and every module named is such a crate
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
 Run: the journeys are the #[test] functions in crates/app/tests/journeys.rs, each running the built app binary.
   - every journey there is in the map, and every journey in the map is there (one that never runs fails)
@@ -54,14 +55,15 @@ def map_errors(features: list[dict]) -> list[str]:
         for key in ('id', 'summary', 'modules', 'journeys'):
             if key not in feature:
                 errors.append(f'[verified-features] {where}: missing `{key}`')
+        if 'modules' in feature and not feature['modules']:
+            errors.append(f'[verified-features] {where}: `modules` is empty. Name the feature crates (crates/features/<name>) '
+                          'this feature\'s code is in; features that share one each name it.')
         for module in feature.get('modules', []):
             if module not in crates:
                 errors.append(f'[verified-features] {where}: module `{module}` isn\'t a feature crate '
                               f'(crates/features/{module}). Name the feature crates this feature is made of.')
-            elif module in claimed:
-                errors.append(f'[verified-features] {where}: module `{module}` is already in {claimed[module]}')
             else:
-                claimed[module] = where
+                claimed.setdefault(module, where)
         if not feature.get('journeys'):
             errors.append(f'[verified-features] {where}: no journeys. Each feature needs at least one journey that '
                           'runs the app and shows the feature working.')

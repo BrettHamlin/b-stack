@@ -568,9 +568,11 @@ class TypeScriptToolsTests(unittest.TestCase):
         self.pin()
         self.env['npm_config_registry'] = 'https://example.invalid/'
         self.env['pnpm_config_registry'] = 'https://example.invalid/'
+        self.env['ELECTRON_RUN_AS_NODE'] = '1'
         env = json.loads(self.node_env().stdout)
         self.assertNotIn('npm_config_registry', env)
         self.assertNotIn('pnpm_config_registry', env)
+        self.assertNotIn('ELECTRON_RUN_AS_NODE', env)
 
     def test_checksum_mismatch_is_refused_and_leaves_nothing(self) -> None:
         self.pin(node_sha='0' * 64)
@@ -775,6 +777,27 @@ class NewFeatureTests(unittest.TestCase):
         self.assertEqual(again.returncode, 1)
         self.assertIn('already exist', again.stderr)
 
+    def test_in_existing_package_adds_map_entry_journey_and_test_only(self) -> None:
+        self.assertEqual(self.run_new('battle').returncode, 0)
+        missing = self.run_new('undo-move', '--in', 'missing')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("packages/features/missing isn't a feature package", missing.stderr)
+        made = written(self.root, lambda: self.assertEqual(self.run_new('undo-move', '--in', 'battle').returncode, 0))
+        self.assertEqual(made, [
+            'apps/desktop/journeys/undo-move.journey.ts',
+            'feature-map/undo-move.toml',
+            'packages/features/battle/tests/undo-move.test.ts',
+        ])
+        for path in made:
+            self.assertFalse(code_owned(TS_TEMPLATE, path), path)
+        entry = tomllib.loads((self.root / 'feature-map/undo-move.toml').read_text())
+        self.assertEqual((entry['id'], entry['modules'], entry['journeys'][0]['name']),
+                         ('undo-move', ['battle'], 'undo_move_works'))
+        self.assertFalse((self.root / 'packages/features/undo-move').exists())
+        again = self.run_new('undo-move', '--in', 'battle')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('already exist', again.stderr)
+
 
 class AndroidNewFeatureTests(unittest.TestCase):
     """The Android starter's scripts/new_feature.py, in a copy of its scripts, the modules it links and the runner.
@@ -870,6 +893,35 @@ class AndroidFeatureMapTests(unittest.TestCase):
         self.assertIn('[verified-features] feature-map/history.toml: `modules` is empty.', result.stdout)
 
 
+class SharedModuleMapTests(unittest.TestCase):
+    """The Rust and TypeScript starters' map check (`scripts/verify.py map`), in a copy of each starter outside git:
+    two features may name the same module (Hexfleet's movement shared its board's module), and one naming none fails
+    (rules/verified-features/<platform>/fail-feature-names-no-modules runs that through the gate)."""
+
+    def check(self, template: Path, journey: str, modules: str) -> subprocess.CompletedProcess:
+        root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, root)
+        shutil.copytree(template, root / 'app', ignore=shutil.ignore_patterns(
+            '.build', '.tools', 'node_modules', 'dist', 'target', '__pycache__'))
+        (root / 'app/feature-map/second.toml').write_text(
+            f'id = "second"\nsummary = "s"\nmodules = {modules}\n\n[[journeys]]\nname = "{journey}"\nproves = "p"\n')
+        return subprocess.run([sys.executable, 'scripts/verify.py', 'map'], cwd=root / 'app', capture_output=True,
+                              text=True)
+
+    def test_two_features_can_name_the_same_module(self) -> None:
+        for template in (RUST_TEMPLATE, TS_TEMPLATE):
+            with self.subTest(template.parent.name):
+                result = self.check(template, 'second_works', '["tally"]')
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_a_feature_naming_no_modules_fails(self) -> None:
+        for template in (RUST_TEMPLATE, TS_TEMPLATE):
+            with self.subTest(template.parent.name):
+                result = self.check(template, 'second_works', '[]')
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('[verified-features] feature-map/second.toml: `modules` is empty.', result.stdout)
+
+
 class RustNewFeatureTests(unittest.TestCase):
     """The Rust starter's scripts/new_feature.py, in a copy of its scripts, crates and feature map. (That a created
     feature passes compiler, clippy, deny, arch and settings, and its test and journey fail until written, was checked
@@ -934,6 +986,27 @@ class RustNewFeatureTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn('crates/app/Cargo.toml has no [dependencies] table', result.stderr)
         self.assertEqual({p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
+
+    def test_in_existing_crate_adds_map_entry_journey_and_test_only(self) -> None:
+        missing = self.run_new('undo-move', '--in', 'missing')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("crates/features/missing isn't a feature crate", missing.stderr)
+        app_before = (self.root / 'crates/app/Cargo.toml').read_text()
+        made = written(self.root, lambda: self.assertEqual(self.run_new('undo-move', '--in', 'tally').returncode, 0))
+        self.assertEqual(made, [
+            'crates/app/tests/journeys.rs',
+            'crates/features/tally/tests/undo_move.rs',
+            'feature-map/undo-move.toml',
+        ])
+        self.assertEqual((self.root / 'crates/app/Cargo.toml').read_text(), app_before)
+        entry = tomllib.loads((self.root / 'feature-map/undo-move.toml').read_text())
+        self.assertEqual((entry['id'], entry['modules'], entry['journeys'][0]['name']),
+                         ('undo-move', ['tally'], 'undo_move_works'))
+        self.assertIn('fn undo_move_works()', (self.root / 'crates/features/tally/tests/undo_move.rs').read_text())
+        self.assertIn('fn undo_move_works()', (self.root / 'crates/app/tests/journeys.rs').read_text())
+        clash = self.run_new('undo_move', '--in', 'tally')
+        self.assertEqual(clash.returncode, 1)
+        self.assertIn('undo_move_works', clash.stderr)
 
 
 class RustWorkflowTests(unittest.TestCase):

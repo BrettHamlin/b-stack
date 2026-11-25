@@ -29,6 +29,7 @@ export default defineConfig({
         ERROR,
         { allowDefaultCaseForExhaustiveSwitch: false, considerDefaultExhaustiveForUnions: false, requireDefaultForNonUnion: true },
       ],
+      "bstack/no-if-else-on-union": ERROR,
       // no-concurrency-escapes
       "typescript/no-floating-promises": [ERROR, { ignoreVoid: false }],
       "typescript/no-misused-promises": ERROR,
