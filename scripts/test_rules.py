@@ -269,6 +269,7 @@ class Task:
     case: dict | None = None
     cost: float = 0
     needs_simulator: bool = False
+    one_at_a_time: bool = False  # platform.one_at_a_time
     canary: bool = False
     result: tuple[str, str] | None = None  # (status, detail)
 
@@ -328,7 +329,8 @@ def run_case(worker: Worker, task: Task) -> tuple[str, str]:
 runs_example_cases = project == platform.starter.resolve()
 verify.ROOT = project
 project_fixtures = verify.known_fixtures() if platform.name == 'ios' else set()
-tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=bool(platform.simulator_kinds))]
+tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=bool(platform.simulator_kinds),
+              one_at_a_time='untouched' in platform.one_at_a_time)]
 for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
     rule, name = case_file.parents[2].name, case_file.parent.name
     if args.rule and rule not in args.rule:
@@ -356,6 +358,7 @@ for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
         kind = 'pass' if case['expect'] == 'pass' else case['enforced_by']
         task.cost = COST[kind]
         task.needs_simulator = kind in platform.simulator_kinds
+        task.one_at_a_time = kind in platform.one_at_a_time
     tasks.append(task)
 
 # The canary runs whenever its case would (not with --rule for other rules, nor where its case is a SKIP or OUT).
@@ -395,6 +398,8 @@ jobs = max(1, min(args.jobs or default_jobs(), len(pending)))
 workers = [Worker(work_root / f'w{i}',
                   simulators[i] if i < len(simulators) else None) for i in range(jobs)]
 lock = threading.Lock()
+changed = threading.Condition(lock)  # a task finished: one a worker waited for may be free to take
+in_turn = 0  # one-at-a-time tasks running
 timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
 aborted = False
@@ -402,17 +407,23 @@ aborted = False
 
 def take(worker: Worker) -> Task | None:
     """The costliest waiting task this worker can run. Workers with a simulator take simulator tasks first, if others
-    can do the rest."""
+    can do the rest. A one-at-a-time task waits while another runs; a worker with nothing else to take waits for it."""
+    global in_turn
     with lock:
-        if aborted:
-            return None
-        runnable = [t for t in pending if worker.simulator or not t.needs_simulator]
-        if worker.simulator and any(w.simulator is None for w in workers):
-            runnable.sort(key=lambda t: not t.needs_simulator)  # stable: still costliest first within each kind
-        if not runnable:
-            return None
-        pending.remove(runnable[0])
-        return runnable[0]
+        while True:
+            if aborted:
+                return None
+            runnable = [t for t in pending if (worker.simulator or not t.needs_simulator)
+                        and not (t.one_at_a_time and in_turn)]
+            if worker.simulator and any(w.simulator is None for w in workers):
+                runnable.sort(key=lambda t: not t.needs_simulator)  # stable: still costliest first within each kind
+            if runnable:
+                pending.remove(runnable[0])
+                in_turn += runnable[0].one_at_a_time
+                return runnable[0]
+            if not any((worker.simulator or not t.needs_simulator) for t in pending):
+                return None
+            changed.wait()
 
 
 def flush() -> None:
@@ -433,7 +444,7 @@ def flush() -> None:
 
 
 def work(worker: Worker) -> None:
-    global aborted
+    global aborted, in_turn
     worker.prepare()
     while task := take(worker):
         task_started = time.monotonic()
@@ -444,9 +455,11 @@ def work(worker: Worker) -> None:
         with lock:
             timings.append((task.label, worker.work.name, worker.simulator is not None, time.monotonic() - task_started))
             task.result = result
+            in_turn -= task.one_at_a_time
             if task.index == 0 and result[0] != 'PASS':
                 aborted = True  # nothing else counts if the untouched project fails
             flush()
+            changed.notify_all()
     worker.reset_targets()
 
 
@@ -471,6 +484,7 @@ try:
         # Ctrl-C also stops the running check.py (same process group); stop workers taking more cases, then exit.
         with lock:
             aborted = True
+            changed.notify_all()
         print('\nStopped: waiting for running cases to end.', flush=True)
         for thread in threads:
             thread.join()
