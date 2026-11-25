@@ -74,25 +74,25 @@ def licenses(home: Path, group: str, name: str, version: str, depth: int = 0) ->
     return licenses(home, parent.findtext('groupId'), parent.findtext('artifactId'), parent.findtext('version'), depth + 1)
 
 
+def parse_shipped(stdout: str) -> set[str]:
+    return {m.group(1) for m in re.finditer(r'--- ([\w.-]+:[\w.-]+):', stdout)}
+
+
 def shipped(env: dict) -> set[str]:
     """group:name of every library in the shipped app (app's release runtime classpath)."""
     proc = subprocess.run(gradle_command('-q', ':app:dependencies', '--configuration', 'releaseRuntimeClasspath'),
                           cwd=ROOT, env=env, capture_output=True, text=True)
     if proc.returncode != 0:
         sys.exit(f'Couldn\'t list the app\'s libraries:\n{(proc.stdout + proc.stderr)[-3000:]}')
-    return {m.group(1) for m in re.finditer(r'--- ([\w.-]+:[\w.-]+):', proc.stdout)}
+    return parse_shipped(proc.stdout)
 
 
 ANDROID = '{http://schemas.android.com/apk/res/android}'
 MERGED = ROOT / '.build/gradle/app/intermediates/merged_manifest/release/processReleaseMainManifest/AndroidManifest.xml'
 
 
-def manifest(env: dict) -> list[str]:
-    """The shipped app's merged manifest against the owner's list in arch/manifest.toml."""
-    proc = subprocess.run(gradle_command('-q', ':app:processReleaseMainManifest'), cwd=ROOT, env=env,
-                          capture_output=True, text=True)
-    if proc.returncode != 0 or not MERGED.is_file():
-        return [f'[listed-permissions] Couldn\'t merge the app\'s manifest:\n{(proc.stdout + proc.stderr)[-3000:]}']
+def check_manifest() -> list[str]:
+    """The shipped app's already-merged release manifest against the owner's list in arch/manifest.toml."""
     root = ET.parse(MERGED).getroot()
     app_id = root.get('package', '')
     listed = tomllib.loads((ROOT / 'arch/manifest.toml').read_text())
@@ -133,6 +133,27 @@ def manifest(env: dict) -> list[str]:
     return found
 
 
+def manifest(env: dict) -> list[str]:
+    """The shipped app's merged manifest against the owner's list in arch/manifest.toml."""
+    proc = subprocess.run(gradle_command('-q', ':app:processReleaseMainManifest'), cwd=ROOT, env=env,
+                          capture_output=True, text=True)
+    if proc.returncode != 0 or not MERGED.is_file():
+        return [f'[listed-permissions] Couldn\'t merge the app\'s manifest:\n{(proc.stdout + proc.stderr)[-3000:]}']
+    return check_manifest()
+
+
+def manifest_and_shipped(env: dict) -> tuple[list[str], set[str]]:
+    """Run :app:processReleaseMainManifest and :app:dependencies in one Gradle invocation when both succeed; fall back
+    to separate runs on failure so each reports its own diagnostic."""
+    proc = subprocess.run(
+        gradle_command('-q', ':app:processReleaseMainManifest', ':app:dependencies', '--configuration',
+                       'releaseRuntimeClasspath'),
+        cwd=ROOT, env=env, capture_output=True, text=True)
+    if proc.returncode == 0 and MERGED.is_file():
+        return check_manifest(), parse_shipped(proc.stdout)
+    return manifest(env), shipped(env)
+
+
 def findings() -> list[str]:
     found = []
     for settings in ('settings.gradle.kts', 'build-logic/settings.gradle.kts'):
@@ -153,8 +174,9 @@ def findings() -> list[str]:
         found.append('[allowed-dependencies] gradle/verification-metadata.xml must verify every artifact '
                      '(verify-metadata true) and trust none without a checksum.')
     env = android_env()
-    found += manifest(env)
-    home, in_app = gradle_home(), shipped(env)
+    manifest_findings, in_app = manifest_and_shipped(env)
+    found += manifest_findings
+    home = gradle_home()
     components = [(c.get('group'), c.get('name'), c.get('version')) for c in metadata.findall('v:components/v:component', NS)]
     if any(pom(home, *c) is None for c in components):
         # A cold cache: have Gradle fetch (and verify) every project's libraries, whose POMs the license check reads.

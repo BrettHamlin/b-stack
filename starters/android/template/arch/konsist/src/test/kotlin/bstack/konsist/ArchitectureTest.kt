@@ -13,16 +13,6 @@ import kotlin.test.fail
  * it enforces and says what to do instead.
  */
 class ArchitectureTest {
-    private val root = File(System.getProperty("bstack.root") ?: error("bstack.root isn't set"))
-
-    /** Every Kotlin file in the project's modules (not build-logic or arch/, which are code-owned). */
-    private val files: List<Source> by lazy {
-        val skip = listOf(".build/", ".tools/", "build/", "build-logic/", "arch/", ".gradle/", ".kotlin/")
-        Konsist.scopeFromExternalDirectory(root.absolutePath).files
-            .map { Source(it, it.path.removePrefix(root.absolutePath).removePrefix("/")) }
-            .filter { source -> skip.none { source.relative.startsWith(it) } }
-    }
-
     private class Source(val file: KoFileDeclaration, val relative: String) {
         val text: String get() = file.text
         val test: Boolean get() = "/src/commonTest/" in relative || "/src/test/" in relative
@@ -38,6 +28,19 @@ class ArchitectureTest {
                 else -> module
             }
         val compositionRoot: Boolean get() = role == "app" || role == "app-verify"
+    }
+
+    companion object {
+        private val root = File(System.getProperty("bstack.root") ?: error("bstack.root isn't set"))
+
+        /** Every Kotlin file in the project's modules (not build-logic or arch/, which are code-owned). Shared across
+         * this run's test methods so Konsist parses the project once per gate run instead of once per @Test. */
+        private val files: List<Source> by lazy {
+            val skip = listOf(".build/", ".tools/", "build/", "build-logic/", "arch/", ".gradle/", ".kotlin/")
+            Konsist.scopeFromExternalDirectory(root.absolutePath).files
+                .map { Source(it, it.path.removePrefix(root.absolutePath).removePrefix("/")) }
+                .filter { source -> skip.none { source.relative.startsWith(it) } }
+        }
     }
 
     private fun check(findings: List<String>) {

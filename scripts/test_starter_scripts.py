@@ -826,6 +826,52 @@ class AndroidCheckTests(unittest.TestCase):
         self.assertEqual((runs, failed), ([[':arch:konsist:test']], []))
 
 
+class AndroidDepsTests(unittest.TestCase):
+    """deps.py's manifest + shipped libraries: one Gradle run when both pass, separate runs on failure."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(ANDROID_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(ANDROID_TEMPLATE / 'arch', self.root / 'arch', ignore=shutil.ignore_patterns('detekt-rules', 'konsist'))
+
+    def run_deps(self, combined_rc: int) -> tuple[list[list[str]], list[str], list[str]]:
+        script = textwrap.dedent('''
+            import json, subprocess, sys
+            sys.path.insert(0, sys.argv[1])
+            import deps
+            runs, combined_rc = [], int(sys.argv[2])
+            def fake_cmd(*args):
+                return ['gradle', *args]
+            def fake_run(cmd, **kwargs):
+                runs.append(cmd[1:])
+                if ':app:processReleaseMainManifest' in cmd:
+                    deps.MERGED.parent.mkdir(parents=True, exist_ok=True)
+                    deps.MERGED.write_text('<manifest package="dev.bstack.starter"><application/></manifest>')
+                rc = combined_rc if len(runs) == 1 else 0
+                out = '+--- com.example:lib:1.0\\n' if ':app:dependencies' in cmd else ''
+                return subprocess.CompletedProcess(cmd, rc, out, '')
+            deps.gradle_command = fake_cmd
+            deps.subprocess.run = fake_run
+            findings, in_app = deps.manifest_and_shipped({})
+            print(json.dumps([runs, findings, sorted(in_app)]))
+        ''')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts'), str(combined_rc)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.splitlines()[-1])
+
+    def test_combined_run_avoids_second_gradle_call(self) -> None:
+        runs, findings, in_app = self.run_deps(0)
+        self.assertEqual(len(runs), 1)
+        self.assertEqual((findings, in_app), ([], ['com.example:lib']))
+
+    def test_failed_combined_run_falls_back_to_separate_runs(self) -> None:
+        runs, findings, in_app = self.run_deps(1)
+        self.assertEqual(len(runs), 3)
+        self.assertEqual((findings, in_app), ([], ['com.example:lib']))
+
+
 class RuleWorkersTests(unittest.TestCase):
     """test_rules.py's default workers for Android, from the machine's cores and memory (platforms.gradle_workers)."""
 
