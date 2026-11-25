@@ -408,6 +408,7 @@ workers = [Worker(work_root / f'w{i}',
 lock = threading.Lock()
 changed = threading.Condition(lock)  # a task finished: one a worker waited for may be free to take
 on_device = 0  # device tasks running (platform.device_kinds)
+waiting_turn = 0  # tasks waiting in device_turn(): they go before device tasks not yet taken
 timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
 aborted = False
@@ -416,10 +417,12 @@ aborted = False
 @contextmanager
 def device_turn() -> Iterator[None]:
     """One of platform.device_workers turns on the device, for a task that only needs it for part of its run."""
-    global on_device
+    global on_device, waiting_turn
     with changed:
+        waiting_turn += 1
         while on_device >= platform.device_workers and not aborted:
             changed.wait()
+        waiting_turn -= 1
         on_device += 1
     try:
         yield
@@ -438,7 +441,7 @@ def take(worker: Worker) -> Task | None:
             if aborted:
                 return None
             runnable = [t for t in pending if (worker.simulator or not t.needs_simulator)
-                        and not (t.on_device and on_device >= platform.device_workers)]
+                        and not (t.on_device and (on_device >= platform.device_workers or waiting_turn))]
             if worker.simulator and any(w.simulator is None for w in workers):
                 runnable.sort(key=lambda t: not t.needs_simulator)  # stable: still costliest first within each kind
             if runnable:
