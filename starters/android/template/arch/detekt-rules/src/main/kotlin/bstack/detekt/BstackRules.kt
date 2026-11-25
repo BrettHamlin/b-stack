@@ -10,14 +10,17 @@ import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
 import org.jetbrains.kotlin.psi.KtCatchClause
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtForExpression
+import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtImportDirective
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtReferenceExpression
@@ -29,7 +32,7 @@ import java.net.URI
 class BstackRules : RuleSetProvider {
     override val ruleSetId = RuleSetId("bstack")
 
-    override fun instance(): RuleSet = RuleSet(ruleSetId, listOf(::NoForceCast, ::NoThrow, ::NoPlatformTypeCall, ::NoSemanticsText))
+    override fun instance(): RuleSet = RuleSet(ruleSetId, listOf(::NoForceCast, ::NoThrow, ::NoPlatformTypeCall, ::NoSemanticsText, ::NoIfElseOnEnum))
 }
 
 /** `x as T` throws when x isn't a T: a force cast. `as?` with a fallback is the safe form. */
@@ -160,5 +163,41 @@ class NoSemanticsText(config: Config) : Rule(
             "androidx.compose.ui.semantics.SemanticsProperties.Text",
             "androidx.compose.ui.semantics.SemanticsProperties.EditableText",
         )
+    }
+}
+
+/** `if (side == Side.Blue) ... else ...` treats every other case as the same one, as `else` in a `when` does, so a case
+ * added later takes the else branch unseen. In tests (a property test's model of the spec, above all) that hides the
+ * new case from the test that should pin it down. Resolved by symbol: only an enum entry counts. */
+class NoIfElseOnEnum(config: Config) : Rule(
+    config,
+    "No if/else on an enum value: a when naming every case.",
+    URI("https://github.com/BrettHamlin/b-stack/blob/main/rules/exhaustive-states/rule.toml"),
+), RequiresAnalysisApi {
+    override fun visitIfExpression(expression: KtIfExpression) {
+        super.visitIfExpression(expression)
+        if (expression.`else` == null) return
+        val condition = expression.condition as? KtBinaryExpression ?: return
+        if (condition.operationToken != KtTokens.EQEQ && condition.operationToken != KtTokens.EXCLEQ) return
+        val entry = listOfNotNull(condition.left, condition.right).firstNotNullOfOrNull { enumEntry(it) } ?: return
+        report(
+            Finding(
+                Entity.from(expression),
+                "[exhaustive-states] `if (${condition.text}) ... else` puts every case but $entry in the else branch, as " +
+                    "`else` in a `when` does, so a case added later is handled there unseen. Use a `when` naming every " +
+                    "case (the compiler then makes each new case say what it does).",
+            ),
+        )
+    }
+
+    /** The enum entry [expression] names (`Side.Blue`, or `Blue` imported), as `Side.Blue`, or null. */
+    private fun enumEntry(expression: KtExpression): String? {
+        val name = (expression as? KtDotQualifiedExpression)?.selectorExpression ?: expression
+        if (name !is KtNameReferenceExpression) return null
+        return analyze(name) {
+            (name.mainReference.resolveToSymbol() as? KaEnumEntrySymbol)?.callableId?.asSingleFqName()?.let {
+                "${it.parent().shortName()}.${it.shortName()}"
+            }
+        }
     }
 }

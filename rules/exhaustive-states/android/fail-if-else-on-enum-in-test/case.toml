@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "detekt"
+diagnostic = "[exhaustive-states] `if (side == Side.Blue) ... else` puts every case but Side.Blue in the else branch"
+uses_example = false
+adds_targets = ["probe"]

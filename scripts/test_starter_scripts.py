@@ -858,6 +858,153 @@ class AndroidNewFeatureTests(unittest.TestCase):
         self.assertIn('already exist', again.stderr)
 
 
+class AndroidFeatureInModuleTests(unittest.TestCase):
+    """`new_feature.py <id> --in <module>`: a feature whose code goes in a module another feature has."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'features', 'feature-map', 'verify/journeys/src', 'verify/runner/src'):
+            shutil.copytree(ANDROID_TEMPLATE / folder, self.root / folder, ignore=shutil.ignore_patterns('__pycache__'))
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_feature.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_adds_a_map_entry_naming_the_module_a_journey_stub_and_a_test_stub(self) -> None:
+        made = written(self.root, lambda: self.assertEqual(self.run_new('undo-move', '--in', 'tally').returncode, 0))
+        self.assertEqual(made, ['feature-map/undo-move.toml',
+                                'features/tally/logic/src/commonTest/kotlin/tally/logic/UndoMoveTest.kt',
+                                'verify/journeys/src/commonMain/kotlin/journeys/UndoMoveJourneys.kt',
+                                'verify/runner/src/main/kotlin/runner/Journeys.kt'])
+        entry = tomllib.loads((self.root / 'feature-map/undo-move.toml').read_text())
+        self.assertEqual((entry['modules'], entry['journeys'][0]['name']), (['tally'], 'undoMoveWorks'))
+        journey = (self.root / 'verify/journeys/src/commonMain/kotlin/journeys/UndoMoveJourneys.kt').read_text()
+        for step in ('fun Journey.undoMoveWorks()', 'screen.rotate()', 'screen.returnAfterProcessDeath()',
+                     'screen.find(TallyUi.name).shows(', '"Write this journey'):
+            self.assertIn(step, journey)
+        self.assertIn('fail("Write this test',
+                      (self.root / 'features/tally/logic/src/commonTest/kotlin/tally/logic/UndoMoveTest.kt').read_text())
+        for path in made:
+            self.assertFalse(code_owned(ANDROID_TEMPLATE, path), path)
+        check = subprocess.run([sys.executable, str(self.root / 'scripts/verify.py'), 'map'], cwd=self.root,
+                               capture_output=True, text=True)
+        self.assertEqual(check.returncode, 1)
+        self.assertIn('[verified-features] journey `undoMoveWorks` is still the stub new_feature.py wrote.', check.stdout)
+        self.assertNotIn('modules', check.stdout)  # sharing tally's module is fine
+
+    def test_finds_the_modules_ids_however_they_are_declared(self) -> None:
+        ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
+        ui.unlink()
+        (ui.parent / 'Screens.kt').write_text('package tally.api.screens\n\nimport core.UiId\n\nobject ListUi {\n'
+                                             '    public val rows: UiId = UiId("tally.rows")\n}\n')
+        self.assertEqual(self.run_new('undo', '--in', 'tally').returncode, 0)
+        journey = (self.root / 'verify/journeys/src/commonMain/kotlin/journeys/UndoJourneys.kt').read_text()
+        self.assertIn('import tally.api.screens.ListUi\n', journey)
+        self.assertIn('screen.find(ListUi.rows).shows(', journey)
+
+    def test_refuses_a_missing_module_a_bad_id_and_an_existing_entry(self) -> None:
+        missing = self.run_new('combat', '--in', 'battle')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("features/battle isn't a feature module (there are: tally)", missing.stderr)
+        for bad in ('Combat', 'two words', 'undo_move', '-undo'):
+            self.assertEqual(self.run_new(bad, '--in', 'tally').returncode, 2, bad)
+        self.assertEqual(self.run_new('tally', '--in', 'tally').returncode, 1)  # feature-map/tally.toml exists
+
+
+class AndroidNewClientTests(unittest.TestCase):
+    """`new_client.py <feature> <name>` in a copy of the starter's scripts, shape, tally feature, fixtures and both apps.
+    (That what it creates passes every gate was checked on the starter and on Hexfleet.)"""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'arch', 'features', 'fixtures', 'app', 'app-verify'):
+            shutil.copytree(ANDROID_TEMPLATE / folder, self.root / folder,
+                            ignore=shutil.ignore_patterns('__pycache__', 'konsist', 'detekt-rules'))
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_client.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_creates_the_client_its_platform_module_fakes_and_wiring(self) -> None:
+        made = written(self.root, lambda: self.assertEqual(self.run_new('tally', 'notes').returncode, 0))
+        self.assertEqual(made, [
+            'app-verify/src/main/kotlin/appverify/VerifyApp.kt', 'app/module.toml',
+            'app/src/main/kotlin/app/StarterApp.kt', 'features/tally/api/src/commonMain/kotlin/tally/api/TallyNotes.kt',
+            'features/tally/logic/src/commonTest/kotlin/tally/logic/MemoryTallyNotes.kt',
+            'fixtures/module.toml', 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt', 'platform/notes/module.toml',
+            'platform/notes/src/main/kotlin/platform/notes/FileTallyNotes.kt',
+            'platform/notes/src/test/kotlin/platform/notes/FileTallyNotesTest.kt'])
+        for path in made:
+            self.assertFalse(code_owned(ANDROID_TEMPLATE, path), path)
+        api = (self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyNotes.kt').read_text()
+        for part in ('@Serializable\ndata class TallyNotesData(', 'sealed interface TallyNotesResult<out T>',
+                     'data object Unreadable', 'interface TallyNotes {', 'suspend fun load(): TallyNotesResult<TallyNotesData?>'):
+            self.assertIn(part, api)
+        self.assertEqual((self.root / 'platform/notes/module.toml').read_text(), 'uses = ["core", "features/tally/api"]\n')
+        self.assertIn('"platform/notes"]', (self.root / 'app/module.toml').read_text())
+        self.assertIn('"features/tally/api", "platform/files", "platform/notes"]', (self.root / 'fixtures/module.toml').read_text())
+        fixtures = (self.root / 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt').read_text()
+        self.assertIn('fun tallyNotesSetup(fixture: Fixture): TallyNotesSetup = when (fixture) {\n'
+                      '    Fixture.Standard -> TallyNotesSetup.Empty\n    Fixture.Saved -> TallyNotesSetup.Empty\n'
+                      '    Fixture.FailingSaves -> TallyNotesSetup.Empty\n    Fixture.Unreadable -> TallyNotesSetup.Empty\n}', fixtures)
+        app = (self.root / 'app/src/main/kotlin/app/StarterApp.kt').read_text()
+        self.assertIn('    val tallyNotes: TallyNotes by lazy { FileTallyNotes(this, Dispatchers.IO) }\n', app)
+        self.assertIn('import platform.notes.FileTallyNotes\n', app)
+        verify = (self.root / 'app-verify/src/main/kotlin/appverify/VerifyApp.kt').read_text()
+        self.assertIn('fun tallyNotes(fixture: Fixture, reset: Boolean): TallyNotes = tallyNotesInUse ?: run {', verify)
+        self.assertIn('import fixtures.tallyNotesSetup\n', verify)
+        self.assertEqual(verify.count('import kotlinx.coroutines.Dispatchers\n'), 1)
+
+    def test_an_application_class_without_a_body_gets_one(self) -> None:
+        app = self.root / 'app/src/main/kotlin/app/StarterApp.kt'
+        app.write_text('package app\n\nimport android.app.Application\n\n/** The root. */\nclass StarterApp : Application()\n')
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        self.assertEqual(app.read_text(), 'package app\n\nimport android.app.Application\nimport kotlinx.coroutines.Dispatchers\n'
+                         'import platform.notes.FileTallyNotes\nimport tally.api.TallyNotes\n\n/** The root. */\n'
+                         'class StarterApp : Application() {\n'
+                         '    val tallyNotes: TallyNotes by lazy { FileTallyNotes(this, Dispatchers.IO) }\n}\n')
+
+    def test_refuses_a_client_whose_names_are_taken(self) -> None:
+        before = files_in(self.root)
+        taken = self.run_new('tally', 'store')  # tally's api already declares TallyStore, and both apps a tallyStore
+        self.assertEqual(taken.returncode, 1)
+        self.assertIn('features/tally/api/src/commonMain/kotlin/tally/api/Tally.kt (it declares TallyStore)', taken.stderr)
+        self.assertEqual(files_in(self.root), before)
+
+    def test_fixtures_with_arguments_and_an_application_with_more_supertypes(self) -> None:
+        fixtures = self.root / 'fixtures/src/main/kotlin/fixtures/Fixtures.kt'
+        fixtures.write_text(fixtures.read_text().replace('enum class Fixture {', 'enum class Fixture(val strength: Int = 8, val sound: Boolean = true) {')
+                            .replace('    Standard,', '    Standard(8, true), // "a quote in a comment\n    /** https://example.test */').replace('    Saved,', '    Saved(strength = 3) {\n        override fun toString() = "s"\n    },'))
+        app = self.root / 'app/src/main/kotlin/app/StarterApp.kt'
+        app.write_text(app.read_text().replace('class StarterApp : Application() {', 'class StarterApp : Application(),\n    Comparable<List<StarterApp>> {\n    override fun compareTo(other: List<StarterApp>) = 0\n'))
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        setup = (self.root / 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt').read_text()
+        self.assertIn('    Fixture.Standard -> TallyNotesSetup.Empty\n    Fixture.Saved -> TallyNotesSetup.Empty\n', setup)
+        self.assertNotIn('Fixture.true', setup)
+        self.assertIn('class StarterApp : Application(),\n    Comparable<List<StarterApp>> {\n    val tallyNotes: TallyNotes by lazy',
+                      app.read_text())
+
+    def test_refuses_and_writes_nothing_without_a_feature_fixtures_or_an_application(self) -> None:
+        before = files_in(self.root)
+        missing = self.run_new('battle', 'store')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("features/battle/api isn't a feature's api module", missing.stderr)
+        for bad in (('tally',), ('Tally', 'store'), ('tally', 'two words')):
+            self.assertEqual(self.run_new(*bad).returncode, 2, bad)
+        (self.root / 'fixtures/src/main/kotlin/fixtures/Fixtures.kt').write_text('package fixtures\n')
+        self.assertIn('fixtures has no `enum class Fixture', self.run_new('tally', 'notes').stderr)
+        self.assertEqual({p: d for p, d in files_in(self.root).items() if not p.startswith('fixtures/')},
+                         {p: d for p, d in before.items() if not p.startswith('fixtures/')})
+        self.assertEqual(self.run_new('tally', 'files').returncode, 1)  # an existing platform module is fine; its file isn't
+        shutil.copytree(ANDROID_TEMPLATE / 'fixtures', self.root / 'fixtures', dirs_exist_ok=True)
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        again = self.run_new('tally', 'notes')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('already exist', again.stderr)
+
+
 class AndroidFeatureMapTests(unittest.TestCase):
     """The Android starter's map check (`scripts/verify.py map`), in a copy of its scripts, features, feature map and
     journeys, outside git (so the check against the base branch says there's none). Features may share a module."""
@@ -885,6 +1032,17 @@ class AndroidFeatureMapTests(unittest.TestCase):
         self.entry('["tally"]')
         result = self.run_verify('map')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_an_id_no_journey_names_fails_even_if_a_string_mentions_it(self) -> None:
+        ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
+        ui.write_text(ui.read_text().replace('    val add = ', '    public val total: UiId = UiId("tally.total")\n    val add = '))
+        journeys = self.root / 'verify/journeys/src/commonMain/kotlin/journeys/HistoryJourneys.kt'
+        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total") // say \"\"\"\n    /* old: /* nested */ screen.find(TallyUi.total) */'))
+        self.entry('["tally"]')
+        result = self.run_verify('map')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('TallyUi.total isn\'t named by any journey', result.stdout)
+        self.assertEqual(result.stdout.count("isn't named by any journey"), 1, result.stdout)
 
     def test_a_feature_naming_no_modules_fails(self) -> None:
         self.entry('[]')
@@ -1033,6 +1191,20 @@ class AndroidAgentsTemplateTests(unittest.TestCase):
         for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md'):
             found = example.findall((ANDROID_TEMPLATE / path).read_text())
             self.assertEqual(found, [], f'{path} names the example the new project deletes')
+
+
+class AndroidReviewTests(unittest.TestCase):
+    """AGENTS.md's Review section is what the agent's own reviews check, so it names every rule enforced on Android."""
+
+    def test_the_review_section_names_every_android_rule(self) -> None:
+        text = (ANDROID_TEMPLATE / 'AGENTS.template.md').read_text()
+        review = text[text.index('## Review'):]
+        review = review[:review.index('\n## ', 1)]
+        rules = sorted(p.parent.name for p in (ROOT / 'rules').glob('*/rule.toml')
+                       if 'android' in tomllib.loads(p.read_text()))
+        self.assertEqual([r for r in rules if not re.search(rf'\b{re.escape(r)}\b', review)], [])
+        for part in ('**blocker**', '**should**', 'caught by a gate', 'stop and report'):
+            self.assertIn(part, review)
 
 
 class AndroidWorkflowTests(unittest.TestCase):

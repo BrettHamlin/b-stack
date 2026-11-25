@@ -49,7 +49,7 @@ fun TallyScreen(state: TallyState, send: (TallyAction) -> Unit) {
                 modifier = Modifier.uiId(TallyUi.add),
             ) { Text("Add") }
         }
-        Text(problemText(state.problem), color = MaterialTheme.colorScheme.error, modifier = Modifier.uiId(TallyUi.error))
+        state.problem?.let { Text(problemText(it), color = MaterialTheme.colorScheme.error, modifier = Modifier.uiId(TallyUi.error)) }
         val items = state.entries
         Column(Modifier.uiId(TallyUi.items)) {
             if (items.isEmpty()) Text("(empty)")
@@ -58,8 +58,7 @@ fun TallyScreen(state: TallyState, send: (TallyAction) -> Unit) {
     }
 }
 
-private fun problemText(problem: TallyProblem?): String = when (problem) {
-    null -> ""
+private fun problemText(problem: TallyProblem): String = when (problem) {
     TallyProblem.LoadFailed -> "The saved tally couldn't be read."
     TallyProblem.InvalidName -> "Names are 1 to 32 letters, digits, - or _."
     TallyProblem.SaveFailed -> "Couldn't save. The tally is unchanged."

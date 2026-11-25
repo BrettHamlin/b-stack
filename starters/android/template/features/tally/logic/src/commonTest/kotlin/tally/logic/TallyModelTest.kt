@@ -77,6 +77,7 @@ class TallyModelTest {
             model.send(TallyAction.NameChanged("apple"))
             assertEquals(TallyState(name = "apple", loading = false, problem = TallyProblem.LoadFailed), awaitItem())
             model.send(TallyAction.Add)
+            expectNoEvents()
             assertEquals(before, store.current)
         }
     }

@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] tally.item.1 isn't selected"
+uses_example = "marks the tally's first row selected, and a journey checks the first row (passes) and the second (fails)"

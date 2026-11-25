@@ -23,4 +23,4 @@ lint = "typescript/switch-exhaustiveness-check (type-aware) with allowDefaultCas
 [android]
 layer = "1+2"
 compiler = "`when` over a sealed type or an enum must name every case, as a statement too, and an `else` on a `when` that already names every case is a warning, so an error with warnings as errors (Kotlin 2.4.21, AGP 9.5.2)."
-detekt = "ElseCaseInsteadOfExhaustiveWhen (detekt 2.0.0-alpha.6, type-resolved): an `else` standing in for cases of a sealed type or enum fails, in common and Android modules."
+detekt = "ElseCaseInsteadOfExhaustiveWhen (detekt 2.0.0-alpha.6, type-resolved): an `else` standing in for cases of a sealed type or enum fails, in common and Android modules. bstack:NoIfElseOnEnum (arch/detekt-rules, type-resolved), in tests: an `if (x == Enum.Case) ... else` (or `!=`), whose else branch stands in for the other cases the same way; a property test's model of the spec branches with a `when` naming every case."

@@ -15,18 +15,29 @@ the feature until you add its entry point to each (app/ and app-verify/):
   <Name>Route(rememberModel("<name>") { scope, saved -> <Name>Model(scope, saved) })
 Then run python3 scripts/check.py.
 
+When the feature's code goes in a module another feature already has (a new rule of the same screen, such as a
+board game's combat in its `battle` module), don't make new modules: give it its own map entry and journey in that
+module with --in:
+  feature-map/<id>.toml   the feature, naming the existing module, and its first journey, <id>Works
+  verify/journeys/.../<Id>Journeys.kt   that journey (turns the device, has the process end), and the adapters
+  features/<module>/logic/src/commonTest/.../<Id>Test.kt   a test to write, in the module's logic
+Both fail until you write them, as above.
+
 Usage: python3 scripts/new_feature.py <name>      (lowercase letters and digits, starting with a letter: a Kotlin
                                                    package name, such as `notes`)
+       python3 scripts/new_feature.py <id> --in <module>   (<id>: lowercase words joined by `-`, such as `undo-move`;
+                                                   <module>: an existing features/<module>)
 """
 from pathlib import Path
 import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from verify import ADAPTERS, JOURNEYS, adapters_text, journeys_in_code  # noqa: E402
+from verify import ADAPTERS, JOURNEYS, adapters_text, journeys_in_code, ui_ids, without_comments  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = re.compile(r'^[a-z][a-z0-9]{0,29}$')
+FEATURE_ID = re.compile(r'^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
 KOTLIN = {'as', 'break', 'class', 'continue', 'do', 'else', 'false', 'for', 'fun', 'if', 'in', 'interface', 'is',
           'null', 'object', 'package', 'return', 'super', 'this', 'throw', 'true', 'try', 'typealias', 'typeof', 'val',
           'var', 'when', 'while'}
@@ -154,6 +165,80 @@ fun Journey.{name}Works() {{
     }
 
 
+def files_in_module(fid: str, module: str, package: str, ui: str, element: str) -> dict[Path, str]:
+    """A feature that lives in an existing module: its map entry, journey stub and logic test stub."""
+    camel = fid.split('-')[0] + ''.join(w[:1].upper() + w[1:] for w in fid.split('-')[1:])
+    Camel = camel[0].upper() + camel[1:]
+    return {
+        Path(f'feature-map/{fid}.toml'): f'''id = "{fid}"
+summary = "Write what the {fid} feature does for the user."
+modules = ["{module}"]
+
+[[journeys]]
+name = "{camel}Works"
+proves = "Write what this journey shows working in the app, including after the device turns and after the process ends in the background."
+''',
+        (JOURNEYS / f'journeys/{Camel}Journeys.kt').relative_to(ROOT): f'''package journeys
+
+import journeykit.Journey
+import {package}.{ui}
+
+fun Journey.{camel}Works() {{
+    val screen = launch()
+    screen.checkpoint("opened")
+    screen.rotate()
+    screen.returnAfterProcessDeath()
+    screen.find({ui}.{element}).shows(
+        "Write this journey: use the {fid} feature as a user would, check what they'd see, and that it survives the " +
+            "device turning and the process ending.",
+    )
+}}
+''',
+        Path(f'features/{module}/logic/src/commonTest/kotlin/{module}/logic/{Camel}Test.kt'): f'''package {module}.logic
+
+import kotlin.test.Test
+import kotlin.test.fail
+
+class {Camel}Test {{
+    @Test
+    fun {camel}Works() {{
+        fail("Write this test: the {fid} feature's behaviour in the model, every state asserted whole with Turbine.")
+    }}
+}}
+''',
+    }
+
+
+def add_in_module(fid: str, module: str) -> int:
+    if not (ROOT / 'features' / module / 'api').is_dir():
+        found = sorted(p.name for p in (ROOT / 'features').iterdir() if p.is_dir()) if (ROOT / 'features').is_dir() else []
+        print(f'Not created: features/{module} isn\'t a feature module (there are: {", ".join(found) or "none"}). '
+              f'For a feature with modules of its own, run python3 scripts/new_feature.py <name>.', file=sys.stderr)
+        return 1
+    Module = module[0].upper() + module[1:]
+    elements = [(where, obj, element) for where, obj, element in ui_ids() if where.startswith(f'features/{module}/api/')]
+    if not elements:
+        print(f'Not created: features/{module}/api declares no UiId (in a <Feature>Ui object) for the journey stub to '
+              'find.', file=sys.stderr)
+        return 1
+    where, obj, element = elements[0]
+    package = re.search(r'^\s*package\s+([\w.]+)', without_comments((ROOT / where).read_text()), re.MULTILINE)
+    planned = files_in_module(fid, module, package.group(1) if package else f'{module}.api', obj, element)
+    taken = [str(path) for path in planned if (ROOT / path).exists()]
+    if taken:
+        print(f'Not created: {", ".join(taken)} already exist.', file=sys.stderr)
+        return 1
+    for path, text in planned.items():
+        (ROOT / path).parent.mkdir(parents=True, exist_ok=True)
+        (ROOT / path).write_text(text)
+    ADAPTERS.write_text(adapters_text(journeys_in_code()))
+    print('\n'.join(f'created {path}' for path in planned))
+    print(f'updated {ADAPTERS.relative_to(ROOT)}')
+    print(f'Next: write the feature in features/{module} (its state and actions in {Module}Model), the test and the '
+          'journey, and what the map entry says it does; then run python3 scripts/check.py.')
+    return 0
+
+
 LINKS = {'verify/journeys': ('api',), 'app': ('api', 'logic', 'ui'), 'app-verify': ('api', 'logic', 'ui')}
 
 
@@ -169,6 +254,11 @@ def linked(module: str, name: str, parts: tuple[str, ...]) -> str | None:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == '--in':
+        if not FEATURE_ID.match(argv[0]) or not NAME.match(argv[2]):
+            print(__doc__, file=sys.stderr)
+            return 2
+        return add_in_module(argv[0], argv[2])
     if len(argv) != 1 or not NAME.match(argv[0]) or argv[0] in KOTLIN:
         print(__doc__, file=sys.stderr)
         return 2
