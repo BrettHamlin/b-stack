@@ -179,7 +179,7 @@ def check(selected: list[str]) -> list[str]:
     joint: dict[str, tuple[bool, str]] | None = None if len(shared) > 1 else {}
     for name in selected:
         started = time.monotonic()
-        if joint is None and name in GRADLE_GATES:
+        if joint is None and name in shared:
             joint = together(shared, env)
             if joint:
                 print(f'One Gradle run for {", ".join(shared)}: passed  ({time.monotonic() - started:.0f}s)', flush=True)

@@ -319,7 +319,9 @@ def run_case(worker: Worker, task: Task) -> tuple[str, str]:
         # Every gate, the device's last and holding a device turn, so other device cases needn't wait for its builds.
         ok, output = worker.check(*[g for g in platform.gates if g not in device])
         if ok:
-            with device_turn():
+            with device_turn() as taken:
+                if not taken:
+                    return 'FAIL', 'stopped'
                 ok, output = worker.check(*device)
         return ('PASS', '') if ok else ('FAIL', tail(output))
     case = task.case
@@ -415,21 +417,28 @@ aborted = False
 
 
 @contextmanager
-def device_turn() -> Iterator[None]:
-    """One of platform.device_workers turns on the device, for a task that only needs it for part of its run."""
+def device_turn() -> Iterator[bool]:
+    """One of platform.device_workers turns on the device, for a task that only needs it for part of its run.
+    Yields False when the run was aborted while waiting, without taking a slot."""
     global on_device, waiting_turn
     with changed:
         waiting_turn += 1
         while on_device >= platform.device_workers and not aborted:
             changed.wait()
         waiting_turn -= 1
-        on_device += 1
-    try:
-        yield
-    finally:
-        with changed:
-            on_device -= 1
+        if aborted:
             changed.notify_all()
+            taken = False
+        else:
+            on_device += 1
+            taken = True
+    try:
+        yield taken
+    finally:
+        if taken:
+            with changed:
+                on_device -= 1
+                changed.notify_all()
 
 
 def take(worker: Worker) -> Task | None:
