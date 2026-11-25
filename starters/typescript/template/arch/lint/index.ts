@@ -198,15 +198,18 @@ const EFFECT_TESTS = new Set(["effect", "live", "scoped"]);
 const memberName = (node: ESTree.Node): string =>
   node.type === "Identifier" ? node.name : node.type === "Literal" ? String(node.value) : "";
 
+const isTestFile = (filename: string): boolean => {
+  const owner = packageOf(filename);
+  const relative = NodePath.relative(ROOT, filename).split(NodePath.sep);
+  const inner = owner === undefined ? [] : NodePath.relative(NodePath.join(ROOT, owner.folder), filename).split(NodePath.sep);
+  return inner[0] === "tests" || inner[0] === "journeys" || /\.(test|journey)\.tsx?$/.test(relative.at(-1) ?? "");
+};
+
 const noSkippedTests = defineRule({
   meta: { type: "problem", docs: { description: "Every test runs, in a form the assertion check can see." } },
   create(context) {
-    const owner = packageOf(context.filename);
-    const relative = NodePath.relative(ROOT, context.filename).split(NodePath.sep);
     // Test and journey files only: elsewhere `.only` or `.prop` is ordinary code.
-    const inner = owner === undefined ? [] : NodePath.relative(NodePath.join(ROOT, owner.folder), context.filename).split(NodePath.sep);
-    const isTest = inner[0] === "tests" || inner[0] === "journeys" || /\.(test|journey)\.tsx?$/.test(relative.at(-1) ?? "");
-    if (!isTest) return {};
+    if (!isTestFile(context.filename)) return {};
     return {
       MemberExpression(node) {
         const name = memberName(node.property);
@@ -414,6 +417,72 @@ const noUncheckedNarrowing = defineRule({
   },
 });
 
+const UPPER_CAMEL = /^[A-Z][a-zA-Z0-9]*$/;
+const isUpperCamel = (name: string): boolean => UPPER_CAMEL.test(name) && /[a-z]/.test(name);
+
+const unionComparison = (expression: ESTree.Node): string | undefined => {
+  const target = expression.type === "UnaryExpression" && expression.operator === "!" ? expression.argument : expression;
+  if (target.type !== "BinaryExpression" || !["===", "!==", "==", "!="].includes(target.operator)) return undefined;
+  for (const [side, value] of [
+    [target.left, target.right],
+    [target.right, target.left],
+  ] as const) {
+    if (
+      side.type === "MemberExpression" &&
+      memberName(side.property) === "_tag" &&
+      value.type === "Literal" &&
+      typeof value.value === "string"
+    ) {
+      return `\`_tag === "${value.value}"\``;
+    }
+    if (
+      value.type === "MemberExpression" &&
+      !value.computed &&
+      value.object.type === "Identifier" &&
+      value.property.type === "Identifier" &&
+      isUpperCamel(value.object.name) &&
+      isUpperCamel(value.property.name)
+    ) {
+      return `\`${value.object.name}.${value.property.name}\``;
+    }
+  }
+  return undefined;
+};
+
+const hasFinalElse = (node: ESTree.IfStatement): boolean =>
+  node.alternate !== null && (node.alternate.type !== "IfStatement" || hasFinalElse(node.alternate));
+
+const noIfElseOnUnion = defineRule({
+  meta: { type: "problem", docs: { description: "Tests branch on unions with an exhaustive switch, not if/else or ? :." } },
+  create(context) {
+    if (!isTestFile(context.filename)) return {};
+    const checkedInChain = new WeakSet<ESTree.Node>();
+    const report = (node: ESTree.Node, branch: string): void =>
+      context.report({
+        node,
+        message: `Branching on ${branch} with \`if ... else\` or \`? :\` puts every other union member in the else branch, as \`default\` in a \`switch\` does, so a member added later is handled there unseen. Use an exhaustive \`switch\` naming every member.`,
+      });
+    return {
+      IfStatement(node: ESTree.IfStatement) {
+        if (checkedInChain.has(node) || !hasFinalElse(node)) return;
+        let reported = false;
+        for (let current: ESTree.IfStatement | null = node; current !== null; current = current.alternate?.type === "IfStatement" ? current.alternate : null) {
+          checkedInChain.add(current);
+          const branch = unionComparison(current.test);
+          if (branch !== undefined && !reported) {
+            report(current, branch);
+            reported = true;
+          }
+        }
+      },
+      ConditionalExpression(node: ESTree.ConditionalExpression) {
+        const branch = unionComparison(node.test);
+        if (branch !== undefined) report(node, branch);
+      },
+    };
+  },
+});
+
 export default definePlugin({
   meta: { name: "bstack" },
   rules: {
@@ -425,5 +494,6 @@ export default definePlugin({
     "typed-identifiers": typedIdentifiers,
     "no-io-globals": noIoGlobals,
     "no-unchecked-narrowing": noUncheckedNarrowing,
+    "no-if-else-on-union": noIfElseOnUnion,
   },
 });

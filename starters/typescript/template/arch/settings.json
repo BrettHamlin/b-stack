@@ -429,6 +429,7 @@
      "requireDefaultForNonUnion": true
     }
    ],
+   "bstack/no-if-else-on-union": "error",
    "typescript/no-floating-promises": [
     "error",
     {

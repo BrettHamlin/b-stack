@@ -1,7 +1,8 @@
 """The verify gate: every feature is in the feature map, and every journey it names passes against the built app.
 
 Map check (feature-map/*.toml):
-  - every package in packages/features/ is in exactly one feature's `modules`, and every module named is such a package
+  - every package in packages/features/ is in at least one feature's `modules` (features may share one), every
+    feature names at least one, and every module named is such a package
   - each journey has a `name` and a `proves`, and no journey is named twice (in one feature or across features)
   - no journey or feature the base branch's map has is gone, unless arch/retired.toml lists it (scripts/history.py)
 Run: the renderer and the desktop app are built (vp build, vp pack), then the journeys run: the top-level tests in
@@ -62,14 +63,15 @@ def map_errors(features: list[dict]) -> list[str]:
         for key in ('id', 'summary', 'modules', 'journeys'):
             if key not in feature:
                 errors.append(f'[verified-features] {where}: missing `{key}`')
+        if 'modules' in feature and not feature['modules']:
+            errors.append(f'[verified-features] {where}: `modules` is empty. Name the feature packages (packages/features/<name>) '
+                          'this feature\'s code is in; features that share one each name it.')
         for module in feature.get('modules', []):
             if module not in packages:
                 errors.append(f'[verified-features] {where}: module `{module}` isn\'t a feature package '
                               f'(packages/features/{module}). Name the feature packages this feature is made of.')
-            elif module in claimed:
-                errors.append(f'[verified-features] {where}: module `{module}` is already in {claimed[module]}')
             else:
-                claimed[module] = where
+                claimed.setdefault(module, where)
         if not feature.get('journeys'):
             errors.append(f'[verified-features] {where}: no journeys. Each feature needs at least one journey that '
                           'runs the app and shows the feature working.')

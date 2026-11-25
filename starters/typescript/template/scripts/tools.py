@@ -71,7 +71,9 @@ def node_env() -> dict:
     tools folder, installed packages in .build/ (linked into the cache folder), and no telemetry or global config."""
     link_build_dirs(ROOT)
     node, pnpm = tool_path('node'), tool_path('pnpm')
-    env = {k: v for k, v in os.environ.items() if not k.lower().startswith(('npm_config_', 'pnpm_config_'))}
+    # Desktop agent hosts (T3 Code, VS Code) set ELECTRON_RUN_AS_NODE=1, which makes Electron reject Chromium flags.
+    env = {k: v for k, v in os.environ.items()
+           if not k.lower().startswith(('npm_config_', 'pnpm_config_')) and k != 'ELECTRON_RUN_AS_NODE'}
     env.update({
         'PATH': os.pathsep.join([str(ROOT / 'node_modules/.bin'), str(node.parent), str(pnpm.parent), env.get('PATH', '')]),
         'COREPACK_ENABLE_STRICT': '0',

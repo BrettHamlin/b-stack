@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verified-features] feature-map/probe.toml: `modules` is empty."
+uses_example = false

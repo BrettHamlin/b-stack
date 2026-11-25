@@ -1,0 +1,9 @@
+# A second feature built inside an existing feature's package, mapped with no modules: removing it later
+# would take its journeys with it unnoticed. It names the module it lives in instead (features may share one).
+id = "probe"
+summary = "A feature with no modules."
+modules = []
+
+[[journeys]]
+name = "probe_works"
+proves = "Nothing: the entry names no modules."
