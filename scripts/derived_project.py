@@ -22,6 +22,7 @@ Usage: python3 scripts/derived_project.py <platform> [--setup-only] [--no-rules]
 from dataclasses import dataclass, field
 from pathlib import Path
 import argparse
+import fcntl
 import hashlib
 import os
 import shutil
@@ -169,6 +170,12 @@ def main() -> int:
     cache = cache_root()
     base = cache / 'derived' if cache else ROOT / '.build/derived'
     folder = base / f'{args.platform}-{hashlib.sha256(str(ROOT).encode()).hexdigest()[:8]}'
+    base.mkdir(parents=True, exist_ok=True)
+    lock = (base / f'{folder.name}.lock').open('w')  # held until exit: a second run would delete this one's project
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit(f'Another derived_project.py {args.platform} run from this checkout is using {folder}. Wait for it to finish.')
     worktree = make(args.platform, folder)
     print(f'Derived {args.platform} project: {worktree} (a linked worktree of {folder / "repo"})', flush=True)
     if args.setup_only:

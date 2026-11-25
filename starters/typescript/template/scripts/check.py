@@ -45,8 +45,8 @@ def run(cmd: list[str], env: dict) -> tuple[bool, str]:
 
 
 def has_code(package: Path) -> bool:
-    return any(p.suffix in ('.ts', '.tsx') and not {'node_modules', 'dist'} & set(p.relative_to(package).parts)
-               for p in package.rglob('*'))
+    """Whether the package has a TypeScript file where its role's tsconfig looks (src/ and tests/)."""
+    return any(p.suffix in ('.ts', '.tsx') for folder in ('src', 'tests') for p in (package / folder).rglob('*'))
 
 
 def tsconfigs() -> list[Path]:

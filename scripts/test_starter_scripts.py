@@ -1374,18 +1374,23 @@ class GateGuidanceTests(unittest.TestCase):
     the guidance (AGENTS.template.md, or the code comment the message relies on). Change one, change the other."""
 
     PINS = [
-        # (starter, gate file, guidance files, the instruction both state)
-        (ANDROID_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'),
-         "the screen's session that isn't stored anywhere else"),
-        (ANDROID_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'journeys in verify/journeys'),
-        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt', ('AGENTS.template.md',),
-         'platform module'),
-        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt', ('AGENTS.template.md',),
-         'holds declarations only'),
-        (RUST_TEMPLATE, 'scripts/arch.py', ('AGENTS.template.md',), 'module shape (arch/shape.toml'),
-        (RUST_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'journeys in crates/app/tests/journeys.rs'),
-        (TS_TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'apps/desktop/journeys'),
-        (TEMPLATE, 'scripts/verify.py', ('AGENTS.template.md',), 'in Targets/AppVerifyJourneys'),
+        # (starter, gate file, what its message says, guidance files, what the guidance says)
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ("the screen's session that isn't stored anywhere else (a selection",),
+         ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'), "the screen's session that isn't stored anywhere else"),
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ('Journey bodies go in verify/journeys.',), ('AGENTS.template.md',),
+         'journeys in verify/journeys'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
+         ('Put platform work in a platform module',), ('AGENTS.template.md',), 'Only platform modules do I/O'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
+         ("a feature's api module holds declarations only",), ('AGENTS.template.md',), 'api holds declarations only'),
+        (RUST_TEMPLATE, 'scripts/arch.py', ("Crates go in the module shape's folders (arch/shape.toml)",), ('AGENTS.template.md',),
+         'module shape (arch/shape.toml'),
+        (RUST_TEMPLATE, 'scripts/verify.py', ('naming it in modules, with journeys in crates/app/tests/journeys.rs that prove',),
+         ('AGENTS.template.md',), 'journeys in crates/app/tests/journeys.rs'),
+        (TS_TEMPLATE, 'scripts/verify.py', ("JOURNEYS = 'apps/desktop/journeys'", "journey {name} in {JOURNEYS}/ isn't in the feature map"),
+         ('AGENTS.template.md',), 'journeys in apps/desktop/journeys/'),
+        (TEMPLATE, 'scripts/verify.py', ('Keep bodies in Targets/AppVerifyJourneys',), ('AGENTS.template.md',),
+         'journey bodies in Targets/AppVerifyJourneys'),
     ]
 
     @staticmethod
@@ -1396,10 +1401,11 @@ class GateGuidanceTests(unittest.TestCase):
         return re.sub(r'\s+', ' ', text)
 
     def test_gate_messages_say_what_the_guidance_says(self) -> None:
-        for template, gate, guides, instruction in self.PINS:
-            for path in (gate, *guides):
-                with self.subTest(starter=template.parent.name, file=path, instruction=instruction):
-                    self.assertIn(instruction, self.plain((template / path).read_text()))
+        for template, gate, said, guides, guidance in self.PINS:
+            for path, texts in ((gate, said), *((g, (guidance,)) for g in guides)):
+                for text in texts:
+                    with self.subTest(starter=template.parent.name, file=path, text=text):
+                        self.assertIn(text, self.plain((template / path).read_text()))
 
 
 class AndroidReviewTests(unittest.TestCase):
