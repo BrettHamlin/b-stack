@@ -97,7 +97,7 @@ def git(cwd: Path, *cmd: str) -> str:
 def settle(plan: Plan, project: Path) -> None:
     if not plan.settle:
         return
-    env = {k: v for k, v in os.environ.items() if k != 'CI'}
+    env = {**os.environ, 'CI': 'false'}  # pnpm also reads GITHUB_ACTIONS; CI=false is what turns its frozen lockfile off
     proc = subprocess.run([sys.executable, *plan.settle], cwd=project, env=env, capture_output=True, text=True)
     if proc.returncode != 0:
         sys.exit(f'{" ".join(plan.settle)} failed in {project}:\n{(proc.stdout + proc.stderr)[-3000:]}')
