@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verify] tally.add is described as:"
+uses_example = "changes a tally journey to check a content description the app doesn't give"

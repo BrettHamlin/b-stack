@@ -1,8 +1,8 @@
 """Create a feature the way the module shape expects: its three modules, its feature-map entry and a journey to write.
 
   features/<name>/api     <Name>Ui, the feature's UI identifiers (only an api module can declare a UiId)
-  features/<name>/logic   <Name>Model: state as a StateFlow, send(action), work in the scope it's given, half-done
-                          input in its Saved; and a test to write
+  features/<name>/logic   <Name>Model: state as a StateFlow, send(action), work in the scope it's given, the session
+                          that isn't stored (half-done input) in its Saved; and a test to write
   features/<name>/ui      <Name>Route(model), the entry point both apps show, and the screen
   feature-map/<name>.toml the feature and its first journey, <name>Works
   verify/journeys/.../<Name>Journeys.kt   that journey (it turns the device and has the process end, as the map

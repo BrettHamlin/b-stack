@@ -23,7 +23,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 OWN = {'.build', '.tools', '.git', '.github', '.githooks', '.claude', '.agents', '.gradle', '.kotlin', '.idea', 'build', 'arch', 'build-logic',
        'feature-map', 'gradle', 'scripts', 'features', 'platform', 'verify'}
-OWN_FILES = {'settings.gradle.kts', 'build.gradle.kts', 'gradle.properties', 'tools.toml', 'CODEOWNERS', 'AGENTS.md',
+OWN_FILES = {'.git', 'settings.gradle.kts', 'build.gradle.kts', 'gradle.properties', 'tools.toml', 'CODEOWNERS', 'AGENTS.md',
              'AGENTS.template.md', 'CLAUDE.md', 'README.md', '.gitignore', 'local.properties'}
 SUPPRESSION = re.compile(
     r'@\s*(?:[a-zA-Z]+\s*:\s*)?(?:\[\s*)?(?:[\w.]+\.)?(Suppress|SuppressWarnings|SuppressLint|TargetApi|OptIn)\b'

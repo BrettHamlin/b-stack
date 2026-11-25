@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[module-boundaries] a feature's ui module imports from its logic only the model, its state and action types and the types they're made of (ProbeAction, ProbeModel, ProbeMood, ProbeState); `probe.logic.ProbeState.Companion.reachable` isn't one."
+uses_example = false
+adds_targets = ["probe"]

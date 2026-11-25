@@ -103,12 +103,17 @@ class Driver(private val journey: String) : Journey {
             device.waitForIdle()
         }
 
-        override fun shows(expected: String) {
+        override fun shows(expected: String) = until(expected, "shows") { texts(it) }
+
+        override fun describes(expected: String) = until(expected, "is described as") { descriptions(it) }
+
+        /** Waits until [read] of the element, one value per line, is [expected]. */
+        private fun until(expected: String, what: String, read: (UiObject2) -> List<String>) {
             var seen = ""
             val deadline = System.currentTimeMillis() + WAIT_MS
             while (System.currentTimeMillis() < deadline) {
                 seen = try {
-                    device.findObject(By.res(id.value))?.let { texts(it).joinToString("\n") } ?: "(not on screen)"
+                    device.findObject(By.res(id.value))?.let { read(it).joinToString("\n") } ?: "(not on screen)"
                 } catch (_: StaleObjectException) {
                     // Redrawn while being read (common on a slow emulator): read it again.
                     "(redrawn while read)"
@@ -116,7 +121,7 @@ class Driver(private val journey: String) : Journey {
                 if (seen == expected) return
                 Thread.sleep(100)
             }
-            throw AssertionError("[verify] ${id.value} shows:\n$seen\nexpected:\n$expected")
+            throw AssertionError("[verify] ${id.value} $what:\n$seen\nexpected:\n$expected")
         }
 
         override fun isDisabled() {
@@ -133,5 +138,11 @@ class Driver(private val journey: String) : Journey {
         if (node.className == "android.widget.EditText") return listOfNotNull(own)
         val children: List<UiObject2>? = node.children
         return listOfNotNull(own) + children.orEmpty().flatMap { texts(it) }
+    }
+
+    /** The node's content description, then its children's, in order. */
+    private fun descriptions(node: UiObject2): List<String> {
+        val children: List<UiObject2>? = node.children
+        return listOfNotNull(node.contentDescription?.takeIf { it.isNotEmpty() }) + children.orEmpty().flatMap { descriptions(it) }
     }
 }

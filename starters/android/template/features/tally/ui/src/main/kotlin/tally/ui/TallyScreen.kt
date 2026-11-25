@@ -22,7 +22,6 @@ import tally.logic.TallyAction
 import tally.logic.TallyModel
 import tally.logic.TallyProblem
 import tally.logic.TallyState
-import tally.logic.entries
 
 /** The tally feature's entry point. Both apps call it with the model they built from their services. The view gets
  * only the model: it sends actions, and the model calls the store. */
@@ -51,7 +50,7 @@ fun TallyScreen(state: TallyState, send: (TallyAction) -> Unit) {
             ) { Text("Add") }
         }
         Text(problemText(state.problem), color = MaterialTheme.colorScheme.error, modifier = Modifier.uiId(TallyUi.error))
-        val items = entries(state.tally)
+        val items = state.entries
         Column(Modifier.uiId(TallyUi.items)) {
             if (items.isEmpty()) Text("(empty)")
             items.forEachIndexed { row, (name, count) -> Text("${name.value} $count", Modifier.uiId(TallyUi.item.at(row))) }

@@ -37,6 +37,12 @@ interface Element {
     /** Waits until the element (with everything inside it) shows exactly [expected], one text per line. */
     fun shows(expected: String)
 
+    /** Waits until the element (with everything inside it) is described exactly as [expected], one content description
+     * per line: what a screen reader says for it. For a mark that isn't drawn as text (a highlight, an icon, a Canvas
+     * stroke), the view gives the element a contentDescription saying what the mark means, and the journey checks it
+     * here. */
+    fun describes(expected: String)
+
     /** Waits until the element can't be used (a disabled button or field). */
     fun isDisabled()
 }

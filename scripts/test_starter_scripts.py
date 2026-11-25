@@ -835,6 +835,41 @@ class AndroidNewFeatureTests(unittest.TestCase):
         self.assertIn('already exist', again.stderr)
 
 
+class AndroidFeatureMapTests(unittest.TestCase):
+    """The Android starter's map check (`scripts/verify.py map`), in a copy of its scripts, features, feature map and
+    journeys, outside git (so the check against the base branch says there's none). Features may share a module."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'features', 'feature-map', 'verify/journeys/src', 'verify/runner/src'):
+            shutil.copytree(ANDROID_TEMPLATE / folder, self.root / folder, ignore=shutil.ignore_patterns('__pycache__'))
+        journeys = self.root / 'verify/journeys/src/commonMain/kotlin/journeys'
+        (journeys / 'HistoryJourneys.kt').write_text(
+            'package journeys\n\nimport journeykit.Journey\n\nfun Journey.historyKept() {\n    val screen = launch()\n'
+            '    screen.rotate()\n    screen.returnAfterProcessDeath()\n    screen.checkpoint("kept")\n}\n')
+        self.run_verify('adapters')
+
+    def run_verify(self, mode: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/verify.py'), mode], cwd=self.root,
+                              capture_output=True, text=True)
+
+    def entry(self, modules: str) -> None:
+        (self.root / 'feature-map/history.toml').write_text(
+            f'id = "history"\nsummary = "s"\nmodules = {modules}\n\n[[journeys]]\nname = "historyKept"\nproves = "p"\n')
+
+    def test_two_features_can_name_the_same_module(self) -> None:
+        self.entry('["tally"]')
+        result = self.run_verify('map')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_a_feature_naming_no_modules_fails(self) -> None:
+        self.entry('[]')
+        result = self.run_verify('map')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('[verified-features] feature-map/history.toml: `modules` is empty.', result.stdout)
+
+
 class RustNewFeatureTests(unittest.TestCase):
     """The Rust starter's scripts/new_feature.py, in a copy of its scripts, crates and feature map. (That a created
     feature passes compiler, clippy, deny, arch and settings, and its test and journey fail until written, was checked
@@ -943,6 +978,21 @@ class AndroidWorkflowTests(unittest.TestCase):
             self.assertIn(command, job)
 
 
+class WorktreeLayoutTests(unittest.TestCase):
+    """Each starter's layout check (scripts/arch.py) in a linked git worktree, whose `.git` is a file naming the main
+    checkout's git folder, not a folder. (The iOS starter has no top-level layout check.)"""
+
+    def test_a_worktrees_git_file_is_the_projects_own(self) -> None:
+        for template in (ANDROID_TEMPLATE, TS_TEMPLATE, RUST_TEMPLATE):
+            with self.subTest(template.parent.name), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder) / 'app'
+                shutil.copytree(template, root, ignore=shutil.ignore_patterns(
+                    '.build', '.tools', 'node_modules', '.gradle', '.kotlin', 'build', '__pycache__'))
+                (root / '.git').write_text('gitdir: /elsewhere/.git/worktrees/app\n')
+                result = subprocess.run([sys.executable, 'scripts/arch.py'], cwd=root, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
 class HistoryTests(unittest.TestCase):
     """scripts/history.py (the verify gate's check against the base branch), in a git repo whose project is a
     subfolder, as b-stack's starters are. The same file is in the Android and TypeScript starters."""
@@ -1023,6 +1073,33 @@ class HistoryTests(unittest.TestCase):
         self.assertIn('its modules (clock) are still here', found[0])
         (self.root / 'arch/retired.toml').write_text('journeys = []\nfeatures = ["clock"]\n')
         self.assertEqual(self.check(), [])
+
+    def test_an_entry_gone_while_another_names_its_module_fails(self) -> None:
+        # Features can share a module: the gone entry's journeys stay protected while the module is here, even though
+        # another entry still names it.
+        (self.root / 'feature-map/alarms.toml').write_text(
+            'id = "alarms"\nmodules = ["clock"]\n\n[[journeys]]\nname = "alarmsRing"\nproves = "p"\n')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'a second feature in the clock module')
+        self.base = self.git('rev-parse', 'HEAD')
+        (self.root / 'feature-map/alarms.toml').unlink()
+        found = self.check()
+        self.assertEqual(len(found), 2)
+        self.assertIn('feature `alarms` (feature-map/alarms.toml on the base branch', found[0])
+        self.assertIn('its modules (clock) are still here', found[0])
+        self.assertIn('journey `alarmsRing`', found[1])
+
+    def test_an_entry_that_named_no_modules_stays_protected(self) -> None:
+        (self.root / 'feature-map/alarms.toml').write_text(
+            'id = "alarms"\nmodules = []\n\n[[journeys]]\nname = "alarmsRing"\nproves = "p"\n')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'a feature with no modules')
+        self.base = self.git('rev-parse', 'HEAD')
+        (self.root / 'feature-map/alarms.toml').unlink()
+        found = self.check()
+        self.assertEqual(len(found), 2)
+        self.assertIn('it named no modules to remove with it', found[0])
+        self.assertIn('journey `alarmsRing`', found[1])
 
     def test_a_renamed_entry_whose_modules_stay_fails(self) -> None:
         self.feature('clock', ['clockTicks'], fid='timer')
