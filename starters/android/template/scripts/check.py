@@ -71,64 +71,93 @@ def clear_results(folder: str) -> None:
         path.unlink()
 
 
-def konsist(env: dict) -> tuple[bool, str]:
-    clear_results('arch/konsist')
-    ok, output = gradle(env, ':arch:konsist:test')
-    failures = [message for _, status, message in test_results('arch/konsist') if status != 'passed']
-    if failures:
-        return False, '\n'.join(failures)
-    return ok, output
+GRADLE_GATES = {
+    'compiler': ('assembleDebug', 'compileCommonMainKotlinMetadata', 'compileTestKotlinJvm', 'compileDebugUnitTestKotlin',
+                 'testClasses'),
+    'detekt': ('detektMainJvm', 'detektTestJvm', 'detektMain', 'detektTest'),
+    'lint': ('lintDebug',),
+    'konsist': (':arch:konsist:test',),
+    'tests': ('jvmTest', 'testDebugUnitTest'),
+}
 
 
-def lint(env: dict) -> tuple[bool, str]:
-    reports = lambda: sorted(RESULTS.glob('**/reports/lint-results-debug.txt'))  # noqa: E731
-    for report in reports():
-        report.unlink()
-    ok, output = gradle(env, 'lintDebug')
-    if not ok:
-        found = [r.read_text().strip() for r in reports()]
-        output = '\n'.join([output, *(f for f in found if f and not f.startswith('No issues found'))])
-    if not ok and '[NewApi]' in output:
-        output += ('\n[minimum-os-apis] A call above minSdk 29 compiles, but crashes on the older devices the app '
-                   'supports. Check the version first (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { ... } with '
-                   'a path for older versions), or use the AndroidX compat helper (ContextCompat and the like). Never '
-                   'raise minSdk or silence Lint; if neither works, stop and report.')
-    return ok, output
+# Gates whose Gradle run is never shared. Lint and detekt in one Gradle run leave detekt's Kotlin environment alive in
+# the daemon (detekt 2.0.0-alpha.6, AGP 9.5.2): a later detekt run in that daemon read a module's jar as it was then, and
+# failed on an entry the rebuilt jar no longer had.
+ALONE = {'lint'}
 
 
-def tests(env: dict) -> tuple[bool, str]:
-    """Every module's tests run and pass. A module with test sources and no results fails, and so does a skipped test,
-    however it was skipped (Konsist bans @Ignore; this catches the rest)."""
-    with_tests = [(folder, role) for folder, role in modules() if role['kind'] in ('common', 'android-library', 'android-app')
-                  and ((ROOT / folder / 'src/commonTest').is_dir() or (ROOT / folder / 'src/test').is_dir())]
-    for folder, _ in with_tests:
-        clear_results(folder)
-    ok, output = gradle(env, 'jvmTest', 'testDebugUnitTest')
-    problems = []
-    for folder, _ in with_tests:
-        results = test_results(folder)
+def lint_reports() -> list[Path]:
+    return sorted(RESULTS.glob('**/reports/lint-results-debug.txt'))
+
+
+def tested_modules() -> list[str]:
+    return [folder for folder, role in modules() if role['kind'] in ('common', 'android-library', 'android-app')
+            and ((ROOT / folder / 'src/commonTest').is_dir() or (ROOT / folder / 'src/test').is_dir())]
+
+
+def clear(name: str) -> None:
+    """Remove the gate's results from an earlier run, so it reads only this run's."""
+    if name == 'lint':
+        for report in lint_reports():
+            report.unlink()
+    elif name == 'konsist':
+        clear_results('arch/konsist')
+    elif name == 'tests':
+        for folder in tested_modules():
+            clear_results(folder)
+
+
+def judge(name: str, ok: bool, output: str) -> tuple[bool, str]:
+    """The gate's result from its Gradle run's and the results it left."""
+    if name == 'konsist':
+        results = test_results('arch/konsist')
         if not results:
-            problems.append(f'[tests-always-run] {folder} has tests, but none ran. Every module\'s tests run in this '
-                            'gate (jvmTest, testDebugUnitTest); if they can\'t, stop and report.')
-        problems += [f'[tests-always-run] {folder}: {name} was skipped. Every test runs: fix the code or the test, or '
-                     'stop and report.' for name, status, _ in results if status == 'skipped']
-        problems += [f'{folder}: {name} failed: {message.strip()[:500]}' for name, status, message in results
-                     if status == 'failed']
-    if problems:
-        return False, '\n'.join([output, *problems])
+            return False, '\n'.join([output, '[konsist] the architecture tests in arch/konsist didn\'t run.'])
+        failures = [message for _, status, message in results if status != 'passed']
+        if failures:
+            return False, '\n'.join(failures)
+    if name == 'lint':
+        if not ok:
+            found = [r.read_text().strip() for r in lint_reports()]
+            output = '\n'.join([output, *(f for f in found if f and not f.startswith('No issues found'))])
+        if not ok and '[NewApi]' in output:
+            output += ('\n[minimum-os-apis] A call above minSdk 29 compiles, but crashes on the older devices the app '
+                       'supports. Check the version first (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { ... } '
+                       'with a path for older versions), or use the AndroidX compat helper (ContextCompat and the like). '
+                       'Never raise minSdk or silence Lint; if neither works, stop and report.')
+    if name == 'tests':
+        # Every module's tests run and pass. A module with test sources and no results fails, and so does a skipped
+        # test, however it was skipped (Konsist bans @Ignore; this catches the rest).
+        problems = []
+        for folder in tested_modules():
+            results = test_results(folder)
+            if not results:
+                problems.append(f'[tests-always-run] {folder} has tests, but none ran. Every module\'s tests run in '
+                                'this gate (jvmTest, testDebugUnitTest); if they can\'t, stop and report.')
+            problems += [f'[tests-always-run] {folder}: {name} was skipped. Every test runs: fix the code or the test, '
+                         'or stop and report.' for name, status, _ in results if status == 'skipped']
+            problems += [f'{folder}: {name} failed: {message.strip()[:500]}' for name, status, message in results
+                         if status == 'failed']
+        if problems:
+            return False, '\n'.join([output, *problems])
     return ok, output
+
+
+def together(names: list[str], env: dict) -> dict[str, tuple[bool, str]]:
+    """The Gradle gates' results from one Gradle run of all their tasks, when that run passes: the same tasks on the same
+    files as one run per gate, without starting and configuring the build once per gate. When it fails, {}: each gate
+    then runs on its own, so a failure is reported by the gate it belongs to, as before."""
+    for name in names:
+        clear(name)
+    ok, _ = gradle(env, *dict.fromkeys(t for name in names for t in GRADLE_GATES[name]))
+    return {name: judge(name, True, '') for name in names} if ok else {}
 
 
 def gate(name: str, env: dict) -> tuple[bool, str]:
-    if name == 'compiler':
-        return gradle(env, 'assembleDebug', 'compileCommonMainKotlinMetadata', 'compileTestKotlinJvm',
-                      'compileDebugUnitTestKotlin', 'testClasses')
-    if name == 'detekt':
-        return gradle(env, 'detektMainJvm', 'detektTestJvm', 'detektMain', 'detektTest')
-    if name == 'lint':
-        return lint(env)
-    if name == 'konsist':
-        return konsist(env)
+    if name in GRADLE_GATES:
+        clear(name)
+        return judge(name, *gradle(env, *GRADLE_GATES[name]))
     if name == 'arch':
         found = arch_findings()
         return not found, '\n'.join(found)
@@ -136,8 +165,6 @@ def gate(name: str, env: dict) -> tuple[bool, str]:
         proc = subprocess.run([sys.executable, str(ROOT / f'scripts/{name}.py')], cwd=ROOT, env=env, capture_output=True,
                               text=True)
         return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
-    if name == 'tests':
-        return tests(env)
     proc = subprocess.run([sys.executable, str(ROOT / 'scripts/verify.py'), 'release' if name == 'release' else 'run'],
                           cwd=ROOT, env=env,
                           capture_output=True, text=True)
@@ -148,9 +175,19 @@ def check(selected: list[str]) -> list[str]:
     env = android_env()
     before = snapshot(ROOT)  # observe mode: a run counts only for files that didn't change while it ran
     results: dict[str, bool] = {}
+    shared = [n for n in selected if n in GRADLE_GATES and n not in ALONE]
+    joint: dict[str, tuple[bool, str]] | None = None if len(shared) > 1 else {}
     for name in selected:
         started = time.monotonic()
-        ok, output = gate(name, env)
+        if joint is None and name in shared:
+            joint = together(shared, env)
+            if joint:
+                print(f'One Gradle run for {", ".join(shared)}: passed  ({time.monotonic() - started:.0f}s)', flush=True)
+            else:
+                print(f'One Gradle run for {", ".join(shared)}: failed; running each gate on its own to report it  '
+                      f'({time.monotonic() - started:.0f}s)', flush=True)
+                started = time.monotonic()
+        ok, output = joint[name] if joint and name in joint else gate(name, env)
         results[name] = ok
         if not ok and output:
             print(output)

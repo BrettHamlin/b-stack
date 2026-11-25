@@ -179,10 +179,18 @@ def android_env() -> dict:
 
 
 def gradle_command(*args: str) -> list[str]:
-    """Gradle on this project. Its per-project cache and Kotlin's per-project files go in .build/ too."""
+    """Gradle on this project. Its per-project cache and Kotlin's per-project files go in .build/ too, named by their
+    real path: through the .build link, Gradle 9.9.2 takes every output for a stale one, deletes it and reruns every
+    task, so nothing is ever up to date."""
+    link_build_dirs(ROOT)  # first, so the real path is the cache folder's even before android_env() has run
+    build = (ROOT / '.build').resolve()
+    # test_rules.py keeps a build from case to case; with this, a changed module compiles whole, as on a clean build.
+    # (An environment variable named with dots, ORG_GRADLE_PROJECT_kotlin.incremental, doesn't survive Ubuntu's sh.)
+    whole = (['-Pkotlin.incremental=false', '-Pkotlin.incremental.multiplatform=false']
+             if os.environ.get('BSTACK_KOTLIN_INCREMENTAL') == 'false' else [])
     return [str(tool_path('gradle') / 'bin/gradle'), '--project-dir', str(ROOT),
-            '--project-cache-dir', str(ROOT / '.build/gradle-project'),
-            f'-Pkotlin.project.persistent.dir={ROOT / ".build/kotlin"}', '--console=plain', *args]
+            '--project-cache-dir', str(build / 'gradle-project'),
+            f'-Pkotlin.project.persistent.dir={build / "kotlin"}', *whole, '--console=plain', *args]
 
 
 if __name__ == '__main__':
