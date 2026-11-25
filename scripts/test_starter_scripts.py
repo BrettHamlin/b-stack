@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import time
 import tomllib
@@ -654,6 +655,26 @@ class AndroidToolsTests(unittest.TestCase):
         self.assertEqual(env['ANDROID_AVD_HOME'], str(self.tools / 'android-user/avd'))
         self.assertEqual(env['PATH'].split(os.pathsep)[0], str(self.tools / 'jdk-1.0/jdk/bin'))
 
+    def test_gradle_keeps_its_project_cache_at_the_build_folders_real_path(self) -> None:
+        # Through the .build link, Gradle 9.9.2 deletes every output as stale and reruns every task. The link is made
+        # first, so this holds before anything else has made it.
+        result = self.call('(setattr(tools, "tool_path", lambda name: tools.Path("/gradle")), tools.gradle_command("x"))[1]')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        command = json.loads(result.stdout)
+        self.assertTrue((self.root / '.build').is_symlink())
+        real = (self.root / '.build').resolve()
+        self.assertTrue(real.is_relative_to(self.cache))
+        self.assertEqual(command[command.index('--project-cache-dir') + 1], str(real / 'gradle-project'))
+        self.assertIn(f'-Pkotlin.project.persistent.dir={real / "kotlin"}', command)
+
+    def test_rule_runs_turn_off_kotlins_incremental_compiler_with_a_plain_variable(self) -> None:
+        expression = '(setattr(tools, "tool_path", lambda name: tools.Path("/gradle")), tools.gradle_command("x"))[1]'
+        self.env.pop('BSTACK_KOTLIN_INCREMENTAL', None)
+        self.assertNotIn('-Pkotlin.incremental=false', json.loads(self.call(expression).stdout))
+        self.env['BSTACK_KOTLIN_INCREMENTAL'] = 'false'
+        command = json.loads(self.call(expression).stdout)
+        self.assertLessEqual({'-Pkotlin.incremental=false', '-Pkotlin.incremental.multiplatform=false'}, set(command))
+
     def test_sdk_installs_the_pinned_revision(self) -> None:
         self.pin()
         result = self.call('str(tools.sdk())')
@@ -726,6 +747,102 @@ def written(root: Path, run: callable) -> list[str]:
     before = files_in(root)
     run()
     return sorted(path for path, data in files_in(root).items() if before.get(path) != data)
+
+
+class AndroidCheckTests(unittest.TestCase):
+    """check.py's Gradle gates: one Gradle run for all of them when it passes, each on its own when it doesn't."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(ANDROID_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(ANDROID_TEMPLATE / 'arch', self.root / 'arch', ignore=shutil.ignore_patterns('detekt-rules', 'konsist'))
+
+    def run_check(self, failing: set[str], gates: list[str], skipped: bool = False) -> tuple[list[list[str]], list[str], str]:
+        """check.check(gates) with a fake Gradle that fails any run including a task in `failing`, and leaves passing
+        results for Konsist and module `m` (skipped ones with `skipped`): (each Gradle run's tasks, the failed gates,
+        the output)."""
+        script = textwrap.dedent('''
+            import contextlib, io, json, sys
+            sys.path.insert(0, sys.argv[1])
+            import check
+            runs, failing, skipped = [], set(json.loads(sys.argv[2])), sys.argv[4] == 'skipped'
+            def result(folder, status):
+                path = check.RESULTS / folder / 'test-results/test/TEST-t.xml'
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f'<testsuite><testcase classname="T" name="t">{status}</testcase></testsuite>')
+            def gradle(env, *tasks):
+                runs.append(list(tasks))
+                if ':arch:konsist:test' in tasks:
+                    result('arch/konsist', '')
+                if 'jvmTest' in tasks:
+                    result('m', '<skipped/>' if skipped else '')
+                return not failing & set(tasks), 'gradle output'
+            check.gradle, check.android_env = gradle, dict
+            check.tested_modules = lambda: ['m']
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                failed = check.check(json.loads(sys.argv[3]))
+            print(json.dumps([runs, failed, out.getvalue()]))
+        ''')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts'), json.dumps(sorted(failing)),
+                                 json.dumps(gates), 'skipped' if skipped else ''], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.splitlines()[-1])
+
+    def test_passing_gates_share_one_gradle_run_but_lint_runs_alone(self) -> None:
+        runs, failed, output = self.run_check(set(), ['compiler', 'detekt', 'lint'])
+        self.assertEqual(failed, [])
+        self.assertEqual(len(runs), 2)
+        self.assertLessEqual({'assembleDebug', 'detektMainJvm'}, set(runs[0]))
+        self.assertNotIn('lintDebug', runs[0])
+        self.assertEqual(runs[1], ['lintDebug'])
+        self.assertIn('One Gradle run for compiler, detekt: passed', output)
+
+    def test_a_failing_shared_run_reruns_each_gate_so_the_failure_is_its_own(self) -> None:
+        runs, failed, output = self.run_check({'detektMain'}, ['compiler', 'detekt', 'lint'])
+        self.assertEqual(failed, ['detekt'])
+        self.assertEqual(runs[1:], [list(tasks) for tasks in (
+            ('assembleDebug', 'compileCommonMainKotlinMetadata', 'compileTestKotlinJvm', 'compileDebugUnitTestKotlin',
+             'testClasses'), ('detektMainJvm', 'detektTestJvm', 'detektMain', 'detektTest'), ('lintDebug',))])
+        self.assertIn('PASS compiler', output)
+        self.assertIn('FAIL detekt', output)
+        self.assertIn('PASS lint', output)
+
+    def test_a_passing_shared_run_still_fails_a_skipped_test(self) -> None:
+        runs, failed, output = self.run_check(set(), ['compiler', 'konsist', 'tests'], skipped=True)
+        self.assertEqual((len(runs), failed), (1, ['tests']))
+        self.assertIn('[tests-always-run] m: T.t was skipped', output)
+
+    def test_konsist_without_results_fails(self) -> None:
+        script = ('import sys; sys.path.insert(0, sys.argv[1]); import check\n'
+                  'print(check.judge("konsist", True, ""))')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], capture_output=True, text=True)
+        self.assertIn("(False,", result.stdout, result.stderr)
+        self.assertIn("didn't run", result.stdout)
+
+    def test_one_gate_runs_alone(self) -> None:
+        runs, failed, _ = self.run_check(set(), ['konsist'])
+        self.assertEqual((runs, failed), ([[':arch:konsist:test']], []))
+
+
+class RuleWorkersTests(unittest.TestCase):
+    """test_rules.py's default workers for Android, from the machine's cores and memory (platforms.gradle_workers)."""
+
+    def workers(self, cores: int, memory_gb: int) -> int:
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        import platforms
+        pages = {'SC_PAGE_SIZE': 4096, 'SC_PHYS_PAGES': memory_gb * 2**30 // 4096}
+        with mock.patch.object(platforms.os, 'cpu_count', return_value=cores), \
+                mock.patch.object(platforms.os, 'sysconf', side_effect=pages.__getitem__):
+            return platforms.gradle_workers()
+
+    def test_ci_runner_gets_one_and_this_mac_mini_four(self) -> None:
+        self.assertEqual(self.workers(2, 8), 1)
+        self.assertEqual(self.workers(4, 16), 1)
+        self.assertEqual(self.workers(10, 16), 2)
+        self.assertEqual(self.workers(12, 24), 4)
+        self.assertEqual(self.workers(24, 64), 4)
 
 
 class NewFeatureTests(unittest.TestCase):

@@ -1,8 +1,10 @@
 """What differs per platform for rules and their cases. Each rule.toml has one [<platform>] table per platform it's
 enforced on, and its cases live in rules/<rule-id>/<platform>/<case>/; test_rules.py runs them through that
 platform's starter (or --project) and check_repo.py validates them."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
+import os
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,9 +26,22 @@ class Platform:
     cost: dict  # rough minutes per case kind, so the longest start first
     tools: tuple[str, ...]  # downloaded once before workers start (scripts/tools.py <name>)
     marker: str  # a file only this platform's projects have
-    restamp: bool = False  # give reset files the current time: the build tool rebuilds by mtime, and copies keep theirs
+    restamp: bool = False  # give reset files the current time: the build tool trusts mtimes (Cargo: newer than the build;
+    # Gradle: a file's hash is reused while its size and mtime match), and copies keep theirs
     installed: tuple[str, ...] = ()  # folder names the package manager creates in the project; never copied
     base_commit: bool = False  # the verify gate compares the feature map with a base branch: each copy commits the project as one
+    jobs: Callable[[], int] = lambda: 1  # workers when neither $BSTACK_RULE_JOBS nor rule_jobs is set
+    # (<rule>/<case>, a file in it): a pass case test_rules.py also runs with that file broken at the same size and mtime
+    canary: tuple[str, str] | None = None
+    env: dict = field(default_factory=dict)  # set for every case's check.py
+
+
+def gradle_workers() -> int:
+    """Android: one worker per 3 cores and 6 GB of memory, at most 4. A worker's Gradle daemon (-Xmx4g), Kotlin daemon
+    and test JVMs use most of a core and up to 6 GB while a case builds; much of a case is one-threaded (starting Gradle,
+    Konsist, detekt), so workers add up until the cores or the memory run out. A 2-core, 8 GB CI runner gets 1."""
+    memory_gb = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') / 2**30
+    return max(1, min(4, (os.cpu_count() or 1) // 3, int(memory_gb // 6)))
 
 
 PLATFORMS = {
@@ -81,10 +96,14 @@ PLATFORMS = {
                     'app-verify/**/*', 'verify/**/*', 'feature-map/*.toml'),
         example=re.compile(r'[\w.-]*(?:[Tt]ally|apple|pear|ItemName|Stored)[\w.-]*'), example_name='tally',
         simulator_kinds=frozenset(),  # verify.py takes the emulator's lock itself (scripts/emulator.py)
-        cost={'untouched': 2.5, 'verify': 1, 'release': 1.5, 'pass': 0.5, 'compiler': 0.2, 'detekt': 0.2, 'konsist': 0.2, 'lint': 0.2,
+        cost={'untouched': 2.5, 'canary': 1, 'verify': 1, 'release': 1.5, 'pass': 0.5, 'compiler': 0.2, 'detekt': 0.2, 'konsist': 0.2, 'lint': 0.2,
               'tests': 0.2, 'deps': 0.1, 'settings': 0.1, 'arch': 0.05},
         tools=('jdk', 'gradle', 'cmdline-tools', 'sdk'), marker='build-logic/settings.gradle.kts',
-        installed=('build', '.gradle', '.kotlin'), base_commit=True),
+        installed=('build', '.gradle', '.kotlin'), base_commit=True, restamp=True, jobs=gradle_workers,
+        canary=('io-only-in-platform/pass-io-in-platform', 'platform/probe/src/main/kotlin/platform/probe/Probe.kt'),
+        # A worker's build is kept from case to case, and Gradle skips a task whose inputs didn't change; a changed
+        # module is compiled whole, as on a clean build, so no verdict depends on Kotlin's incremental compiler.
+        env={'BSTACK_KOTLIN_INCREMENTAL': 'false'}),  # scripts/tools.py gradle_command
 }
 
 
