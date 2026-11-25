@@ -34,9 +34,11 @@ class Platform:
     # (<rule>/<case>, a file in it): a pass case test_rules.py also runs with that file broken at the same size and mtime
     canary: tuple[str, str] | None = None
     env: dict = field(default_factory=dict)  # set for every case's check.py
-    # Case kinds ('untouched' or a gate) that use one shared device, so no more than one worker runs them at a time: the
-    # others take other cases instead of waiting for the device's lock.
-    one_at_a_time: frozenset[str] = frozenset()
+    # Case kinds ('untouched' or a gate) that use one shared device, which takes its own lock: at most device_workers
+    # workers run them at once (one building while another holds the device), and the others take other cases instead
+    # of waiting for the device's lock.
+    device_kinds: frozenset[str] = frozenset()
+    device_workers: int = 1
 
 
 def gradle_workers() -> int:
@@ -107,7 +109,7 @@ PLATFORMS = {
         # A worker's build is kept from case to case, and Gradle skips a task whose inputs didn't change; a changed
         # module is compiled whole, as on a clean build, so no verdict depends on Kotlin's incremental compiler.
         env={'BSTACK_KOTLIN_INCREMENTAL': 'false'},  # scripts/tools.py gradle_command
-        one_at_a_time=frozenset({'untouched', 'verify', 'release'})),  # the emulator (scripts/emulator.py)
+        device_kinds=frozenset({'untouched', 'verify', 'release'}), device_workers=2),  # the emulator (scripts/emulator.py)
 }
 
 

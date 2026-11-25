@@ -269,7 +269,7 @@ class Task:
     case: dict | None = None
     cost: float = 0
     needs_simulator: bool = False
-    one_at_a_time: bool = False  # platform.one_at_a_time
+    on_device: bool = False  # platform.device_kinds
     canary: bool = False
     result: tuple[str, str] | None = None  # (status, detail)
 
@@ -330,7 +330,7 @@ runs_example_cases = project == platform.starter.resolve()
 verify.ROOT = project
 project_fixtures = verify.known_fixtures() if platform.name == 'ios' else set()
 tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=bool(platform.simulator_kinds),
-              one_at_a_time='untouched' in platform.one_at_a_time)]
+              on_device='untouched' in platform.device_kinds)]
 for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
     rule, name = case_file.parents[2].name, case_file.parent.name
     if args.rule and rule not in args.rule:
@@ -358,7 +358,7 @@ for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
         kind = 'pass' if case['expect'] == 'pass' else case['enforced_by']
         task.cost = COST[kind]
         task.needs_simulator = kind in platform.simulator_kinds
-        task.one_at_a_time = kind in platform.one_at_a_time
+        task.on_device = kind in platform.device_kinds
     tasks.append(task)
 
 # The canary runs whenever its case would (not with --rule for other rules, nor where its case is a SKIP or OUT).
@@ -399,7 +399,7 @@ workers = [Worker(work_root / f'w{i}',
                   simulators[i] if i < len(simulators) else None) for i in range(jobs)]
 lock = threading.Lock()
 changed = threading.Condition(lock)  # a task finished: one a worker waited for may be free to take
-in_turn = 0  # one-at-a-time tasks running
+on_device = 0  # device tasks running (platform.device_kinds)
 timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
 aborted = False
@@ -407,19 +407,19 @@ aborted = False
 
 def take(worker: Worker) -> Task | None:
     """The costliest waiting task this worker can run. Workers with a simulator take simulator tasks first, if others
-    can do the rest. A one-at-a-time task waits while another runs; a worker with nothing else to take waits for it."""
-    global in_turn
+    can do the rest. A device task waits while platform.device_workers run; a worker with nothing else waits for one."""
+    global on_device
     with lock:
         while True:
             if aborted:
                 return None
             runnable = [t for t in pending if (worker.simulator or not t.needs_simulator)
-                        and not (t.one_at_a_time and in_turn)]
+                        and not (t.on_device and on_device >= platform.device_workers)]
             if worker.simulator and any(w.simulator is None for w in workers):
                 runnable.sort(key=lambda t: not t.needs_simulator)  # stable: still costliest first within each kind
             if runnable:
                 pending.remove(runnable[0])
-                in_turn += runnable[0].one_at_a_time
+                on_device += runnable[0].on_device
                 return runnable[0]
             if not any((worker.simulator or not t.needs_simulator) for t in pending):
                 return None
@@ -444,7 +444,7 @@ def flush() -> None:
 
 
 def work(worker: Worker) -> None:
-    global aborted, in_turn
+    global aborted, on_device
     worker.prepare()
     while task := take(worker):
         task_started = time.monotonic()
@@ -455,7 +455,7 @@ def work(worker: Worker) -> None:
         with lock:
             timings.append((task.label, worker.work.name, worker.simulator is not None, time.monotonic() - task_started))
             task.result = result
-            in_turn -= task.one_at_a_time
+            on_device -= task.on_device
             if task.index == 0 and result[0] != 'PASS':
                 aborted = True  # nothing else counts if the untouched project fails
             flush()
