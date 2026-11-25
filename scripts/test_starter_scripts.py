@@ -1422,6 +1422,51 @@ class AndroidReviewTests(unittest.TestCase):
             self.assertIn(part, review)
 
 
+class DerivedProjectTests(unittest.TestCase):
+    """scripts/derived_project.py's plans match the new-project skill, and the starter fixes the derived projects found
+    hold without running one."""
+
+    def test_every_path_the_plan_removes_is_one_the_skill_names(self) -> None:
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        import derived_project
+        skill = (ROOT / 'skills/new-project/SKILL.md').read_text()
+        sections = {'ios': skill.split('## Rust')[0], 'rust': skill.split('## Rust')[1].split('## TypeScript')[0],
+                    'typescript': skill.split('## TypeScript')[1].split('## Android')[0],
+                    'android': skill.split('## Android')[1].split('## GitHub')[0]}
+        for name, plan in derived_project.PLANS.items():
+            named = set(re.findall(r'`([^`]+)`', sections[name]))
+            for path in plan.remove:
+                with self.subTest(platform=name, path=path):
+                    # The path itself, or a folder holding it ("the tally parts of `packages/contracts`").
+                    candidates = {str(Path(*Path(path).parts[:i])) for i in range(1, len(Path(path).parts) + 1)}
+                    self.assertTrue(candidates & {n.rstrip('/') for n in named}, f'the skill\'s {name} section names none of {sorted(candidates)}')
+
+    def test_platform_folders_survive_removing_the_example(self) -> None:
+        # Cargo fails every gate when a workspace member glob (crates/platform/*) matches no folder, and the rule cases
+        # that add a platform package SKIP when packages/platform is gone.
+        for folder in (RUST_TEMPLATE / 'crates/platform', TS_TEMPLATE / 'packages/platform'):
+            with self.subTest(folder=str(folder.relative_to(ROOT))):
+                self.assertTrue((folder / '.gitkeep').is_file())
+
+    def test_the_typescript_compiler_gate_leaves_out_a_package_with_no_code(self) -> None:
+        root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, root)
+        shutil.copytree(TS_TEMPLATE / 'scripts', root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(TS_TEMPLATE / 'arch', root / 'arch')
+        for package, source in (('packages/fixtures', None), ('packages/features/a', 'src/index.ts'),
+                                ('packages/features/b', 'src/dist/index.ts'), ('packages/features/c', 'dist/index.js')):
+            (root / package).mkdir(parents=True)
+            (root / package / 'tsconfig.json').write_text('{}')
+            if source:
+                (root / package / source).parent.mkdir(parents=True, exist_ok=True)
+                (root / package / source).write_text('export {};\n')
+        proc = subprocess.run([sys.executable, '-c', 'import sys; sys.path.insert(0, "scripts"); import check; '
+                               'print(sorted(str(p.parent.relative_to(check.ROOT)) for p in check.tsconfigs()))'],
+                              cwd=root, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "['packages/features/a', 'packages/features/b']")
+
+
 class AndroidWorkflowTests(unittest.TestCase):
     """The Android starter's own CI workflow runs what b-stack's CI proves on the starter (its android job)."""
 

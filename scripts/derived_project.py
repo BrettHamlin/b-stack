@@ -25,6 +25,7 @@ import argparse
 import fcntl
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -45,6 +46,7 @@ class Plan:
     feature: str | None  # the feature new_feature.py adds (None: the starter has none)
     remove: tuple[str, ...]  # the example, as the new-project skill lists it
     fill: dict[str, tuple[tuple[str, str], ...]] = field(default_factory=dict)  # file: (find, replace), each once
+    named: tuple[str, ...] = ()  # removed paths the guidance may still name: where to create one when it's needed
     settle: tuple[str, ...] = ()  # run before the feature's commit, outside CI: brings lock files (and generated
     # journey adapters) up to date, as an agent's local run does
 
@@ -61,6 +63,7 @@ PLANS = {
                 'packages/contracts/src/ipc.ts', 'packages/fixtures/src', 'apps/desktop/src', 'apps/web/src',
                 'apps/desktop/journeys/tally.journey.ts', 'apps/desktop/journeys/smoke.json', 'feature-map/tally.toml'),
         fill={'apps/web/index.html': (('<title>Tally</title>', f'<title>{APP_NAME}</title>'),)},
+        named=('packages/contracts/src/ipc.ts',),
         settle=('scripts/tools.py', 'install')),
     'android': Plan(
         feature='greeting',
@@ -156,9 +159,28 @@ def make(name: str, folder: Path) -> Path:
     return worktree
 
 
-def run(cmd: list[str], cwd: Path, env: dict) -> int:
+def stale_references(plan: Plan, project: Path) -> list[str]:
+    """Files in the derived project that still name a path the setup removed and nothing put back: guidance, a gate
+    message or a stub that sends the agent to the deleted example (Hexfleet's AGENTS.md named the tally)."""
+    gone = [path for path in plan.remove if not (project / path).exists() and path not in plan.named]
+    found = []
+    for name in git(project, 'ls-files').splitlines():
+        try:
+            text = (project / name).read_text()
+        except (UnicodeDecodeError, IsADirectoryError, FileNotFoundError):
+            continue
+        found += [f'{name} names {path}, which the setup removed' for path in gone if path in text]
+    return found
+
+
+def run(cmd: list[str], cwd: Path, env: dict) -> tuple[int, str]:
     print(f'$ {" ".join(cmd)}   (in {cwd})', flush=True)
-    return subprocess.run(cmd, cwd=cwd, env=env).returncode
+    proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    lines = []
+    for line in proc.stdout:
+        print(line, end='', flush=True)
+        lines.append(line)
+    return proc.wait(), ''.join(lines)
 
 
 def main() -> int:
@@ -181,11 +203,18 @@ def main() -> int:
     if args.setup_only:
         return 0
     env = {**os.environ, 'BSTACK_BASE_REF': 'main'}
-    results = {'check.py': run([sys.executable, 'scripts/check.py'], worktree, env)}
+    stale = stale_references(PLANS[args.platform], worktree)
+    print('\n'.join(stale) or 'No file names a path the setup removed.', flush=True)
+    results = {'no stale references': 1 if stale else 0,
+               'check.py': run([sys.executable, 'scripts/check.py'], worktree, env)[0]}
     if not args.no_rules:
         # Cases add packages, so the package manager must update lock files in their copies, which CI=true forbids.
-        results['test_rules.py --project'] = run(
-            [sys.executable, str(ROOT / 'scripts/test_rules.py'), '--project', str(worktree)], ROOT, {**env, 'CI': 'false'})
+        code, output = run([sys.executable, str(ROOT / 'scripts/test_rules.py'), '--project', str(worktree)], ROOT,
+                           {**env, 'CI': 'false'})
+        results['test_rules.py --project'] = code
+        # test_rules.py passes with SKIPs; here a SKIP means a case that applies to any app found nothing to run on.
+        skips = re.search(r'(\d+) skip', output)
+        results['no skipped cases'] = 0 if skips and skips[1] == '0' else 1
     print('\nDerived project: ' + ', '.join(f'{step} {"PASS" if code == 0 else "FAIL"}' for step, code in results.items()))
     return 0 if all(code == 0 for code in results.values()) else 1
 
