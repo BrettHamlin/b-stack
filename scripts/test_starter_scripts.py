@@ -1376,13 +1376,13 @@ class GateGuidanceTests(unittest.TestCase):
     PINS = [
         # (starter, gate file, what its message says, guidance files, what the guidance says)
         (ANDROID_TEMPLATE, 'scripts/verify.py', ("the screen's session that isn't stored anywhere else (a selection",),
-         ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'), "the screen's session that isn't stored anywhere else"),
+         ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'), "session that isn't stored anywhere else"),
         (ANDROID_TEMPLATE, 'scripts/verify.py', ('Journey bodies go in verify/journeys.',), ('AGENTS.template.md',),
-         'journeys in verify/journeys'),
+         '**feature-map and journeys** (feature-map/<id>.toml, verify/journeys)'),
         (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
-         ('Put platform work in a platform module',), ('AGENTS.template.md',), 'Only platform modules do I/O'),
+         ('Put platform work in a platform module',), ('AGENTS.template.md',), '**platform** (platform/<name>): the only I/O.'),
         (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
-         ("a feature's api module holds declarations only",), ('AGENTS.template.md',), 'api holds declarations only'),
+         ("a feature's api module holds declarations only",), ('AGENTS.template.md',), '**api** (features/<name>/api): declarations only:'),
         (RUST_TEMPLATE, 'scripts/arch.py', ("Crates go in the module shape's folders (arch/shape.toml)",), ('AGENTS.template.md',),
          'module shape (arch/shape.toml'),
         (RUST_TEMPLATE, 'scripts/verify.py', ('naming it in modules, with journeys in crates/app/tests/journeys.rs that prove',),
