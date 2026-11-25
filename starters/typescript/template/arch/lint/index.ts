@@ -224,7 +224,7 @@ const noSkippedTests = defineRule({
         if (UNCHECKED.has(name) || effectTable) {
           context.report({
             node,
-            message: `\`.${name}\` registers tests the assertion check can't see. Write one it.effect (or it) that loops over its cases and asserts each with expect, like the property test in packages/features/tally/tests/property.test.ts.`,
+            message: `\`.${name}\` registers tests the assertion check can't see. Write one it.effect (or it) that loops over its cases and asserts each with expect, as a property test does.`,
           });
         }
       },

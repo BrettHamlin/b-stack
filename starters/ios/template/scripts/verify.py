@@ -13,7 +13,7 @@ Commands:
              left behind. Evidence is kept.
 
 Test mode: AppVerify is the app composed with Targets/Fixtures instead of real services. It reads BSTACK_FIXTURE
-(a Fixture case, e.g. standard or save-fails) and BSTACK_RESET=1. The shipped App can't import Fixtures.
+(a Fixture case, e.g. standard) and BSTACK_RESET=1. The shipped App can't import Fixtures.
 
 Feature map: feature-map/*.toml, one file per feature. Every feature module (each Targets/<Feature>Interface) needs an
 entry, and each entry's module must be a feature. Each journey is named by exactly one entry, with a fixture that

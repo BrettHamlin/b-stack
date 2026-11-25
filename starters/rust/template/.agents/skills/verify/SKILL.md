@@ -21,7 +21,7 @@ python3 scripts/package.py         # the release binary, checked and launched on
 
 ```sh
 python3 scripts/check.py --only compiler            # builds the app (and everything else) into .build/target
-mkdir -p .build/look && .build/target/debug/app --data .build/look show
+mkdir -p .build/look && .build/target/debug/app --data .build/look <command>
 ```
 
 Run the binary the gates built; don't run cargo by hand (scripts/tools.py sets where the toolchain, downloads and build output go). Use a data folder under `.build/` (never your own files), and start it empty to see a new user's state. Exploring is for looking and judging; it's not proof. Once a behaviour works, write the journey that proves it.

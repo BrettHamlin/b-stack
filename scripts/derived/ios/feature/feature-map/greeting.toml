@@ -1,0 +1,9 @@
+id = "greeting"
+module = "Greeting"
+summary = "User types a name and is greeted by it."
+entry_points = ["Launch the app: the greeting is the first screen."]
+
+[[journeys]]
+test = "GreetingJourneys/testGreetsTheNameTypedIn"
+fixture = "standard"
+proves = "Typing a name and tapping Greet shows the greeting for it."

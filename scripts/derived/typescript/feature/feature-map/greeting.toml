@@ -1,0 +1,7 @@
+id = "greeting"
+summary = "Greet someone by name."
+modules = ["greeting"]
+
+[[journeys]]
+name = "greeting_works"
+proves = "Typing a name and pressing Greet shows the greeting for it."

@@ -1345,15 +1345,67 @@ class RustWorkflowTests(unittest.TestCase):
             self.assertIn(command, job)
 
 
-class AndroidAgentsTemplateTests(unittest.TestCase):
-    """The new-project skill has the agent delete the tally example, so the AGENTS.md it leaves behind (and the verify
-    skill it points at) must not send the agent to tally's files as the pattern to follow."""
+class AgentsTemplateTests(unittest.TestCase):
+    """The new-project skill has the agent delete the example, so the AGENTS.md it leaves behind, the verify skill it
+    points at and the stubs new_feature.py writes must not send the agent to the example's files as the pattern to
+    follow (Hexfleet's AGENTS.md pointed at the tally the setup had deleted)."""
+
+    EXAMPLE = {
+        TEMPLATE: r'Targets/Settings|NotificationSettings|SettingsLogic|save-fails',
+        RUST_TEMPLATE: r'tally|Tally|platform/files|FileTallyStore',
+        TS_TEMPLATE: r'tally|Tally|platform/files|fileTallyStore',
+        ANDROID_TEMPLATE: r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files',
+    }
 
     def test_agent_guidance_names_no_example_files(self) -> None:
-        example = re.compile(r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files')
-        for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md'):
-            found = example.findall((ANDROID_TEMPLATE / path).read_text())
-            self.assertEqual(found, [], f'{path} names the example the new project deletes')
+        for template, pattern in self.EXAMPLE.items():
+            for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md', 'scripts/new_feature.py'):
+                if not (template / path).is_file():
+                    continue
+                with self.subTest(starter=template.parent.name, path=path):
+                    found = re.findall(pattern, (template / path).read_text())
+                    self.assertEqual(found, [], f'{path} names the example the new project deletes')
+
+
+class GateGuidanceTests(unittest.TestCase):
+    """Gate messages that tell the agent where to put something say what the guidance they point to says. Hexfleet's
+    builder followed verify's process-death message ("keep input in the model's Saved") into serializing a whole turn,
+    while core/Saved.kt said data goes to a store. Each entry: the same instruction, found in the gate's message and in
+    the guidance (AGENTS.template.md, or the code comment the message relies on). Change one, change the other."""
+
+    PINS = [
+        # (starter, gate file, what its message says, guidance files, what the guidance says)
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ("the screen's session that isn't stored anywhere else (a selection",),
+         ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'), "session that isn't stored anywhere else"),
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ('Journey bodies go in verify/journeys.',), ('AGENTS.template.md',),
+         '**feature-map and journeys** (feature-map/<id>.toml, verify/journeys)'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
+         ('Put platform work in a platform module',), ('AGENTS.template.md',), '**platform** (platform/<name>): the only I/O.'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
+         ("a feature's api module holds declarations only",), ('AGENTS.template.md',), '**api** (features/<name>/api): declarations only:'),
+        (RUST_TEMPLATE, 'scripts/arch.py', ("Crates go in the module shape's folders (arch/shape.toml)",), ('AGENTS.template.md',),
+         'module shape (arch/shape.toml'),
+        (RUST_TEMPLATE, 'scripts/verify.py', ('naming it in modules, with journeys in crates/app/tests/journeys.rs that prove',),
+         ('AGENTS.template.md',), 'journeys in crates/app/tests/journeys.rs'),
+        (TS_TEMPLATE, 'scripts/verify.py', ("JOURNEYS = 'apps/desktop/journeys'", "journey {name} in {JOURNEYS}/ isn't in the feature map"),
+         ('AGENTS.template.md',), 'journeys in apps/desktop/journeys/'),
+        (TEMPLATE, 'scripts/verify.py', ('Keep bodies in Targets/AppVerifyJourneys',), ('AGENTS.template.md',),
+         'journey bodies in Targets/AppVerifyJourneys'),
+    ]
+
+    @staticmethod
+    def plain(text: str) -> str:
+        """Text without source punctuation: string literals joined across lines, comment stars, escapes, backticks."""
+        text = re.sub(r"""['"]\s*\+?\s*\n\s*\+?\s*['"]""", '', text)  # 'a ' \n 'b' and "a " +\n "b"
+        text = re.sub(r'\n\s*\*\s?', ' ', text).replace("\\'", "'").replace('`', '')
+        return re.sub(r'\s+', ' ', text)
+
+    def test_gate_messages_say_what_the_guidance_says(self) -> None:
+        for template, gate, said, guides, guidance in self.PINS:
+            for path, texts in ((gate, said), *((g, (guidance,)) for g in guides)):
+                for text in texts:
+                    with self.subTest(starter=template.parent.name, file=path, text=text):
+                        self.assertIn(text, self.plain((template / path).read_text()))
 
 
 class AndroidReviewTests(unittest.TestCase):
@@ -1368,6 +1420,51 @@ class AndroidReviewTests(unittest.TestCase):
         self.assertEqual([r for r in rules if not re.search(rf'\b{re.escape(r)}\b', review)], [])
         for part in ('**blocker**', '**should**', 'caught by a gate', 'stop and report'):
             self.assertIn(part, review)
+
+
+class DerivedProjectTests(unittest.TestCase):
+    """scripts/derived_project.py's plans match the new-project skill, and the starter fixes the derived projects found
+    hold without running one."""
+
+    def test_every_path_the_plan_removes_is_one_the_skill_names(self) -> None:
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        import derived_project
+        skill = (ROOT / 'skills/new-project/SKILL.md').read_text()
+        sections = {'ios': skill.split('## Rust')[0], 'rust': skill.split('## Rust')[1].split('## TypeScript')[0],
+                    'typescript': skill.split('## TypeScript')[1].split('## Android')[0],
+                    'android': skill.split('## Android')[1].split('## GitHub')[0]}
+        for name, plan in derived_project.PLANS.items():
+            named = set(re.findall(r'`([^`]+)`', sections[name]))
+            for path in plan.remove:
+                with self.subTest(platform=name, path=path):
+                    # The path itself, or a folder holding it ("the tally parts of `packages/contracts`").
+                    candidates = {str(Path(*Path(path).parts[:i])) for i in range(1, len(Path(path).parts) + 1)}
+                    self.assertTrue(candidates & {n.rstrip('/') for n in named}, f'the skill\'s {name} section names none of {sorted(candidates)}')
+
+    def test_platform_folders_survive_removing_the_example(self) -> None:
+        # Cargo fails every gate when a workspace member glob (crates/platform/*) matches no folder, and the rule cases
+        # that add a platform package SKIP when packages/platform is gone.
+        for folder in (RUST_TEMPLATE / 'crates/platform', TS_TEMPLATE / 'packages/platform'):
+            with self.subTest(folder=str(folder.relative_to(ROOT))):
+                self.assertTrue((folder / '.gitkeep').is_file())
+
+    def test_the_typescript_compiler_gate_leaves_out_a_package_with_no_code(self) -> None:
+        root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, root)
+        shutil.copytree(TS_TEMPLATE / 'scripts', root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(TS_TEMPLATE / 'arch', root / 'arch')
+        for package, source in (('packages/fixtures', None), ('packages/features/a', 'src/index.ts'),
+                                ('packages/features/b', 'src/dist/index.ts'), ('packages/features/c', 'dist/index.js')):
+            (root / package).mkdir(parents=True)
+            (root / package / 'tsconfig.json').write_text('{}')
+            if source:
+                (root / package / source).parent.mkdir(parents=True, exist_ok=True)
+                (root / package / source).write_text('export {};\n')
+        proc = subprocess.run([sys.executable, '-c', 'import sys; sys.path.insert(0, "scripts"); import check; '
+                               'print(sorted(str(p.parent.relative_to(check.ROOT)) for p in check.tsconfigs()))'],
+                              cwd=root, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "['packages/features/a', 'packages/features/b']")
 
 
 class AndroidWorkflowTests(unittest.TestCase):
