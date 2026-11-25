@@ -125,8 +125,13 @@ class Driver(private val journey: String) : Journey {
         }
 
         override fun isSelected() {
-            if (!device.wait(Until.hasObject(By.res(id.value).selected(true)), WAIT_MS)) {
-                throw AssertionError("[verify] ${id.value} isn't selected after ${WAIT_MS / 1000} s")
+            // Compose reports `selected` as selected on a tab and as checked on anything else (Compose UI 1.13.0).
+            val deadline = System.currentTimeMillis() + WAIT_MS
+            while (!device.hasObject(By.res(id.value).selected(true)) && !device.hasObject(By.res(id.value).checked(true))) {
+                if (System.currentTimeMillis() > deadline) {
+                    throw AssertionError("[verify] ${id.value} isn't selected after ${WAIT_MS / 1000} s")
+                }
+                Thread.sleep(100)
             }
         }
 
