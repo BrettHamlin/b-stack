@@ -34,9 +34,10 @@ platform is found from its files). --list prints the cases a run would take, wit
 Work and tool downloads go to the cache folder if one is configured (see starters/ios/template/scripts/paths.py),
 otherwise to .build/rule-tests/ and .tools/ (gitignored).
 """
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 import argparse
 import fcntl
 import re
@@ -311,7 +312,15 @@ def run_case(worker: Worker, task: Task) -> tuple[str, str]:
         return run_canary(worker, task)
     worker.reset_targets(task.case_dir, task.case)
     if task.case is None:
-        ok, output = worker.check()
+        device = [g for g in platform.gates if g in platform.device_kinds]
+        if 'untouched' not in platform.device_kinds or not device:
+            ok, output = worker.check()
+            return ('PASS', '') if ok else ('FAIL', tail(output))
+        # Every gate, the device's last and holding a device turn, so other device cases needn't wait for its builds.
+        ok, output = worker.check(*[g for g in platform.gates if g not in device])
+        if ok:
+            with device_turn():
+                ok, output = worker.check(*device)
         return ('PASS', '') if ok else ('FAIL', tail(output))
     case = task.case
     if case['expect'] == 'pass':
@@ -329,8 +338,7 @@ def run_case(worker: Worker, task: Task) -> tuple[str, str]:
 runs_example_cases = project == platform.starter.resolve()
 verify.ROOT = project
 project_fixtures = verify.known_fixtures() if platform.name == 'ios' else set()
-tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=bool(platform.simulator_kinds),
-              on_device='untouched' in platform.device_kinds)]
+tasks = [Task(0, '(untouched project passes every gate)', cost=COST['untouched'], needs_simulator=bool(platform.simulator_kinds))]
 for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
     rule, name = case_file.parents[2].name, case_file.parent.name
     if args.rule and rule not in args.rule:
@@ -403,6 +411,22 @@ on_device = 0  # device tasks running (platform.device_kinds)
 timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
 aborted = False
+
+
+@contextmanager
+def device_turn() -> Iterator[None]:
+    """One of platform.device_workers turns on the device, for a task that only needs it for part of its run."""
+    global on_device
+    with changed:
+        while on_device >= platform.device_workers and not aborted:
+            changed.wait()
+        on_device += 1
+    try:
+        yield
+    finally:
+        with changed:
+            on_device -= 1
+            changed.notify_all()
 
 
 def take(worker: Worker) -> Task | None:
