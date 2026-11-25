@@ -123,7 +123,7 @@ func linkHint(_ module: String, _ dependency: String) -> String {
 }
 
 /// No folder inside a shipped module is named like a test folder. Harmonize's productionCode() skips folders named
-/// *Tests or *Fixtures, so code in Targets/SettingsLogic/NetTests would compile into SettingsLogic while the rules
+/// *Tests or *Fixtures, so code in Targets/<Feature>Logic/NetTests would compile into <Feature>Logic while the rules
 /// that scan productionCode() never read it.
 @Test func noSkippedSubfolders() {
     var hits: [String] = []

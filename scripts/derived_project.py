@@ -47,6 +47,7 @@ class Plan:
     remove: tuple[str, ...]  # the example, as the new-project skill lists it
     fill: dict[str, tuple[tuple[str, str], ...]] = field(default_factory=dict)  # file: (find, replace), each once
     named: tuple[str, ...] = ()  # removed paths the guidance may still name: where to create one when it's needed
+    quoting: tuple[str, ...] = ()  # files that may name a removed path as test data, not as a place to look
     settle: tuple[str, ...] = ()  # run before the feature's commit, outside CI: brings lock files (and generated
     # journey adapters) up to date, as an agent's local run does
 
@@ -63,7 +64,8 @@ PLANS = {
                 'packages/contracts/src/ipc.ts', 'packages/fixtures/src', 'apps/desktop/src', 'apps/web/src',
                 'apps/desktop/journeys/tally.journey.ts', 'apps/desktop/journeys/smoke.json', 'feature-map/tally.toml'),
         fill={'apps/web/index.html': (('<title>Tally</title>', f'<title>{APP_NAME}</title>'),)},
-        named=('packages/contracts/src/ipc.ts',),
+        # smoke.json is what packaging checks (scripts/package.py), which a derived run doesn't do.
+        named=('packages/contracts/src/ipc.ts', 'apps/desktop/journeys/smoke.json'),
         settle=('scripts/tools.py', 'install')),
     'android': Plan(
         feature='greeting',
@@ -80,6 +82,7 @@ PLANS = {
                 'Targets/Platform/Platform.swift', 'Targets/Fixtures/Fixtures.swift', 'Targets/App/App.swift',
                 'Targets/AppVerify/AppVerify.swift', 'Targets/AppVerifyJourneys/NotificationSettingsJourneys.swift',
                 'feature-map/notification-settings.toml'),
+        quoting=('scripts/test_verify.py',),
         settle=('scripts/verify.py', 'adapters')),
 }
 
@@ -165,6 +168,8 @@ def stale_references(plan: Plan, project: Path) -> list[str]:
     gone = [path for path in plan.remove if not (project / path).exists() and path not in plan.named]
     found = []
     for name in git(project, 'ls-files').splitlines():
+        if name in plan.quoting:
+            continue
         try:
             text = (project / name).read_text()
         except (UnicodeDecodeError, IsADirectoryError, FileNotFoundError):
