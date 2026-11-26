@@ -1,0 +1,10 @@
+id = "animations-from-state"
+layer = "2"
+summary = "Animation lives in a feature's ui module, derived from state with the platform's animation APIs; nothing times itself by hand."
+problem = "Agents time animations by hand (a delay in a LaunchedEffect, a frame loop) and make the model wait for them, so tests and journeys race the clock, screenshots catch frames mid-way, and the system's Remove animations setting is ignored."
+message = "Animate from state with Compose's animation APIs (animate*AsState, AnimatedVisibility, updateTransition, Animatable), which follow the system's animation scale; never delay or withFrameNanos in a view. The model moves to the next state at once and never waits for an animation. If the effect can't be derived from state, stop and report."
+escape_hatches = ["A delay or frame loop in a helper outside ui: core-ui is code-owned, and logic has no Compose.", "A model state that the view clears when an animation ends (`finishedListener` sending an action): review.", "An unlisted timing API: add it to the check when found."]
+origin = "Hexfleet (the first real Android app on b-stack), Nov 2026: animated art is a remaining feature, and Fable 5.2's review found b-stack silent on where animation and time belong."
+
+[android]
+konsist = "ArchitectureTest.animationsFromState (Konsist 0.18.1): a feature's ui module (not its tests) calls no kotlinx.coroutines `delay` and no `withFrameNanos`, `withFrameMillis` or `withInfiniteAnimationFrameNanos`, imported by name, by wildcard, or written out in full. verify runs the emulator with the window, transition and animator scales at 0 (scripts/emulator.py), which Compose's animations follow, so journeys see end states."

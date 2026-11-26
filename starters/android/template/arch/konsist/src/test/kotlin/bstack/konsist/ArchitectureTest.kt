@@ -13,16 +13,6 @@ import kotlin.test.fail
  * it enforces and says what to do instead.
  */
 class ArchitectureTest {
-    private val root = File(System.getProperty("bstack.root") ?: error("bstack.root isn't set"))
-
-    /** Every Kotlin file in the project's modules (not build-logic or arch/, which are code-owned). */
-    private val files: List<Source> by lazy {
-        val skip = listOf(".build/", ".tools/", "build/", "build-logic/", "arch/", ".gradle/", ".kotlin/")
-        Konsist.scopeFromExternalDirectory(root.absolutePath).files
-            .map { Source(it, it.path.removePrefix(root.absolutePath).removePrefix("/")) }
-            .filter { source -> skip.none { source.relative.startsWith(it) } }
-    }
-
     private class Source(val file: KoFileDeclaration, val relative: String) {
         val text: String get() = file.text
         val test: Boolean get() = "/src/commonTest/" in relative || "/src/test/" in relative
@@ -38,6 +28,19 @@ class ArchitectureTest {
                 else -> module
             }
         val compositionRoot: Boolean get() = role == "app" || role == "app-verify"
+    }
+
+    companion object {
+        private val root = File(System.getProperty("bstack.root") ?: error("bstack.root isn't set"))
+
+        /** Every Kotlin file in the project's modules (not build-logic or arch/, which are code-owned). Shared across
+         * this run's test methods so Konsist parses the project once per gate run instead of once per @Test. */
+        private val files: List<Source> by lazy {
+            val skip = listOf(".build/", ".tools/", "build/", "build-logic/", "arch/", ".gradle/", ".kotlin/")
+            Konsist.scopeFromExternalDirectory(root.absolutePath).files
+                .map { Source(it, it.path.removePrefix(root.absolutePath).removePrefix("/")) }
+                .filter { source -> skip.none { source.relative.startsWith(it) } }
+        }
     }
 
     private fun check(findings: List<String>) {
@@ -608,6 +611,115 @@ class ArchitectureTest {
                 }
         },
     )
+
+    @Test
+    fun everySendIsAsserted() = check(
+        files.filter { it.test && it.role == "logic" }.flatMap { source ->
+            val send = Regex("""\b(\w+)\s*\.\s*send\s*\(""")
+            val subscribe = Regex("""\b(\w+)\s*\.\s*state\s*\.\s*test\b""")
+            val asserted = Regex("""\b(awaitItem|expectNoEvents)\s*\(""")
+            source.file.functions(includeNested = true).filter { fn -> fn.annotations.any { it.name == "Test" } }
+                .flatMap { fn ->
+                    val body = code(fn.text)
+                    val start = source.text.indexOf(fn.text).coerceAtLeast(0)
+                    subscribe.findAll(body).mapNotNull { test -> lambdaAfter(body, test.range.last + 1)?.let { test to it } }
+                        .flatMap { (test, open) ->
+                        val end = closingBrace(body, open)
+                        val sends = send.findAll(body.substring(0, end))
+                            .filter { it.range.first > open && it.groupValues[1] == test.groupValues[1] }.toList()
+                        sends.filterIndexed { i, sent ->
+                            sent.groupValues[1] == test.groupValues[1] &&
+                                !asserted.containsMatchIn(body.substring(sent.range.last, sends.getOrNull(i + 1)?.range?.first ?: end))
+                        }.map {
+                            "${source.relative}:${line(source.text, start + it.range.first)}: [exhaustive-tests] test " +
+                                "`${fn.name}` sends `${it.groupValues[1]}` an action and asserts no state before the next " +
+                                "send or the end of `state.test { }`, so what that action did is never checked. After each " +
+                                "send, assert the state it makes (`assertEquals(<whole state>, awaitItem())`), or " +
+                                "`expectNoEvents()` if it changes nothing."
+                        }
+                    }.toList()
+                }
+        },
+    )
+
+    /** The offset of the lambda's `{` after `test` at [from]: past optional arguments (`test(timeout = ...)`), or null. */
+    private fun lambdaAfter(code: String, from: Int): Int? {
+        var i = from
+        while (i < code.length && code[i].isWhitespace()) i++
+        if (i < code.length && code[i] == '(') {
+            var depth = 0
+            while (i < code.length) {
+                if (code[i] == '(') depth++
+                if (code[i] == ')' && --depth == 0) break
+                i++
+            }
+            i++
+            while (i < code.length && code[i].isWhitespace()) i++
+        }
+        return if (i < code.length && code[i] == '{') i else null
+    }
+
+    /** The offset of the `}` closing the `{` at [open] in [code] (or the end). */
+    private fun closingBrace(code: String, open: Int): Int {
+        var depth = 0
+        for (i in open until code.length) {
+            when (code[i]) {
+                '{' -> depth++
+                '}' -> if (--depth == 0) return i
+            }
+        }
+        return code.length
+    }
+
+    @Test
+    fun stateIsData() {
+        val packageLine = Regex("""^\s*package\s+([\w.]+)""", RegexOption.MULTILINE)
+        val packageOf = { source: Source -> packageLine.find(source.text)?.groupValues?.get(1).orEmpty() }
+        val found = files.filter { it.role == "logic" && !it.test }.groupBy { it.module }.values.flatMap { sources ->
+            val viewable = modelTypes(sources, packageOf).filterNot { it.endsWith("Model") }.toSet()
+            sources.flatMap { source ->
+                val declared = source.file.classes(includeNested = false).map { it.name to it.functions(includeNested = true) } +
+                    source.file.interfaces(includeNested = false).map { it.name to it.functions(includeNested = true) }
+                declared.filter { (name, _) -> "${packageOf(source)}.$name" in viewable }.flatMap { (name, functions) ->
+                    functions.filterNot { it.hasOverrideModifier }.map {
+                        "${source.relative}: [module-boundaries] $name.${it.name}() is a function on a type the view gets " +
+                            "from its logic, so the view can work things out itself, where the logic's tests never look. " +
+                            "State is data: the model works out what the screen needs and puts it in the state, as a value " +
+                            "or a property without parameters; a helper the model uses is a top-level function in logic, " +
+                            "which the view can't import."
+                    }
+                }
+            }
+        }
+        check(found)
+    }
+
+    @Test
+    fun animationsFromState() {
+        val timing = Regex("""\b(?:kotlinx\.coroutines\.)?(delay)\s*\(|\b(?:androidx\.compose\.(?:runtime|animation\.core)\.)?(withFrameNanos|withFrameMillis|withInfiniteAnimationFrameNanos)\s*[({]""")
+        check(
+            files.filter { it.role == "ui" && !it.test }.flatMap { source ->
+                val imports = Regex("""^\s*import\s+([\w.]+(?:\.\*)?)""", RegexOption.MULTILINE).findAll(source.text)
+                    .map { it.groupValues[1] }.toList()
+                val code = code(source.text)
+                timing.findAll(code).filter { match ->
+                    val name = match.groupValues[1].ifEmpty { match.groupValues[2] }
+                    match.value.startsWith("kotlinx.") || match.value.startsWith("androidx.") || imports.any {
+                        it == "kotlinx.coroutines.$name" || it == "kotlinx.coroutines.*" ||
+                            it == "androidx.compose.runtime.$name" || it == "androidx.compose.runtime.*" ||
+                            it == "androidx.compose.animation.core.$name" || it == "androidx.compose.animation.core.*"
+                    }
+                }.map { match ->
+                    val name = match.groupValues[1].ifEmpty { match.groupValues[2] }
+                    "${source.relative}:${line(code, match.range.first)}: [animations-from-state] `$name(` times an " +
+                        "animation by hand, so it ignores the system's animation scale (Remove animations, and verify's " +
+                        "animations-off emulator) and journeys race it. Derive it from state with Compose's animation " +
+                        "APIs (animate*AsState, AnimatedVisibility, updateTransition, Animatable), and let the model move " +
+                        "to the next state at once. If it can't be derived from state, stop and report."
+                }.toList()
+            },
+        )
+    }
 
     /** The actual argument of the call whose arguments start at [start] (just after its `(`): the one named
      * `actual =`, else the second positional one. Null if there is none. */

@@ -43,6 +43,14 @@ interface Element {
      * here. */
     fun describes(expected: String)
 
+    /** Waits until the element is selected (a chosen tab, option or piece: Modifier.selectable's or Tab's `selected`),
+     * or checked (a checkbox or switch, which is how Compose reports `selected` on anything but a tab). */
+    fun isSelected()
+
+    /** Waits until the element is gone from the screen (a dismissed dialog, a removed piece). Find it while it's still
+     * shown (`val dialog = screen.find(...)`, then act, then `dialog.isGone()`): find() fails on one that isn't there. */
+    fun isGone()
+
     /** Waits until the element can't be used (a disabled button or field). */
     fun isDisabled()
 }

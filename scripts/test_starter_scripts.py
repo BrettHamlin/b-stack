@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import threading
 import time
 import tomllib
@@ -568,9 +569,11 @@ class TypeScriptToolsTests(unittest.TestCase):
         self.pin()
         self.env['npm_config_registry'] = 'https://example.invalid/'
         self.env['pnpm_config_registry'] = 'https://example.invalid/'
+        self.env['ELECTRON_RUN_AS_NODE'] = '1'
         env = json.loads(self.node_env().stdout)
         self.assertNotIn('npm_config_registry', env)
         self.assertNotIn('pnpm_config_registry', env)
+        self.assertNotIn('ELECTRON_RUN_AS_NODE', env)
 
     def test_checksum_mismatch_is_refused_and_leaves_nothing(self) -> None:
         self.pin(node_sha='0' * 64)
@@ -652,6 +655,26 @@ class AndroidToolsTests(unittest.TestCase):
         self.assertEqual(env['ANDROID_AVD_HOME'], str(self.tools / 'android-user/avd'))
         self.assertEqual(env['PATH'].split(os.pathsep)[0], str(self.tools / 'jdk-1.0/jdk/bin'))
 
+    def test_gradle_keeps_its_project_cache_at_the_build_folders_real_path(self) -> None:
+        # Through the .build link, Gradle 9.9.2 deletes every output as stale and reruns every task. The link is made
+        # first, so this holds before anything else has made it.
+        result = self.call('(setattr(tools, "tool_path", lambda name: tools.Path("/gradle")), tools.gradle_command("x"))[1]')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        command = json.loads(result.stdout)
+        self.assertTrue((self.root / '.build').is_symlink())
+        real = (self.root / '.build').resolve()
+        self.assertTrue(real.is_relative_to(self.cache))
+        self.assertEqual(command[command.index('--project-cache-dir') + 1], str(real / 'gradle-project'))
+        self.assertIn(f'-Pkotlin.project.persistent.dir={real / "kotlin"}', command)
+
+    def test_rule_runs_turn_off_kotlins_incremental_compiler_with_a_plain_variable(self) -> None:
+        expression = '(setattr(tools, "tool_path", lambda name: tools.Path("/gradle")), tools.gradle_command("x"))[1]'
+        self.env.pop('BSTACK_KOTLIN_INCREMENTAL', None)
+        self.assertNotIn('-Pkotlin.incremental=false', json.loads(self.call(expression).stdout))
+        self.env['BSTACK_KOTLIN_INCREMENTAL'] = 'false'
+        command = json.loads(self.call(expression).stdout)
+        self.assertLessEqual({'-Pkotlin.incremental=false', '-Pkotlin.incremental.multiplatform=false'}, set(command))
+
     def test_sdk_installs_the_pinned_revision(self) -> None:
         self.pin()
         result = self.call('str(tools.sdk())')
@@ -726,6 +749,148 @@ def written(root: Path, run: callable) -> list[str]:
     return sorted(path for path, data in files_in(root).items() if before.get(path) != data)
 
 
+class AndroidCheckTests(unittest.TestCase):
+    """check.py's Gradle gates: one Gradle run for all of them when it passes, each on its own when it doesn't."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(ANDROID_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(ANDROID_TEMPLATE / 'arch', self.root / 'arch', ignore=shutil.ignore_patterns('detekt-rules', 'konsist'))
+
+    def run_check(self, failing: set[str], gates: list[str], skipped: bool = False) -> tuple[list[list[str]], list[str], str]:
+        """check.check(gates) with a fake Gradle that fails any run including a task in `failing`, and leaves passing
+        results for Konsist and module `m` (skipped ones with `skipped`): (each Gradle run's tasks, the failed gates,
+        the output)."""
+        script = textwrap.dedent('''
+            import contextlib, io, json, sys
+            sys.path.insert(0, sys.argv[1])
+            import check
+            runs, failing, skipped = [], set(json.loads(sys.argv[2])), sys.argv[4] == 'skipped'
+            def result(folder, status):
+                path = check.RESULTS / folder / 'test-results/test/TEST-t.xml'
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f'<testsuite><testcase classname="T" name="t">{status}</testcase></testsuite>')
+            def gradle(env, *tasks):
+                runs.append(list(tasks))
+                if ':arch:konsist:test' in tasks:
+                    result('arch/konsist', '')
+                if 'jvmTest' in tasks:
+                    result('m', '<skipped/>' if skipped else '')
+                return not failing & set(tasks), 'gradle output'
+            check.gradle, check.android_env = gradle, dict
+            check.tested_modules = lambda: ['m']
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                failed = check.check(json.loads(sys.argv[3]))
+            print(json.dumps([runs, failed, out.getvalue()]))
+        ''')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts'), json.dumps(sorted(failing)),
+                                 json.dumps(gates), 'skipped' if skipped else ''], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.splitlines()[-1])
+
+    def test_passing_gates_share_one_gradle_run_but_lint_runs_alone(self) -> None:
+        runs, failed, output = self.run_check(set(), ['compiler', 'detekt', 'lint'])
+        self.assertEqual(failed, [])
+        self.assertEqual(len(runs), 2)
+        self.assertLessEqual({'assembleDebug', 'detektMainJvm'}, set(runs[0]))
+        self.assertNotIn('lintDebug', runs[0])
+        self.assertEqual(runs[1], ['lintDebug'])
+        self.assertIn('One Gradle run for compiler, detekt: passed', output)
+
+    def test_a_failing_shared_run_reruns_each_gate_so_the_failure_is_its_own(self) -> None:
+        runs, failed, output = self.run_check({'detektMain'}, ['compiler', 'detekt', 'lint'])
+        self.assertEqual(failed, ['detekt'])
+        self.assertEqual(runs[1:], [list(tasks) for tasks in (
+            ('assembleDebug', 'compileCommonMainKotlinMetadata', 'compileTestKotlinJvm', 'compileDebugUnitTestKotlin',
+             'testClasses'), ('detektMainJvm', 'detektTestJvm', 'detektMain', 'detektTest'), ('lintDebug',))])
+        self.assertIn('PASS compiler', output)
+        self.assertIn('FAIL detekt', output)
+        self.assertIn('PASS lint', output)
+
+    def test_a_passing_shared_run_still_fails_a_skipped_test(self) -> None:
+        runs, failed, output = self.run_check(set(), ['compiler', 'konsist', 'tests'], skipped=True)
+        self.assertEqual((len(runs), failed), (1, ['tests']))
+        self.assertIn('[tests-always-run] m: T.t was skipped', output)
+
+    def test_konsist_without_results_fails(self) -> None:
+        script = ('import sys; sys.path.insert(0, sys.argv[1]); import check\n'
+                  'print(check.judge("konsist", True, ""))')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts')], capture_output=True, text=True)
+        self.assertIn("(False,", result.stdout, result.stderr)
+        self.assertIn("didn't run", result.stdout)
+
+    def test_one_gate_runs_alone(self) -> None:
+        runs, failed, _ = self.run_check(set(), ['konsist'])
+        self.assertEqual((runs, failed), ([[':arch:konsist:test']], []))
+
+
+class AndroidDepsTests(unittest.TestCase):
+    """deps.py's manifest + shipped libraries: one Gradle run when both pass, separate runs on failure."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        shutil.copytree(ANDROID_TEMPLATE / 'scripts', self.root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(ANDROID_TEMPLATE / 'arch', self.root / 'arch', ignore=shutil.ignore_patterns('detekt-rules', 'konsist'))
+
+    def run_deps(self, combined_rc: int) -> tuple[list[list[str]], list[str], list[str]]:
+        script = textwrap.dedent('''
+            import json, subprocess, sys
+            sys.path.insert(0, sys.argv[1])
+            import deps
+            runs, combined_rc = [], int(sys.argv[2])
+            def fake_cmd(*args):
+                return ['gradle', *args]
+            def fake_run(cmd, **kwargs):
+                runs.append(cmd[1:])
+                if ':app:processReleaseMainManifest' in cmd:
+                    deps.MERGED.parent.mkdir(parents=True, exist_ok=True)
+                    deps.MERGED.write_text('<manifest package="dev.bstack.starter"><application/></manifest>')
+                rc = combined_rc if len(runs) == 1 else 0
+                out = '+--- com.example:lib:1.0\\n' if ':app:dependencies' in cmd else ''
+                return subprocess.CompletedProcess(cmd, rc, out, '')
+            deps.gradle_command = fake_cmd
+            deps.subprocess.run = fake_run
+            findings, in_app = deps.manifest_and_shipped({})
+            print(json.dumps([runs, findings, sorted(in_app)]))
+        ''')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts'), str(combined_rc)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.splitlines()[-1])
+
+    def test_combined_run_avoids_second_gradle_call(self) -> None:
+        runs, findings, in_app = self.run_deps(0)
+        self.assertEqual(len(runs), 1)
+        self.assertEqual((findings, in_app), ([], ['com.example:lib']))
+
+    def test_failed_combined_run_falls_back_to_separate_runs(self) -> None:
+        runs, findings, in_app = self.run_deps(1)
+        self.assertEqual(len(runs), 3)
+        self.assertEqual((findings, in_app), ([], ['com.example:lib']))
+
+
+class RuleWorkersTests(unittest.TestCase):
+    """test_rules.py's default workers for Android, from the machine's cores and memory (platforms.gradle_workers)."""
+
+    def workers(self, cores: int, memory_gb: int) -> int:
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        import platforms
+        pages = {'SC_PAGE_SIZE': 4096, 'SC_PHYS_PAGES': memory_gb * 2**30 // 4096}
+        with mock.patch.object(platforms.os, 'cpu_count', return_value=cores), \
+                mock.patch.object(platforms.os, 'sysconf', side_effect=pages.__getitem__):
+            return platforms.gradle_workers()
+
+    def test_ci_runner_gets_one_and_this_mac_mini_four(self) -> None:
+        self.assertEqual(self.workers(2, 8), 1)
+        self.assertEqual(self.workers(4, 16), 1)
+        self.assertEqual(self.workers(10, 16), 2)
+        self.assertEqual(self.workers(12, 24), 4)
+        self.assertEqual(self.workers(24, 64), 4)
+
+
 class NewFeatureTests(unittest.TestCase):
     """The TypeScript starter's scripts/new_feature.py, in a copy of its scripts and module shape."""
 
@@ -772,6 +937,27 @@ class NewFeatureTests(unittest.TestCase):
         self.assertEqual(self.run_new('two words').returncode, 2)
         self.assertEqual(self.run_new('notes').returncode, 0)
         again = self.run_new('notes')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('already exist', again.stderr)
+
+    def test_in_existing_package_adds_map_entry_journey_and_test_only(self) -> None:
+        self.assertEqual(self.run_new('battle').returncode, 0)
+        missing = self.run_new('undo-move', '--in', 'missing')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("packages/features/missing isn't a feature package", missing.stderr)
+        made = written(self.root, lambda: self.assertEqual(self.run_new('undo-move', '--in', 'battle').returncode, 0))
+        self.assertEqual(made, [
+            'apps/desktop/journeys/undo-move.journey.ts',
+            'feature-map/undo-move.toml',
+            'packages/features/battle/tests/undo-move.test.ts',
+        ])
+        for path in made:
+            self.assertFalse(code_owned(TS_TEMPLATE, path), path)
+        entry = tomllib.loads((self.root / 'feature-map/undo-move.toml').read_text())
+        self.assertEqual((entry['id'], entry['modules'], entry['journeys'][0]['name']),
+                         ('undo-move', ['battle'], 'undo_move_works'))
+        self.assertFalse((self.root / 'packages/features/undo-move').exists())
+        again = self.run_new('undo-move', '--in', 'battle')
         self.assertEqual(again.returncode, 1)
         self.assertIn('already exist', again.stderr)
 
@@ -835,6 +1021,153 @@ class AndroidNewFeatureTests(unittest.TestCase):
         self.assertIn('already exist', again.stderr)
 
 
+class AndroidFeatureInModuleTests(unittest.TestCase):
+    """`new_feature.py <id> --in <module>`: a feature whose code goes in a module another feature has."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'features', 'feature-map', 'verify/journeys/src', 'verify/runner/src'):
+            shutil.copytree(ANDROID_TEMPLATE / folder, self.root / folder, ignore=shutil.ignore_patterns('__pycache__'))
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_feature.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_adds_a_map_entry_naming_the_module_a_journey_stub_and_a_test_stub(self) -> None:
+        made = written(self.root, lambda: self.assertEqual(self.run_new('undo-move', '--in', 'tally').returncode, 0))
+        self.assertEqual(made, ['feature-map/undo-move.toml',
+                                'features/tally/logic/src/commonTest/kotlin/tally/logic/UndoMoveTest.kt',
+                                'verify/journeys/src/commonMain/kotlin/journeys/UndoMoveJourneys.kt',
+                                'verify/runner/src/main/kotlin/runner/Journeys.kt'])
+        entry = tomllib.loads((self.root / 'feature-map/undo-move.toml').read_text())
+        self.assertEqual((entry['modules'], entry['journeys'][0]['name']), (['tally'], 'undoMoveWorks'))
+        journey = (self.root / 'verify/journeys/src/commonMain/kotlin/journeys/UndoMoveJourneys.kt').read_text()
+        for step in ('fun Journey.undoMoveWorks()', 'screen.rotate()', 'screen.returnAfterProcessDeath()',
+                     'screen.find(TallyUi.name).shows(', '"Write this journey'):
+            self.assertIn(step, journey)
+        self.assertIn('fail("Write this test',
+                      (self.root / 'features/tally/logic/src/commonTest/kotlin/tally/logic/UndoMoveTest.kt').read_text())
+        for path in made:
+            self.assertFalse(code_owned(ANDROID_TEMPLATE, path), path)
+        check = subprocess.run([sys.executable, str(self.root / 'scripts/verify.py'), 'map'], cwd=self.root,
+                               capture_output=True, text=True)
+        self.assertEqual(check.returncode, 1)
+        self.assertIn('[verified-features] journey `undoMoveWorks` is still the stub new_feature.py wrote.', check.stdout)
+        self.assertNotIn('modules', check.stdout)  # sharing tally's module is fine
+
+    def test_finds_the_modules_ids_however_they_are_declared(self) -> None:
+        ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
+        ui.unlink()
+        (ui.parent / 'Screens.kt').write_text('package tally.api.screens\n\nimport core.UiId\n\nobject ListUi {\n'
+                                             '    public val rows: UiId = UiId("tally.rows")\n}\n')
+        self.assertEqual(self.run_new('undo', '--in', 'tally').returncode, 0)
+        journey = (self.root / 'verify/journeys/src/commonMain/kotlin/journeys/UndoJourneys.kt').read_text()
+        self.assertIn('import tally.api.screens.ListUi\n', journey)
+        self.assertIn('screen.find(ListUi.rows).shows(', journey)
+
+    def test_refuses_a_missing_module_a_bad_id_and_an_existing_entry(self) -> None:
+        missing = self.run_new('combat', '--in', 'battle')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("features/battle isn't a feature module (there are: tally)", missing.stderr)
+        for bad in ('Combat', 'two words', 'undo_move', '-undo'):
+            self.assertEqual(self.run_new(bad, '--in', 'tally').returncode, 2, bad)
+        self.assertEqual(self.run_new('tally', '--in', 'tally').returncode, 1)  # feature-map/tally.toml exists
+
+
+class AndroidNewClientTests(unittest.TestCase):
+    """`new_client.py <feature> <name>` in a copy of the starter's scripts, shape, tally feature, fixtures and both apps.
+    (That what it creates passes every gate was checked on the starter and on Hexfleet.)"""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.root)
+        for folder in ('scripts', 'arch', 'features', 'fixtures', 'app', 'app-verify'):
+            shutil.copytree(ANDROID_TEMPLATE / folder, self.root / folder,
+                            ignore=shutil.ignore_patterns('__pycache__', 'konsist', 'detekt-rules'))
+
+    def run_new(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(self.root / 'scripts/new_client.py'), *args], capture_output=True,
+                              text=True)
+
+    def test_creates_the_client_its_platform_module_fakes_and_wiring(self) -> None:
+        made = written(self.root, lambda: self.assertEqual(self.run_new('tally', 'notes').returncode, 0))
+        self.assertEqual(made, [
+            'app-verify/src/main/kotlin/appverify/VerifyApp.kt', 'app/module.toml',
+            'app/src/main/kotlin/app/StarterApp.kt', 'features/tally/api/src/commonMain/kotlin/tally/api/TallyNotes.kt',
+            'features/tally/logic/src/commonTest/kotlin/tally/logic/MemoryTallyNotes.kt',
+            'fixtures/module.toml', 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt', 'platform/notes/module.toml',
+            'platform/notes/src/main/kotlin/platform/notes/FileTallyNotes.kt',
+            'platform/notes/src/test/kotlin/platform/notes/FileTallyNotesTest.kt'])
+        for path in made:
+            self.assertFalse(code_owned(ANDROID_TEMPLATE, path), path)
+        api = (self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyNotes.kt').read_text()
+        for part in ('@Serializable\ndata class TallyNotesData(', 'sealed interface TallyNotesResult<out T>',
+                     'data object Unreadable', 'interface TallyNotes {', 'suspend fun load(): TallyNotesResult<TallyNotesData?>'):
+            self.assertIn(part, api)
+        self.assertEqual((self.root / 'platform/notes/module.toml').read_text(), 'uses = ["core", "features/tally/api"]\n')
+        self.assertIn('"platform/notes"]', (self.root / 'app/module.toml').read_text())
+        self.assertIn('"features/tally/api", "platform/files", "platform/notes"]', (self.root / 'fixtures/module.toml').read_text())
+        fixtures = (self.root / 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt').read_text()
+        self.assertIn('fun tallyNotesSetup(fixture: Fixture): TallyNotesSetup = when (fixture) {\n'
+                      '    Fixture.Standard -> TallyNotesSetup.Empty\n    Fixture.Saved -> TallyNotesSetup.Empty\n'
+                      '    Fixture.FailingSaves -> TallyNotesSetup.Empty\n    Fixture.Unreadable -> TallyNotesSetup.Empty\n}', fixtures)
+        app = (self.root / 'app/src/main/kotlin/app/StarterApp.kt').read_text()
+        self.assertIn('    val tallyNotes: TallyNotes by lazy { FileTallyNotes(this, Dispatchers.IO) }\n', app)
+        self.assertIn('import platform.notes.FileTallyNotes\n', app)
+        verify = (self.root / 'app-verify/src/main/kotlin/appverify/VerifyApp.kt').read_text()
+        self.assertIn('fun tallyNotes(fixture: Fixture, reset: Boolean): TallyNotes = tallyNotesInUse ?: run {', verify)
+        self.assertIn('import fixtures.tallyNotesSetup\n', verify)
+        self.assertEqual(verify.count('import kotlinx.coroutines.Dispatchers\n'), 1)
+
+    def test_an_application_class_without_a_body_gets_one(self) -> None:
+        app = self.root / 'app/src/main/kotlin/app/StarterApp.kt'
+        app.write_text('package app\n\nimport android.app.Application\n\n/** The root. */\nclass StarterApp : Application()\n')
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        self.assertEqual(app.read_text(), 'package app\n\nimport android.app.Application\nimport kotlinx.coroutines.Dispatchers\n'
+                         'import platform.notes.FileTallyNotes\nimport tally.api.TallyNotes\n\n/** The root. */\n'
+                         'class StarterApp : Application() {\n'
+                         '    val tallyNotes: TallyNotes by lazy { FileTallyNotes(this, Dispatchers.IO) }\n}\n')
+
+    def test_refuses_a_client_whose_names_are_taken(self) -> None:
+        before = files_in(self.root)
+        taken = self.run_new('tally', 'store')  # tally's api already declares TallyStore, and both apps a tallyStore
+        self.assertEqual(taken.returncode, 1)
+        self.assertIn('features/tally/api/src/commonMain/kotlin/tally/api/Tally.kt (it declares TallyStore)', taken.stderr)
+        self.assertEqual(files_in(self.root), before)
+
+    def test_fixtures_with_arguments_and_an_application_with_more_supertypes(self) -> None:
+        fixtures = self.root / 'fixtures/src/main/kotlin/fixtures/Fixtures.kt'
+        fixtures.write_text(fixtures.read_text().replace('enum class Fixture {', 'enum class Fixture(val strength: Int = 8, val sound: Boolean = true) {')
+                            .replace('    Standard,', '    Standard(8, true), // "a quote in a comment\n    /** https://example.test */').replace('    Saved,', '    Saved(strength = 3) {\n        override fun toString() = "s"\n    },'))
+        app = self.root / 'app/src/main/kotlin/app/StarterApp.kt'
+        app.write_text(app.read_text().replace('class StarterApp : Application() {', 'class StarterApp : Application(),\n    Comparable<List<StarterApp>> {\n    override fun compareTo(other: List<StarterApp>) = 0\n'))
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        setup = (self.root / 'fixtures/src/main/kotlin/fixtures/TallyNotesFixtures.kt').read_text()
+        self.assertIn('    Fixture.Standard -> TallyNotesSetup.Empty\n    Fixture.Saved -> TallyNotesSetup.Empty\n', setup)
+        self.assertNotIn('Fixture.true', setup)
+        self.assertIn('class StarterApp : Application(),\n    Comparable<List<StarterApp>> {\n    val tallyNotes: TallyNotes by lazy',
+                      app.read_text())
+
+    def test_refuses_and_writes_nothing_without_a_feature_fixtures_or_an_application(self) -> None:
+        before = files_in(self.root)
+        missing = self.run_new('battle', 'store')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("features/battle/api isn't a feature's api module", missing.stderr)
+        for bad in (('tally',), ('Tally', 'store'), ('tally', 'two words')):
+            self.assertEqual(self.run_new(*bad).returncode, 2, bad)
+        (self.root / 'fixtures/src/main/kotlin/fixtures/Fixtures.kt').write_text('package fixtures\n')
+        self.assertIn('fixtures has no `enum class Fixture', self.run_new('tally', 'notes').stderr)
+        self.assertEqual({p: d for p, d in files_in(self.root).items() if not p.startswith('fixtures/')},
+                         {p: d for p, d in before.items() if not p.startswith('fixtures/')})
+        self.assertEqual(self.run_new('tally', 'files').returncode, 1)  # an existing platform module is fine; its file isn't
+        shutil.copytree(ANDROID_TEMPLATE / 'fixtures', self.root / 'fixtures', dirs_exist_ok=True)
+        self.assertEqual(self.run_new('tally', 'notes').returncode, 0)
+        again = self.run_new('tally', 'notes')
+        self.assertEqual(again.returncode, 1)
+        self.assertIn('already exist', again.stderr)
+
+
 class AndroidFeatureMapTests(unittest.TestCase):
     """The Android starter's map check (`scripts/verify.py map`), in a copy of its scripts, features, feature map and
     journeys, outside git (so the check against the base branch says there's none). Features may share a module."""
@@ -863,11 +1196,51 @@ class AndroidFeatureMapTests(unittest.TestCase):
         result = self.run_verify('map')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_an_id_no_journey_names_fails_even_if_a_string_mentions_it(self) -> None:
+        ui = self.root / 'features/tally/api/src/commonMain/kotlin/tally/api/TallyUi.kt'
+        ui.write_text(ui.read_text().replace('    val add = ', '    public val total: UiId = UiId("tally.total")\n    val add = '))
+        journeys = self.root / 'verify/journeys/src/commonMain/kotlin/journeys/HistoryJourneys.kt'
+        journeys.write_text(journeys.read_text().replace('checkpoint("kept")', 'checkpoint("TallyUi.total") // say \"\"\"\n    /* old: /* nested */ screen.find(TallyUi.total) */'))
+        self.entry('["tally"]')
+        result = self.run_verify('map')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('TallyUi.total isn\'t named by any journey', result.stdout)
+        self.assertEqual(result.stdout.count("isn't named by any journey"), 1, result.stdout)
+
     def test_a_feature_naming_no_modules_fails(self) -> None:
         self.entry('[]')
         result = self.run_verify('map')
         self.assertEqual(result.returncode, 1)
         self.assertIn('[verified-features] feature-map/history.toml: `modules` is empty.', result.stdout)
+
+
+class SharedModuleMapTests(unittest.TestCase):
+    """The Rust and TypeScript starters' map check (`scripts/verify.py map`), in a copy of each starter outside git:
+    two features may name the same module (Hexfleet's movement shared its board's module), and one naming none fails
+    (rules/verified-features/<platform>/fail-feature-names-no-modules runs that through the gate)."""
+
+    def check(self, template: Path, journey: str, modules: str) -> subprocess.CompletedProcess:
+        root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, root)
+        shutil.copytree(template, root / 'app', ignore=shutil.ignore_patterns(
+            '.build', '.tools', 'node_modules', 'dist', 'target', '__pycache__'))
+        (root / 'app/feature-map/second.toml').write_text(
+            f'id = "second"\nsummary = "s"\nmodules = {modules}\n\n[[journeys]]\nname = "{journey}"\nproves = "p"\n')
+        return subprocess.run([sys.executable, 'scripts/verify.py', 'map'], cwd=root / 'app', capture_output=True,
+                              text=True)
+
+    def test_two_features_can_name_the_same_module(self) -> None:
+        for template in (RUST_TEMPLATE, TS_TEMPLATE):
+            with self.subTest(template.parent.name):
+                result = self.check(template, 'second_works', '["tally"]')
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_a_feature_naming_no_modules_fails(self) -> None:
+        for template in (RUST_TEMPLATE, TS_TEMPLATE):
+            with self.subTest(template.parent.name):
+                result = self.check(template, 'second_works', '[]')
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('[verified-features] feature-map/second.toml: `modules` is empty.', result.stdout)
 
 
 class RustNewFeatureTests(unittest.TestCase):
@@ -935,6 +1308,27 @@ class RustNewFeatureTests(unittest.TestCase):
         self.assertIn('crates/app/Cargo.toml has no [dependencies] table', result.stderr)
         self.assertEqual({p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
 
+    def test_in_existing_crate_adds_map_entry_journey_and_test_only(self) -> None:
+        missing = self.run_new('undo-move', '--in', 'missing')
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn("crates/features/missing isn't a feature crate", missing.stderr)
+        app_before = (self.root / 'crates/app/Cargo.toml').read_text()
+        made = written(self.root, lambda: self.assertEqual(self.run_new('undo-move', '--in', 'tally').returncode, 0))
+        self.assertEqual(made, [
+            'crates/app/tests/journeys.rs',
+            'crates/features/tally/tests/undo_move.rs',
+            'feature-map/undo-move.toml',
+        ])
+        self.assertEqual((self.root / 'crates/app/Cargo.toml').read_text(), app_before)
+        entry = tomllib.loads((self.root / 'feature-map/undo-move.toml').read_text())
+        self.assertEqual((entry['id'], entry['modules'], entry['journeys'][0]['name']),
+                         ('undo-move', ['tally'], 'undo_move_works'))
+        self.assertIn('fn undo_move_works()', (self.root / 'crates/features/tally/tests/undo_move.rs').read_text())
+        self.assertIn('fn undo_move_works()', (self.root / 'crates/app/tests/journeys.rs').read_text())
+        clash = self.run_new('undo_move', '--in', 'tally')
+        self.assertEqual(clash.returncode, 1)
+        self.assertIn('undo_move_works', clash.stderr)
+
 
 class RustWorkflowTests(unittest.TestCase):
     """The Rust starter's own CI workflow runs what b-stack's CI proves on the starter (its rust job)."""
@@ -951,15 +1345,126 @@ class RustWorkflowTests(unittest.TestCase):
             self.assertIn(command, job)
 
 
-class AndroidAgentsTemplateTests(unittest.TestCase):
-    """The new-project skill has the agent delete the tally example, so the AGENTS.md it leaves behind (and the verify
-    skill it points at) must not send the agent to tally's files as the pattern to follow."""
+class AgentsTemplateTests(unittest.TestCase):
+    """The new-project skill has the agent delete the example, so the AGENTS.md it leaves behind, the verify skill it
+    points at and the stubs new_feature.py writes must not send the agent to the example's files as the pattern to
+    follow (Hexfleet's AGENTS.md pointed at the tally the setup had deleted)."""
+
+    EXAMPLE = {
+        TEMPLATE: r'Targets/Settings|NotificationSettings|SettingsLogic|save-fails',
+        RUST_TEMPLATE: r'tally|Tally|platform/files|FileTallyStore',
+        TS_TEMPLATE: r'tally|Tally|platform/files|fileTallyStore',
+        ANDROID_TEMPLATE: r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files',
+    }
 
     def test_agent_guidance_names_no_example_files(self) -> None:
-        example = re.compile(r'tally|Tally|StarterApp|VerifyApp|FileTallyStore|platform/files')
-        for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md'):
-            found = example.findall((ANDROID_TEMPLATE / path).read_text())
-            self.assertEqual(found, [], f'{path} names the example the new project deletes')
+        for template, pattern in self.EXAMPLE.items():
+            for path in ('AGENTS.template.md', '.agents/skills/verify/SKILL.md', 'scripts/new_feature.py'):
+                if not (template / path).is_file():
+                    continue
+                with self.subTest(starter=template.parent.name, path=path):
+                    found = re.findall(pattern, (template / path).read_text())
+                    self.assertEqual(found, [], f'{path} names the example the new project deletes')
+
+
+class GateGuidanceTests(unittest.TestCase):
+    """Gate messages that tell the agent where to put something say what the guidance they point to says. Hexfleet's
+    builder followed verify's process-death message ("keep input in the model's Saved") into serializing a whole turn,
+    while core/Saved.kt said data goes to a store. Each entry: the same instruction, found in the gate's message and in
+    the guidance (AGENTS.template.md, or the code comment the message relies on). Change one, change the other."""
+
+    PINS = [
+        # (starter, gate file, what its message says, guidance files, what the guidance says)
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ("the screen's session that isn't stored anywhere else (a selection",),
+         ('AGENTS.template.md', 'core/src/commonMain/kotlin/core/Saved.kt'), "session that isn't stored anywhere else"),
+        (ANDROID_TEMPLATE, 'scripts/verify.py', ('Journey bodies go in verify/journeys.',), ('AGENTS.template.md',),
+         '**feature-map and journeys** (feature-map/<id>.toml, verify/journeys)'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
+         ('Put platform work in a platform module',), ('AGENTS.template.md',), '**platform** (platform/<name>): the only I/O.'),
+        (ANDROID_TEMPLATE, 'arch/konsist/src/test/kotlin/bstack/konsist/ArchitectureTest.kt',
+         ("a feature's api module holds declarations only",), ('AGENTS.template.md',), '**api** (features/<name>/api): declarations only:'),
+        (RUST_TEMPLATE, 'scripts/arch.py', ("Crates go in the module shape's folders (arch/shape.toml)",), ('AGENTS.template.md',),
+         'module shape (arch/shape.toml'),
+        (RUST_TEMPLATE, 'scripts/verify.py', ('naming it in modules, with journeys in crates/app/tests/journeys.rs that prove',),
+         ('AGENTS.template.md',), 'journeys in crates/app/tests/journeys.rs'),
+        (TS_TEMPLATE, 'scripts/verify.py', ("JOURNEYS = 'apps/desktop/journeys'", "journey {name} in {JOURNEYS}/ isn't in the feature map"),
+         ('AGENTS.template.md',), 'journeys in apps/desktop/journeys/'),
+        (TEMPLATE, 'scripts/verify.py', ('Keep bodies in Targets/AppVerifyJourneys',), ('AGENTS.template.md',),
+         'journey bodies in Targets/AppVerifyJourneys'),
+    ]
+
+    @staticmethod
+    def plain(text: str) -> str:
+        """Text without source punctuation: string literals joined across lines, comment stars, escapes, backticks."""
+        text = re.sub(r"""['"]\s*\+?\s*\n\s*\+?\s*['"]""", '', text)  # 'a ' \n 'b' and "a " +\n "b"
+        text = re.sub(r'\n\s*\*\s?', ' ', text).replace("\\'", "'").replace('`', '')
+        return re.sub(r'\s+', ' ', text)
+
+    def test_gate_messages_say_what_the_guidance_says(self) -> None:
+        for template, gate, said, guides, guidance in self.PINS:
+            for path, texts in ((gate, said), *((g, (guidance,)) for g in guides)):
+                for text in texts:
+                    with self.subTest(starter=template.parent.name, file=path, text=text):
+                        self.assertIn(text, self.plain((template / path).read_text()))
+
+
+class AndroidReviewTests(unittest.TestCase):
+    """AGENTS.md's Review section is what the agent's own reviews check, so it names every rule enforced on Android."""
+
+    def test_the_review_section_names_every_android_rule(self) -> None:
+        text = (ANDROID_TEMPLATE / 'AGENTS.template.md').read_text()
+        review = text[text.index('## Review'):]
+        review = review[:review.index('\n## ', 1)]
+        rules = sorted(p.parent.name for p in (ROOT / 'rules').glob('*/rule.toml')
+                       if 'android' in tomllib.loads(p.read_text()))
+        self.assertEqual([r for r in rules if not re.search(rf'\b{re.escape(r)}\b', review)], [])
+        for part in ('**blocker**', '**should**', 'caught by a gate', 'stop and report'):
+            self.assertIn(part, review)
+
+
+class DerivedProjectTests(unittest.TestCase):
+    """scripts/derived_project.py's plans match the new-project skill, and the starter fixes the derived projects found
+    hold without running one."""
+
+    def test_every_path_the_plan_removes_is_one_the_skill_names(self) -> None:
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        import derived_project
+        skill = (ROOT / 'skills/new-project/SKILL.md').read_text()
+        sections = {'ios': skill.split('## Rust')[0], 'rust': skill.split('## Rust')[1].split('## TypeScript')[0],
+                    'typescript': skill.split('## TypeScript')[1].split('## Android')[0],
+                    'android': skill.split('## Android')[1].split('## GitHub')[0]}
+        for name, plan in derived_project.PLANS.items():
+            named = set(re.findall(r'`([^`]+)`', sections[name]))
+            for path in plan.remove:
+                with self.subTest(platform=name, path=path):
+                    # The path itself, or a folder holding it ("the tally parts of `packages/contracts`").
+                    candidates = {str(Path(*Path(path).parts[:i])) for i in range(1, len(Path(path).parts) + 1)}
+                    self.assertTrue(candidates & {n.rstrip('/') for n in named}, f'the skill\'s {name} section names none of {sorted(candidates)}')
+
+    def test_platform_folders_survive_removing_the_example(self) -> None:
+        # Cargo fails every gate when a workspace member glob (crates/platform/*) matches no folder, and the rule cases
+        # that add a platform package SKIP when packages/platform is gone.
+        for folder in (RUST_TEMPLATE / 'crates/platform', TS_TEMPLATE / 'packages/platform'):
+            with self.subTest(folder=str(folder.relative_to(ROOT))):
+                self.assertTrue((folder / '.gitkeep').is_file())
+
+    def test_the_typescript_compiler_gate_leaves_out_a_package_with_no_code(self) -> None:
+        root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, root)
+        shutil.copytree(TS_TEMPLATE / 'scripts', root / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(TS_TEMPLATE / 'arch', root / 'arch')
+        for package, source in (('packages/fixtures', None), ('packages/features/a', 'src/index.ts'),
+                                ('packages/features/b', 'src/dist/index.ts'), ('packages/features/c', 'dist/index.js')):
+            (root / package).mkdir(parents=True)
+            (root / package / 'tsconfig.json').write_text('{}')
+            if source:
+                (root / package / source).parent.mkdir(parents=True, exist_ok=True)
+                (root / package / source).write_text('export {};\n')
+        proc = subprocess.run([sys.executable, '-c', 'import sys; sys.path.insert(0, "scripts"); import check; '
+                               'print(sorted(str(p.parent.relative_to(check.ROOT)) for p in check.tsconfigs()))'],
+                              cwd=root, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "['packages/features/a', 'packages/features/b']")
 
 
 class AndroidWorkflowTests(unittest.TestCase):

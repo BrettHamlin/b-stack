@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[module-boundaries] ProbeState.reachable() is a function on a type the view gets from its logic"
+uses_example = false
+adds_targets = ["probe"]

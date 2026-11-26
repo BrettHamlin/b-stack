@@ -12,7 +12,7 @@ proves = "With a saved tally and every save failing (the FailingSaves fixture), 
 
 [[journeys]]
 name = "badNameIsRefused"
-proves = "An invalid name is refused with the rule for names, and nothing is counted."
+proves = "An invalid name is refused with the rule for names, and nothing is counted; a valid one then counts and the error goes away."
 
 [[journeys]]
 name = "savedTallyIsShownAtStart"

@@ -97,6 +97,8 @@ class ModulePlugin : Plugin<Project> {
 
     private fun common(project: Project, role: Role, links: List<String>, libraries: List<String>, testLibraries: List<String>) {
         project.pluginManager.apply("org.jetbrains.kotlin.multiplatform")
+        // Persisted data is JSON through kotlinx.serialization, its types @Serializable where the role allows it.
+        if (role.serialization) project.pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
         project.extensions.configure(KotlinMultiplatformExtension::class.java) {
             jvm()
             // A second target makes commonMain real common code: compileCommonMainKotlinMetadata can't see the JDK,
@@ -143,6 +145,7 @@ class ModulePlugin : Plugin<Project> {
             }
         }
         if (role.compose) project.pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
+        if (role.serialization) project.pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
         project.dependencies.apply {
             links.forEach { add("implementation", project.project(it)) }
             libraries.forEach { add("implementation", it) }

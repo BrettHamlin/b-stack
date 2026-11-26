@@ -6,7 +6,7 @@
 - Use the existing approved APIs for <persistence, networking, time, background work>. Don't introduce a second way to do the same thing.
 - Pass dependencies in as parameters and traits. Real services are created in one place only: the app crate.
 - Add a feature with `python3 scripts/new_feature.py <name>`: it creates the crate, its feature-map entry and a journey to write. Its test and journey fail until you write them.
-- Features are shaped like `crates/features/tally`: `no_std` logic, a trait for each thing it needs from outside (implemented in a platform crate), example tests and a property test (random sequences checked against a model of the spec, like `tests/property.rs`) in its `tests/` folder, a `feature-map/<id>.toml` entry, and journeys in `crates/app/tests/journeys.rs` that run the built app and prove it works.
+- Each feature is a crate in `crates/features/<name>`: `no_std` logic, a trait for each thing it needs from outside (implemented in a platform crate), example tests and a property test (random sequences checked against a model of the spec, written from the spec) in its `tests/` folder, a `feature-map/<id>.toml` entry, and journeys in `crates/app/tests/journeys.rs` that run the built app and prove it works.
 
 ## Checks
 

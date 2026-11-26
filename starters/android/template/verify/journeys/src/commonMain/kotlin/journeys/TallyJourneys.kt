@@ -33,9 +33,14 @@ fun Journey.badNameIsRefused() {
     val screen = launch()
     screen.find(TallyUi.name).type("two words")
     screen.find(TallyUi.add).tap()
-    screen.find(TallyUi.error).shows("Names are 1 to 32 letters, digits, - or _.")
+    val error = screen.find(TallyUi.error)
+    error.shows("Names are 1 to 32 letters, digits, - or _.")
     screen.find(TallyUi.items).shows("(empty)")
     screen.checkpoint("refused")
+    screen.find(TallyUi.name).type("fig")
+    screen.find(TallyUi.add).tap()
+    error.isGone()
+    screen.find(TallyUi.items).shows("fig 1")
 }
 
 fun Journey.savedTallyIsShownAtStart() {

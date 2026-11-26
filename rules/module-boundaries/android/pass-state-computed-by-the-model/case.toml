@@ -1,0 +1,4 @@
+expect = "pass"
+enforced_by = "konsist"
+uses_example = false
+adds_targets = ["probe"]

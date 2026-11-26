@@ -3,7 +3,8 @@
 One emulator (AVD `bstack-api37`, from tools.toml's system image) serves every checkout on the Mac. Its disk image and
 settings live in the tools folder (android-user/avd), like the SDK. in_use() takes the machine-wide lock on it, so a
 second run waits until the first finishes and says who holds it; the lock is an flock, released when its holder exits.
-A running emulator is left running for the next run; `stop` shuts it down.
+A running emulator is left running for the next run; `stop` shuts it down. It runs with animations off (the window,
+transition and animator scales at 0), so journeys and screenshots see each screen's end state.
 
 Using the emulator by hand (adb, screenshots, recordings) takes the same lock through `run`, the one supported route;
 the lock can't stop tools run outside it. The command gets $ANDROID_SERIAL, so adb talks to that emulator.
@@ -75,7 +76,7 @@ def boot(env: dict) -> str:
     """The emulator's serial, booting it (headless) if it isn't running."""
     serial = running(env)
     if serial and adb(env, 'shell', 'getprop', 'sys.boot_completed', serial=serial).strip() == '1':
-        return serial
+        return settled(env, serial)
     # One still starting (adb may not list it yet) is waited for, not started twice.
     starting = subprocess.run(['pgrep', '-f', '--', f'-avd {AVD}( |$)'], capture_output=True, text=True).stdout.split()
     if starting:
@@ -110,14 +111,26 @@ def booted(env: dict, proc: subprocess.Popen | None) -> str:
             sys.exit(f'The emulator exited during boot (status {proc.returncode}); see {log}.')
         serial = running(env)
         if serial and adb(env, 'shell', 'getprop', 'sys.boot_completed', serial=serial).strip() == '1':
-            # On a slow machine (a CI runner with two cores and software graphics) the launcher answers late, and its
-            # "isn't responding" dialog covers the app under test. The checks see crashes without the dialogs.
-            adb(env, 'shell', 'settings', 'put', 'global', 'hide_error_dialogs', '1', serial=serial)
-            return serial
+            return settled(env, serial)
         time.sleep(2)
     pids = subprocess.run(['pgrep', '-f', '--', f'-avd {AVD}( |$)'], capture_output=True, text=True).stdout.split()
     sys.exit(f'The emulator didn\'t boot in 5 minutes; see {log}. Its processes: {", ".join(pids) or "none"} '
              '(stop a stuck one with kill <pid>).')
+
+
+# Animations off: Compose's animations (and the system's) jump to their end, so journeys see end states and screenshots
+# don't catch a frame mid-way. The app derives every animation from its state, so nothing waits on one.
+SETTINGS = {'hide_error_dialogs': '1', 'window_animation_scale': '0', 'transition_animation_scale': '0',
+            'animator_duration_scale': '0'}
+
+
+def settled(env: dict, serial: str) -> str:
+    """The booted emulator, set for checks, whoever booted it. On a slow machine (a CI runner with two cores and
+    software graphics) the launcher answers late, and its "isn't responding" dialog covers the app under test: the
+    checks see crashes without the dialogs."""
+    for name, value in SETTINGS.items():
+        adb(env, 'shell', 'settings', 'put', 'global', name, value, serial=serial)
+    return serial
 
 
 def lock_file() -> Path:

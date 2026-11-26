@@ -11,14 +11,16 @@ compiler = "Enums with associated values; switch must be exhaustive."
 harmonize = "ExhaustiveStates.swift: a switch whose cases are all enum-case patterns may not have a default (SwiftSyntax visitor; a heuristic without type information)."
 
 [rust]
+layer = "1+2"
 compiler = "match must be exhaustive: a missing variant is an error (Rust 1.99.0)."
 clippy = "wildcard_enum_match_arm (deny): a `_` arm on an enum fails, so new variants break every site that doesn't name them."
+arch = "arch/checker (syn 2.0.119), in test code (tests/ files, positive #[cfg(test)] items and #[test] functions): an `if ... else` whose condition compares (`==`, `!=`), destructures (`if let`) or `matches!` an enum variant fails, because its `else` branch stands in for every other variant like a `_` arm (Option, Result, Poll and ControlFlow are excluded)."
 
 [typescript]
 layer = "2"
-lint = "typescript/switch-exhaustiveness-check (type-aware) with allowDefaultCaseForExhaustiveSwitch = false and considerDefaultExhaustiveForUnions = false: a switch over a union must name every member, and a `default` neither stands in for missing ones nor sits on an exhaustive switch (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). TypeScript itself accepts all three."
+lint = "typescript/switch-exhaustiveness-check (type-aware) with allowDefaultCaseForExhaustiveSwitch = false and considerDefaultExhaustiveForUnions = false: a switch over a union must name every member, and a `default` neither stands in for missing ones nor sits on an exhaustive switch (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). TypeScript itself accepts all three. bstack/no-if-else-on-union (arch/lint), in test and journey files: `if ... else` or `? :` comparing `_tag` or an UpperCamel enum-object member fails, so a test's spec model switches over every member (bare string-literal unions without `_tag` aren't distinguishable from plain strings in an untyped AST plugin)."
 
 [android]
 layer = "1+2"
 compiler = "`when` over a sealed type or an enum must name every case, as a statement too, and an `else` on a `when` that already names every case is a warning, so an error with warnings as errors (Kotlin 2.4.21, AGP 9.5.2)."
-detekt = "ElseCaseInsteadOfExhaustiveWhen (detekt 2.0.0-alpha.6, type-resolved): an `else` standing in for cases of a sealed type or enum fails, in common and Android modules."
+detekt = "ElseCaseInsteadOfExhaustiveWhen (detekt 2.0.0-alpha.6, type-resolved): an `else` standing in for cases of a sealed type or enum fails, in common and Android modules. bstack:NoIfElseOnEnum (arch/detekt-rules, type-resolved), in tests: an `if (x == Enum.Case) ... else` (or `!=`), whose else branch stands in for the other cases the same way; a property test's model of the spec branches with a `when` naming every case."

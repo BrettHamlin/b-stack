@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "konsist"
+diagnostic = "[animations-from-state] `withFrameNanos(` times an animation by hand"
+uses_example = false
+adds_targets = ["probe"]

@@ -19,7 +19,8 @@ only on the starter itself; with --project <another app> they are left out (OUT)
 real app has replaced the example. Cases that need a feature's modules bring their own (iOS: `case_feature`,
 `features`) and add it to the app's declaration rather than replacing it, so they run on any app.
 
-Cases run on --jobs workers (default: rule_jobs in ~/.config/b-stack/config.toml, else 1), each in its own copy of the project with its own build folder, so no case
+Cases run on --jobs workers (default: rule_jobs in ~/.config/b-stack/config.toml, else 1, except on Android: one per 3 cores
+and 6 GB, at most 4, see platforms.gradle_workers), each in its own copy of the project with its own build folder, so no case
 sees another's files and the order doesn't matter. More workers only pay off on a machine with spare CPU and fast disk
 for every worker's builds and simulator: on a 10-core, 16 GB laptop with the cache and simulators on one external
 drive, 2 workers took 24 minutes against about 20 serially, and made journeys flaky (see DECISIONS.md). Cases that need a simulator (pass cases, and tests and verify fail cases)
@@ -33,9 +34,10 @@ platform is found from its files). --list prints the cases a run would take, wit
 Work and tool downloads go to the cache folder if one is configured (see starters/ios/template/scripts/paths.py),
 otherwise to .build/rule-tests/ and .tools/ (gitignored).
 """
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 import argparse
 import fcntl
 import re
@@ -74,12 +76,13 @@ def owned_by_project(edit: dict, text: str) -> dict:
 
 
 def default_jobs() -> int:
-    """$BSTACK_RULE_JOBS, else `rule_jobs` in ~/.config/b-stack/config.toml, else 1. A machine setting, not a per-run
-    choice: each Xcode build already uses every core, so workers mostly compete for CPU and disk, and an overloaded
-    simulator fails journeys that pass alone. Set it only after timing the suite on that machine."""
+    """$BSTACK_RULE_JOBS, else `rule_jobs` in ~/.config/b-stack/config.toml, else the platform's default (1, except
+    Android's, sized to the machine: platforms.gradle_workers). A machine setting, not a per-run choice: each Xcode build
+    already uses every core, so workers mostly compete for CPU and disk, and an overloaded simulator fails journeys that
+    pass alone. Set it only after timing the suite on that machine."""
     if os.environ.get('BSTACK_RULE_JOBS'):
         return max(1, int(os.environ['BSTACK_RULE_JOBS']))
-    return machine_setting('rule_jobs', 1)
+    return machine_setting('rule_jobs', platform.jobs())
 
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -88,7 +91,8 @@ parser.add_argument('--platform', choices=sorted(PLATFORMS), help='run this plat
 parser.add_argument('--project', type=Path, help='project root containing scripts/check.py (default: the platform\'s starter)')
 parser.add_argument('--list', action='store_true', help='print the cases this run would take, and stop')
 parser.add_argument('--rule', action='append', help='only run this rule id (repeatable)')
-parser.add_argument('--jobs', type=int, help='cases to run at once (default $BSTACK_RULE_JOBS, else rule_jobs in the b-stack config, else 1)')
+parser.add_argument('--jobs', type=int, help='cases to run at once (default $BSTACK_RULE_JOBS, else rule_jobs in the b-stack config, '
+                    'else 1; Android: sized to the machine, platforms.gradle_workers)')
 parser.add_argument('--simulator', action='append', metavar='UDID',
                     help='a simulator cases may use (repeatable; one worker each). Default: $BSTACK_SIMULATOR_ID, '
                          'else the first available iPhone')
@@ -156,7 +160,7 @@ class Worker:
 
     def env(self) -> dict:
         # One simulator per worker, and verify inside a case runs on that one only (no clones).
-        env = {**base_env, 'BSTACK_VERIFY_WORKERS': '1'}
+        env = {**base_env, **platform.env, 'BSTACK_VERIFY_WORKERS': '1'}
         if self.base:
             env['BSTACK_BASE_REF'] = self.base  # a case's changes are a pull request against the untouched project
         if self.simulator:
@@ -266,13 +270,59 @@ class Task:
     case: dict | None = None
     cost: float = 0
     needs_simulator: bool = False
+    on_device: bool = False  # platform.device_kinds
+    canary: bool = False
     result: tuple[str, str] | None = None  # (status, detail)
 
 
+def run_canary(worker: Worker, task: Task) -> tuple[str, str]:
+    """A worker's build keeps what it built for earlier cases, and Gradle reuses a file's hash while its size and mtime
+    match, so a case file copied with the same size and mtime as the one it replaces would look unchanged and a fail
+    case could pass on the earlier build. The canary is that file: the platform's canary case must pass, then fail with
+    the compiler pointing at the changed line once one word of its file is broken at the same length and mtime, then
+    pass again. It holds only while every reset gives files a new mtime (platform.restamp)."""
+    path = platform.canary[1]
+    broken = worker.work.parent / f'{worker.work.name}-canary'
+    shutil.rmtree(broken, ignore_errors=True)
+    shutil.copytree(task.case_dir, broken)  # keeps every file's mtime
+    source = broken / path
+    data = source.read_bytes() if source.is_file() else b''
+    if b'fun ' not in data:
+        return 'FAIL', f'the canary case has no function to break in {path}'
+    times = source.stat()
+    source.write_bytes(data.replace(b'fun ', b'fuN ', 1))
+    os.utime(source, ns=(times.st_atime_ns, times.st_mtime_ns))
+    line = data[:data.index(b'fun ')].count(b'\n') + 1
+    at = f'{Path(path).name}:{line}:'
+    try:
+        for case_dir, should_pass in ((task.case_dir, True), (broken, False), (task.case_dir, True)):
+            worker.reset_targets(case_dir, task.case)
+            ok, output = worker.check('compiler')
+            if should_pass and not ok:
+                return 'FAIL', 'the canary case failed\n' + tail(output)
+            if not should_pass and (ok or at not in output):
+                return 'FAIL', f'a warm build missed a same-size, same-mtime change (no error at {at})\n' + tail(output)
+    finally:
+        shutil.rmtree(broken, ignore_errors=True)
+    return 'PASS', ''
+
+
 def run_case(worker: Worker, task: Task) -> tuple[str, str]:
+    if task.canary:
+        return run_canary(worker, task)
     worker.reset_targets(task.case_dir, task.case)
     if task.case is None:
-        ok, output = worker.check()
+        device = [g for g in platform.gates if g in platform.device_kinds]
+        if 'untouched' not in platform.device_kinds or not device:
+            ok, output = worker.check()
+            return ('PASS', '') if ok else ('FAIL', tail(output))
+        # Every gate, the device's last and holding a device turn, so other device cases needn't wait for its builds.
+        ok, output = worker.check(*[g for g in platform.gates if g not in device])
+        if ok:
+            with device_turn() as taken:
+                if not taken:
+                    return 'FAIL', 'stopped'
+                ok, output = worker.check(*device)
         return ('PASS', '') if ok else ('FAIL', tail(output))
     case = task.case
     if case['expect'] == 'pass':
@@ -318,7 +368,18 @@ for case_file in sorted(ROOT.glob(f'rules/*/{platform.name}/*/case.toml')):
         kind = 'pass' if case['expect'] == 'pass' else case['enforced_by']
         task.cost = COST[kind]
         task.needs_simulator = kind in platform.simulator_kinds
+        task.on_device = kind in platform.device_kinds
     tasks.append(task)
+
+# The canary runs whenever its case would (not with --rule for other rules, nor where its case is a SKIP or OUT).
+canary_case = next((t for t in tasks if platform.canary and t.case_dir is not None
+                    and t.case_dir == ROOT / 'rules' / platform.canary[0].replace('/', f'/{platform.name}/', 1)), None)
+if platform.canary and canary_case is None and (not args.rule or platform.canary[0].split('/')[0] in args.rule):
+    tasks.append(Task(len(tasks), '(a warm build sees a change that keeps size and mtime)', canary=True,
+                      result=('FAIL', f'no case {platform.canary[0]} for the canary (platforms.py)')))
+elif canary_case is not None:
+    tasks.append(Task(len(tasks), '(a warm build sees a change that keeps size and mtime)', canary_case.case_dir,
+                      canary_case.case, cost=COST['canary'], canary=True, result=canary_case.result))
 
 if args.list:
     for task in tasks:
@@ -347,24 +408,58 @@ jobs = max(1, min(args.jobs or default_jobs(), len(pending)))
 workers = [Worker(work_root / f'w{i}',
                   simulators[i] if i < len(simulators) else None) for i in range(jobs)]
 lock = threading.Lock()
+changed = threading.Condition(lock)  # a task finished: one a worker waited for may be free to take
+on_device = 0  # device tasks running (platform.device_kinds)
+waiting_turn = 0  # tasks waiting in device_turn(): they go before device tasks not yet taken
 timings: list[tuple[str, str, bool, float]] = []  # label, worker, on a simulator worker, seconds
 printed = 0
 aborted = False
 
 
+@contextmanager
+def device_turn() -> Iterator[bool]:
+    """One of platform.device_workers turns on the device, for a task that only needs it for part of its run.
+    Yields False when the run was aborted while waiting, without taking a slot."""
+    global on_device, waiting_turn
+    with changed:
+        waiting_turn += 1
+        while on_device >= platform.device_workers and not aborted:
+            changed.wait()
+        waiting_turn -= 1
+        if aborted:
+            changed.notify_all()
+            taken = False
+        else:
+            on_device += 1
+            taken = True
+    try:
+        yield taken
+    finally:
+        if taken:
+            with changed:
+                on_device -= 1
+                changed.notify_all()
+
+
 def take(worker: Worker) -> Task | None:
     """The costliest waiting task this worker can run. Workers with a simulator take simulator tasks first, if others
-    can do the rest."""
+    can do the rest. A device task waits while platform.device_workers run; a worker with nothing else waits for one."""
+    global on_device
     with lock:
-        if aborted:
-            return None
-        runnable = [t for t in pending if worker.simulator or not t.needs_simulator]
-        if worker.simulator and any(w.simulator is None for w in workers):
-            runnable.sort(key=lambda t: not t.needs_simulator)  # stable: still costliest first within each kind
-        if not runnable:
-            return None
-        pending.remove(runnable[0])
-        return runnable[0]
+        while True:
+            if aborted:
+                return None
+            runnable = [t for t in pending if (worker.simulator or not t.needs_simulator)
+                        and not (t.on_device and (on_device >= platform.device_workers or waiting_turn))]
+            if worker.simulator and any(w.simulator is None for w in workers):
+                runnable.sort(key=lambda t: not t.needs_simulator)  # stable: still costliest first within each kind
+            if runnable:
+                pending.remove(runnable[0])
+                on_device += runnable[0].on_device
+                return runnable[0]
+            if not any((worker.simulator or not t.needs_simulator) for t in pending):
+                return None
+            changed.wait()
 
 
 def flush() -> None:
@@ -385,7 +480,7 @@ def flush() -> None:
 
 
 def work(worker: Worker) -> None:
-    global aborted
+    global aborted, on_device
     worker.prepare()
     while task := take(worker):
         task_started = time.monotonic()
@@ -396,9 +491,11 @@ def work(worker: Worker) -> None:
         with lock:
             timings.append((task.label, worker.work.name, worker.simulator is not None, time.monotonic() - task_started))
             task.result = result
-            if task.case is None and result[0] != 'PASS':
+            on_device -= task.on_device
+            if task.index == 0 and result[0] != 'PASS':
                 aborted = True  # nothing else counts if the untouched project fails
             flush()
+            changed.notify_all()
     worker.reset_targets()
 
 
@@ -423,6 +520,7 @@ try:
         # Ctrl-C also stops the running check.py (same process group); stop workers taking more cases, then exit.
         with lock:
             aborted = True
+            changed.notify_all()
         print('\nStopped: waiting for running cases to end.', flush=True)
         for thread in threads:
             thread.join()
@@ -442,12 +540,16 @@ for task in tasks[1:]:
         task.result = ('FAIL', 'never ran (no worker could take it)')
         with lock:
             flush()
-    counts[task.result[0]] += 1
+    if not task.canary:
+        counts[task.result[0]] += 1
+canary_failed = any(t.canary and t.result[0] == 'FAIL' for t in tasks)
 names = {'PASS': 'pass', 'SKIP': 'skip', 'FAIL': 'fail', 'OUT': 'left out (use the example)'}
 print('\n' + ', '.join(f'{n} {names[s]}' for s, n in counts.items() if s != 'OUT' or n) + f'  (project: {project})')
+if canary_failed:
+    print('The canary failed: a warm build can miss a change, so no PASS above can be trusted.')
 print(f'{len(workers)} workers, {len(used)} simulators, {time.monotonic() - started:.0f}s', flush=True)
 busy = {w.work.name: sum(t for _, name, _, t in timings if name == w.work.name) for w in workers}
 print('Busy time per worker: ' + ', '.join(f'{name} {seconds:.0f}s' for name, seconds in busy.items()), flush=True)
 (work_root / 'timings.json').write_text(json.dumps(
     [{'case': label, 'worker': name, 'simulator': sim, 'seconds': round(t, 1)} for label, name, sim, t in timings], indent=1))
-sys.exit(1 if counts['FAIL'] else 0)
+sys.exit(1 if counts['FAIL'] or canary_failed else 0)

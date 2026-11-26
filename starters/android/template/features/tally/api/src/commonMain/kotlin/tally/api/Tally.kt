@@ -1,8 +1,10 @@
 package tally.api
 
+import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
 
 /** An item's name: 1 to 32 letters, digits, `-` or `_`. Made only by [parse], so every ItemName is valid. */
+@Serializable
 @JvmInline
 value class ItemName private constructor(val value: String) {
     companion object {
@@ -12,7 +14,8 @@ value class ItemName private constructor(val value: String) {
     }
 }
 
-/** How many times each item was recorded. */
+/** How many times each item was recorded. Saved as JSON (kotlinx.serialization). */
+@Serializable
 data class Tally(val counts: Map<ItemName, Int>) {
     companion object {
         val Empty = Tally(emptyMap())

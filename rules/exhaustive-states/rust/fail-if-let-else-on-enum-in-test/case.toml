@@ -1,0 +1,4 @@
+expect = "fail"
+enforced_by = "arch"
+uses_example = false
+diagnostic = "[exhaustive-states] crates/features/probe/tests/probe.rs:6:5: `if ... else` puts every variant other than `Side::Blue` in the `else` branch"

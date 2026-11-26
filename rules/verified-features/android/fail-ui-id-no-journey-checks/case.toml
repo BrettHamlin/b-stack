@@ -1,0 +1,5 @@
+expect = "fail"
+enforced_by = "verify"
+diagnostic = "[verified-features] features/probe/api/src/commonMain/kotlin/probe/api/ProbeUi.kt: ProbeUi.stop isn't named by any journey in verify/journeys"
+uses_example = false
+adds_targets = ["probe"]

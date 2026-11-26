@@ -1,4 +1,8 @@
-"""Check repo structure: rule and case format, catalog coverage, skill frontmatter, relative links."""
+"""Check repo structure: rule and case format, catalog coverage, skill frontmatter, relative links.
+
+Also, per rule and platform: a fail case that runs without the starter's example (so a real app's run proves the
+rule), unless rules/example-only.toml lists it; and a gate key, or the rule's id in the starter's agent guidance
+(AGENTS.template.md or the verify skill), so no rule is a convention nobody checks or tells the agent about."""
 from pathlib import Path
 import os
 import re
@@ -17,6 +21,7 @@ FEATURE_NAME = re.compile(r'Feature\("([A-Z][A-Za-z0-9]*)"')  # same check as te
 FEATURES_FILE = Path('Tuist/ProjectDescriptionHelpers/Features.swift')
 SHAPE = (ROOT / 'starters/ios/template/Tuist/ProjectDescriptionHelpers/ModuleShape.swift').read_text()
 SHARED_LINKS = set(re.findall(r'case (\w+)', SHAPE.split('enum SharedLink', 1)[1].split('}', 1)[0]))
+EXAMPLE_ONLY = ROOT / 'rules' / 'example-only.toml'  # shrink-only: rules proven on a platform only through its example
 IOS_KEYS = ('case_feature', 'features', 'shared_links', 'generate_adapters', 'needs_fixtures')  # iOS-only case keys
 errors = []
 
@@ -33,15 +38,28 @@ def load(path: Path) -> dict:
         return {}
 
 
+def guidance(platform) -> str:
+    """What the starter tells its agent: AGENTS.template.md and the verify skill."""
+    files = [platform.starter / 'AGENTS.template.md', platform.starter / '.agents/skills/verify/SKILL.md']
+    return '\n'.join(f.read_text() for f in files if f.is_file())
+
+
 def check_cases(rule_dir: Path, rule: dict, platform) -> None:
     """A rule's cases on one platform: rules/<id>/<platform>/<case>/case.toml."""
     section = rule[platform.name]
     if 'layer' in section and section['layer'] not in LAYERS:
         errors.append(f'{rel(rule_dir)}/rule.toml: {platform.name}.layer must be one of {sorted(LAYERS)}')
+    if not any(key in platform.gates for key in section) and not re.search(rf'\b{re.escape(rule_dir.name)}\b',
+                                                                          guidance(platform)):
+        errors.append(f'{rel(rule_dir)}/rule.toml: [{platform.name}] names no gate ({", ".join(platform.gates)}), and the '
+                      f'{platform.name} starter\'s AGENTS.template.md and verify skill don\'t name {rule_dir.name}: an '
+                      'agent is neither stopped nor told')
     expects = []
+    example_free_fail = False
     for case_path in sorted((rule_dir / platform.name).glob('*/case.toml')):
         case = load(case_path)
         expects.append(case.get('expect'))
+        example_free_fail |= case.get('expect') == 'fail' and case.get('uses_example') is False
         if case.get('expect') not in ('fail', 'pass'):
             errors.append(f'{rel(case_path)}: expect must be "fail" or "pass"')
         if case.get('enforced_by') not in platform.gates:
@@ -94,9 +112,22 @@ def check_cases(rule_dir: Path, rule: dict, platform) -> None:
             errors.append(f'{rel(case_path)}: no {", ".join(platform.case_files)} files, edits, features or case_feature')
     if 'fail' not in expects and not section.get('tests_pending'):
         errors.append(f'{rel(rule_dir)}: needs a {platform.name} fail case, or {platform.name}.tests_pending explaining why not')
+    listed = rule_dir.name in example_only.get(platform.name, [])
+    if 'fail' in expects and not example_free_fail and not listed:
+        errors.append(f'{rel(rule_dir)}: every {platform.name} fail case uses the example, so no real app proves the rule; '
+                      'add a fail case with uses_example = false')
+    elif listed and ('fail' not in expects or example_free_fail):
+        errors.append(f'{rel(EXAMPLE_ONLY)}: {rule_dir.name} ({platform.name}) has a fail case without the example now: '
+                      'take it off the list')
 
 
 rule_dirs = sorted(p for p in (ROOT / 'rules').iterdir() if p.is_dir() and p != CASE_FEATURES)
+example_only = load(EXAMPLE_ONLY) if EXAMPLE_ONLY.is_file() else {}
+for name, listed in example_only.items():
+    if name not in PLATFORMS or not isinstance(listed, list):
+        errors.append(f'{rel(EXAMPLE_ONLY)}: {name} must be a platform ({", ".join(PLATFORMS)}) with a list of rule ids')
+    elif missing := [r for r in listed if not (ROOT / 'rules' / r / name).is_dir()]:
+        errors.append(f'{rel(EXAMPLE_ONLY)}: {", ".join(missing)} ({name}) has no {name} cases: take it off the list')
 for kit_dir in sorted(p for p in CASE_FEATURES.iterdir() if p.is_dir()) if CASE_FEATURES.is_dir() else []:
     platform = PLATFORMS.get(kit_dir.name)
     kit = load(kit_dir / 'feature.toml') if (kit_dir / 'feature.toml').is_file() else {}

@@ -1,0 +1,5 @@
+# Rules whose fail cases on a platform all use the starter's example, so no real app's run proves them there
+# (test_rules.py --project leaves those cases OUT). check_repo.py fails when a rule with fail cases on a platform has
+# none that runs without the example and isn't listed here, and when a listed rule no longer needs to be: the list
+# only shrinks. To take a rule off, add a fail case with `uses_example = false`.
+android = ["listed-permissions"]

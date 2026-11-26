@@ -229,6 +229,109 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/smoke" --no-save --ignore-scripts playwright-core@1.64.1
           python3 scripts/install_and_smoke.py .build/package/out/starter-0.1.0-mac-arm64.dmg "$RUNNER_TEMP/smoke" "$RUNNER_TEMP/update-evidence" --update "$RUNNER_TEMP/update" 0.1.1 8765
 
+  derived-rust:
+    # A project made from the starter the way the new-project skill makes one (placeholders filled, example removed,
+    # one feature added, run from a linked worktree): its gates, then every rule case against it. Not required.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: A derived Rust project's gates and the rule cases against it
+        run: python3 scripts/derived_project.py rust
+
+  derived-typescript:
+    # As derived-rust, for the TypeScript starter. Not required.
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Cache folder for tools and build output
+        run: |
+          mkdir -p "$RUNNER_TEMP/bstack-cache"
+          echo "BSTACK_CACHE_DIR=$RUNNER_TEMP/bstack-cache" >> "$GITHUB_ENV"
+      - name: A derived TypeScript project's gates and the rule cases against it
+        run: python3 scripts/derived_project.py typescript
+
+  derived-android:
+    # As derived-rust, for the Android starter, in parallel with the android job (each about 50 minutes). Runs only when
+    # the Android starter, its rule cases or the scripts that make and test the derived project change. Not required.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Changes that touch the Android starter or the scripts that test it
+        id: changes
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "android=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$BASE" HEAD | grep -E '^(starters/android/|rules/[^/]+/android/|scripts/(derived_project|test_rules|platforms)\.py|scripts/derived/android/|skills/new-project/SKILL\.md|starters/ios/template/scripts/(paths|simulator|verify)\.py|\.github/workflows/ci\.yml)'; then
+            echo "android=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "android=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-python@v7.1.0
+        if: steps.changes.outputs.android == 'true'
+        with:
+          python-version: "3.13"
+      - name: KVM for the emulator
+        if: steps.changes.outputs.android == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: Cache folder for tools and build output (on the disk with the most room)
+        if: steps.changes.outputs.android == 'true'
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          df -h / /mnt
+          if [ "$(df --output=avail -k /mnt | tail -1)" -gt "$(df --output=avail -k / | tail -1)" ]; then
+            dir=/mnt/bstack-cache
+          else
+            dir="$HOME/bstack-cache"
+          fi
+          sudo mkdir -p "$dir" && sudo chown "$USER" "$dir"
+          echo "BSTACK_CACHE_DIR=$dir" >> "$GITHUB_ENV"
+      - name: Swap, so Gradle, R8 and the emulator fit the runner
+        if: steps.changes.outputs.android == 'true'
+        run: |
+          sudo fallocate -l 8G /swapfile-bstack && sudo chmod 600 /swapfile-bstack
+          sudo mkswap /swapfile-bstack && sudo swapon /swapfile-bstack
+          free -h
+      - name: Gradle's downloads from earlier runs (keyed by the pinned checksums)
+        if: steps.changes.outputs.android == 'true'
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ env.BSTACK_CACHE_DIR }}/tools/gradle-home/caches/modules-2
+          key: android-gradle-${{ hashFiles('starters/android/template/gradle/verification-metadata.xml') }}
+      - name: Download every library, retried (Maven Central answers 429 to busy shared runners)
+        if: steps.changes.outputs.android == 'true'
+        working-directory: starters/android/template
+        run: |
+          for attempt in 1 2 3 4 5; do
+            python3 scripts/check.py --only compiler --only detekt --only lint --only konsist --only deps && exit 0
+            echo "attempt $attempt failed; retrying in $((attempt * 60)) s"; sleep $((attempt * 60))
+          done
+          exit 1
+      - name: A derived Android project's gates and the rule cases against it
+        if: steps.changes.outputs.android == 'true'
+        run: python3 scripts/derived_project.py android
+
   typescript-installers:
     # Each installer installed the way a user would, on its own system; Windows signatures checked by Windows; the x64
     # apps also find, download and verify the 0.1.1 update.
