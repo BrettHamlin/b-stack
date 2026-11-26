@@ -7,7 +7,7 @@ description: Choose how a project's graphics get made (sprites, icons, app icons
 
 Agents can make good art, but which model and which method works best changes from task to task, and automatic scores miss what the owner cares about. So measure before committing to a model or method. Validated metrics decide fidelity, and the owner's blind picks decide taste.
 
-The lessons cited below come from the art-eval trial (`~/Code/b-stack-trials/art-eval/`, 2026-11-22 to 23: 2D sprites, line and app icons, 3D ships and rocks, realistic heads, sprite animation, and sequel art for an existing game: walk cycles, in-betweens, room colour grades, a character variant). `DECISIONS.md` has the numbers.
+The lessons cited below come from the art-eval trial (`~/Code/b-stack-trials/art-eval/`, 2026-11-22 to 23: 2D sprites, line and app icons, 3D ships and rocks, realistic heads, sprite animation, and sequel art for an existing game: walk cycles, in-betweens, room colour grades, a character variant), and the Carbon follow-up (2026-11-24 to 26). `DECISIONS.md` records the decisions; [the Carbon results](references/carbon-2026-11-results.json) preserve its model versions, timing qualifications and all 115 blind answers with their hidden model mappings, without media. Keep those mappings away from subjects and unanswered pick requests.
 
 Tools in this folder:
 
@@ -117,14 +117,15 @@ Stop a comparison once the remaining runs can't change its verdict, and record t
 
 ## 7. Run the baseline on more than one model
 
-Subjects are fresh headless agents with no knowledge of the eval: at least Claude Opus and GPT Sol (in the trial, `claude -p --model claude-opus-5-5` and `codex exec -m gpt-6.2-sol`).
+Subjects are fresh agents with no knowledge of the eval: at least Claude Opus, GPT Sol and Gemini Carbon. The tested versions were `claude-opus-5-5` and `gpt-6.2-sol` through their headless CLIs, and `gemini-4-carbon` with `thought_level=high` through T3 Antigravity. Record the actual version, effort and transport; report an unavailable model rather than silently dropping or replacing it.
 
 - Each run gets its own empty folder, the task text, the reference images it may see and the tools. Not the scorer, the reference model or other runs.
 - Same time budget for every run in a comparison. Record model, effort, wall time and the exact task text.
+- Check deliverable timestamps against the deadline even when a run was cancelled at its budget. Late outputs are exploratory, not equal-budget results. Keep recovered earlier versions separate with timestamp/hash provenance; distinguish preserved files from deterministic replays, and also report the originally on-time subset.
 - Start with the plain prompt, no method.
 - Background jobs die when your turn ends. Run subjects in the foreground in chunks, or wait for them before ending the turn.
 
-The best model differed by task:
+The original Opus/Sol trial's best model differed by task:
 
 | Task | Better model, by the owner's picks unless noted |
 |---|---|
@@ -138,16 +139,46 @@ The best model differed by task:
 | In-betweening | Sol (by metric: beat the copy floor on 3 of 4) |
 | Room colour grades | Sol passed every gate, Opus failed 3 of 6; the winner per room was split |
 
-Running both at baseline and letting the owner pick is cheap, and it often beats writing a method. The plain prompts also beat the lane's own hand-made references on most animation rounds: explosions 6 to 0, firing 4 to 2, movement 4 to 1. The reference won only the idle loop (4 to 2), where nothing read at game size. Treat your own references as a floor, not a target.
+### Carbon follow-up: plain baselines, 2026-11-24 to 26
+
+Carbon completed 97 active conditions with no refusals; 10 conditions were excluded under this skill. Of 17 late final deliverable sets, 16 earlier sets were recovered (7 directly, 9 by documented deterministic replay), leaving 96 timing-eligible runs: 80 originally on time plus 16 recoveries. One five-icon 48px rebuild batch remains excluded from equal-budget comparisons; its missing results are also reported with failure penalties. All animation taste candidates were originally on time. The evidence files and their location are recorded in the linked results.
+
+The owner answered 79 static and 36 animation comparisons against the frozen Opus/Sol baselines. Each cell is **Carbon wins / opponent wins / ties**:
+
+| Task | Carbon vs Opus | Carbon vs Sol |
+|---|---:|---:|
+| Ship sprites | 3 / 0 / 1 | 3 / 0 / 1 |
+| Line icons | 4 / 11 / 0 | 3 / 7 / 0 |
+| App icons | 3 / 3 / 0 | 0 / 6 / 0 |
+| 3D ships | 3 / 0 / 0 | 3 / 0 / 0 |
+| 3D rocks | 3 / 1 / 0 | 0 / 3 / 1 |
+| Original head designs | 0 / 3 / 0 | 0 / 3 / 0 |
+| Head rebuilds (taste) | 3 / 1 / 0 | 1 / 4 / 0 |
+| Room colour grades | 1 / 0 / 0 | 1 / 3 / 0 |
+| Engine idle loops | 1 / 2 / 0 | 2 / 1 / 0 |
+| Explosions | 0 / 0 / 3 | 0 / 1 / 2 |
+| Firing | 2 / 1 / 0 | 2 / 1 / 0 |
+| Hex-to-hex movement | 1 / 2 / 0 | 1 / 1 / 1 |
+| NPC walk cycles | 6 / 0 / 0 | 4 / 1 / 1 |
+| **Total** | **30 / 24 / 4** | **20 / 31 / 6** |
+
+For this sample, Carbon is a strong candidate for ship art and NPC walks, Opus for line icons, and Sol for app icons. Carbon lost all six original-head design comparisons. These small, related target sets give directions, not a universal model ranking; there was no new Opus-vs-Sol comparison. Sol generally led static rebuild fidelity, which stays separate from taste. Taste picks did not make the baseline idle loops pass the later visibility bar. Five of six explosion pairs were indistinguishable; close that round without more runs.
+
+Comparing the models at baseline and letting the owner pick can beat writing a method. In the original trial, plain prompts also beat the lane's own hand-made references on most animation rounds: explosions 6 to 0, firing 4 to 2, movement 4 to 1. The reference won only the idle loop (4 to 2), where nothing read at game size. Treat your own references as a floor, not a target.
 
 ## 8. Get the owner's blind picks
 
-1. Render each candidate **at the size and in the context it will be used**: a sprite on a hex tile at game size, an app icon at about 120 px on a home screen among other icons, a line icon at 24 px in a toolbar, a game frame at 640x480, a terrain tile as a patch of the board with pieces on it. Add a bigger copy only for a closer look. Changing the judging size changed 14 of 30 line-icon answers.
-2. Write the lane's pairs file: a JSON list of at most 30 `{"id", "title", "note", "x", "y"}`, where `x` and `y` are image paths (PNG, JPG, SVG, or animated WebP or GIF; about 1024 px wide at most, under 300 KB each). A title ending in `?` replaces the lane's question for that pair. Keep your own key of what `x` and `y` are; the page shows no labels.
-3. Add the lane to the page config (copy `picks/picks.example.toml`) with a taste question and a `how` line. The `how` line says where to judge and what counts. Examples: "Watch it at 1x for a few loops; if you can't see any motion at 1x, that counts against it." "Judge realism only, not likeness to anyone." "Judge it in the 640x480 game frame at 1x."
-4. Build: `python3 picks/build.py picks.toml <out>`. Sides are shuffled by a hash of lane and pair id, so they stay put between builds. Animated candidates become frame strips that the page plays on a canvas, with play, pause, half speed and 1x, 2x, 3x zoom, so playback doesn't depend on how the viewer handles animated images. Strips need Pillow.
-5. Publish `<out>/index.html` as an Artifact with `img/*` as files and the `db` capability (load the `artifact-capabilities` skill for its form). Republish to the same URL for each new round. Tell the owner, then keep working on metrics while picks are pending.
-6. Export: read the db collection `picks` (each doc is `<lane>__<id>` with `choice` x, y or tie), save it as JSON, then run `python3 picks/export.py picks.toml dump.json`. It writes each lane's `answers.json` as `{id: "x" | "y" | "tie"}`.
+Render each candidate **at the size and in the context it will be used**: a sprite on a hex tile at game size, an app icon at about 120 px on a home screen among other icons, a line icon at 24 px in a toolbar, a game frame at 640x480, a terrain tile as a patch of the board with pieces on it. Add a bigger copy only for a closer look. Changing the judging size changed 14 of 30 line-icon answers.
+
+When `request_picks` is available, use the owner's **Picks inbox** instead of an inline HTML reviewer or an export/download flow. Give each question a stable id, a taste prompt and guidance, and option ids mapped privately to the original media paths. Set `display` to the intended use size; preserve normal-speed animated WebP/GIF playback. The tool shuffles options and hides their ids. It returns `pending` immediately; answers arrive later as messages in the requesting thread. Save each returned question id and option id (or tie), then decode with the private mapping. Do not wait or poll, ask for an export, or assume an option id means left or right.
+
+Use the bundled page workflow below only when the inbox tool is unavailable:
+
+1. Write the lane's pairs file: a JSON list of at most 30 `{"id", "title", "note", "x", "y"}`, where `x` and `y` are image paths (PNG, JPG, SVG, or animated WebP or GIF; about 1024 px wide at most, under 300 KB each). A title ending in `?` replaces the lane's question for that pair. Keep your own key of what `x` and `y` are; the page shows no labels.
+2. Add the lane to the page config (copy `picks/picks.example.toml`) with a taste question and a `how` line. The `how` line says where to judge and what counts. Examples: "Watch it at 1x for a few loops; if you can't see any motion at 1x, that counts against it." "Judge realism only, not likeness to anyone." "Judge it in the 640x480 game frame at 1x."
+3. Build: `python3 picks/build.py picks.toml <out>`. Sides are shuffled by a hash of lane and pair id, so they stay put between builds. Animated candidates become frame strips that the page plays on a canvas, with play, pause, half speed and 1x, 2x, 3x zoom, so playback doesn't depend on how the viewer handles animated images. Strips need Pillow.
+4. Use an available, owner-authorized host with persistent answers, or keep the page local. Keep the same location across rounds. Verify the answer-return path before asking the owner to judge; do not depend on downloads or browser storage the agent cannot read. Tell the owner, then keep working on metrics while picks are pending.
+5. Export saved answers (each record is `<lane>__<id>` with `choice` x, y or tie) as JSON, then run `python3 picks/export.py picks.toml dump.json`. It writes each lane's `answers.json` as `{id: "x" | "y" | "tie"}`.
 
 Between rounds:
 
