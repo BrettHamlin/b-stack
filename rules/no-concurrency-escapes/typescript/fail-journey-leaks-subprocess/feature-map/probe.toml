@@ -1,0 +1,7 @@
+id = "probe"
+summary = "A probe feature."
+modules = ["probe"]
+
+[[journeys]]
+name = "probe_leaks_subprocess"
+proves = "Spawns a detached background process during a passing journey."

@@ -3,7 +3,7 @@ layer = "1+2"
 summary = "Strict concurrency checking is on, and the escape hatches that silence it are banned."
 problem = "Agents patch races with quick dispatches and delays, and silence the compiler with unchecked markers when it objects."
 message = "Don't silence concurrency checking. Make the type an actor or confine it to the main actor. If neither fits, stop and report what you're trying to share."
-escape_hatches = ["Android: catching IllegalStateException around a suspend call (CancellationException is one): review.", "@unchecked Sendable, nonisolated(unsafe), @preconcurrency, Task.detached and DispatchQueue in features: banned by Harmonize rules.", "Hand-rolled locks: review."]
+escape_hatches = ["Android: catching IllegalStateException around a suspend call (CancellationException is one): review.", "@unchecked Sendable, nonisolated(unsafe), @preconcurrency, Task.detached and DispatchQueue in features: banned by Harmonize rules.", "Hand-rolled locks: review.", "TypeScript on macOS: XNU rejects unprivileged KQ_NOTE_TRACK and redacts KERN_PROCARGS2 environment variables on SIP-protected system binaries (/bin/*, /usr/bin/*), so a short-lived parent that detaches a SIP binary via setsid() and exits before user-space kqueue/libproc observes the parent-child link isn't attributed without root (Node, Electron, Chromium and chrome_crashpad_handler are non-SIP and retain BSTACK_RUN_IDS)."]
 origin = "Lauren Tan talk (timer/scheduling workarounds). Design discussion, Nov 2026."
 
 [ios]
@@ -16,9 +16,12 @@ compiler = "Send and Sync are checked by the compiler; the only way around them 
 message = "Don't silence the compiler's thread-safety checks: unsafe code is forbidden. Share through Arc, Mutex, channels or ownership. If none fits, stop and report what you're trying to share."
 
 [typescript]
-layer = "2"
-lint = "typescript/no-floating-promises (with ignoreVoid = false, so `void p()` doesn't count) and no-misused-promises (type-aware); raw timers (setTimeout, setInterval, setImmediate, queueMicrotask) banned by eslint/no-restricted-globals with Effect's replacement (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0)). Logic packages have no timers at all (no-io-in-logic)."
-message = "Await every promise or run the work as an Effect; don't fire and forget, and don't schedule with raw timers. Use Effect.sleep or a Schedule, which can be interrupted and tested. If neither fits, stop and report what you're trying to do."
+layer = "1+2"
+compiler = "Logic packages (packages/contracts, packages/features/*) compile with lib ES2024 and no types, so timers and child processes don't exist there (no-io-in-logic); tsconfig.effect.json sets nodeBuiltinImport = error across every role except journeys, rejecting direct node:child_process imports so subprocesses go through Effect's scoped ChildProcessSpawner (@effect/tsgo 0.67.1)."
+lint = "typescript/no-floating-promises (with ignoreVoid = false, so `void p()` doesn't count) and no-misused-promises (type-aware); raw timers (setTimeout, setInterval, setImmediate, queueMicrotask) banned by eslint/no-restricted-globals with Effect's replacement (oxlint 1.89.0 with oxlint-tsgolint 7.0.2004 (vite-plus 1.4.0))."
+tests = "scripts/check.py + scripts/reap.py: every gate command runs with an inherited BSTACK_RUN_IDS token; if a passing test run leaves any background, detached or double-forked OS process alive after a short exit grace window, run_group SIGKILLs its process group and PID and fails the gate with [no-concurrency-escapes]."
+verify = "scripts/verify.py + apps/desktop/journeys/support/app.ts: journeys bound Electron's close() and SIGKILL its detached POSIX process group in teardown, and verify's run_group reaps and fails with [no-concurrency-escapes] if any child process outlives the run."
+message = "Await every promise, scope every child process through ChildProcessSpawner (Effect.scoped), or run the work as an Effect; don't fire and forget, don't leave background processes running after their owner exits, and don't schedule with raw timers. Use Effect.sleep, a Schedule or a scoped ChildProcessSpawner, which can be interrupted and tested. If none fits, stop and report what you're trying to do."
 
 [android]
 layer = "1+2"

@@ -15,6 +15,7 @@ import platform
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -570,10 +571,12 @@ class TypeScriptToolsTests(unittest.TestCase):
         self.env['npm_config_registry'] = 'https://example.invalid/'
         self.env['pnpm_config_registry'] = 'https://example.invalid/'
         self.env['ELECTRON_RUN_AS_NODE'] = '1'
+        self.env['VITEST_MAX_WORKERS'] = '18'
         env = json.loads(self.node_env().stdout)
         self.assertNotIn('npm_config_registry', env)
         self.assertNotIn('pnpm_config_registry', env)
         self.assertNotIn('ELECTRON_RUN_AS_NODE', env)
+        self.assertNotIn('VITEST_MAX_WORKERS', env)
 
     def test_checksum_mismatch_is_refused_and_leaves_nothing(self) -> None:
         self.pin(node_sha='0' * 64)
@@ -600,6 +603,221 @@ class TypeScriptToolsTests(unittest.TestCase):
                          strip((TEMPLATE / 'scripts/handback.py').read_text()))
         gates = next(l for l in (TS_TEMPLATE / 'scripts/handback.py').read_text().splitlines() if l.startswith('GATES = '))
         self.assertIn(gates.split(' = ', 1)[1], (TS_TEMPLATE / 'scripts/check.py').read_text())
+
+    def assert_reaped(self, pid: int) -> None:
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            proc = subprocess.run(['ps', '-p', str(pid), '-o', 'state='], capture_output=True, text=True)
+            state = proc.stdout.strip()
+            if proc.returncode != 0 or not state or state.startswith('Z'):
+                return
+            time.sleep(0.02)
+        self.fail(f'pid {pid} is still alive')
+
+    def test_run_group_fails_and_reaps_detached_sip_binary_and_inherited_pipes_without_hanging(self) -> None:
+        sip_grp = self.root / 'sip-grp.pid'
+        sip_sid = self.root / 'sip-sid.pid'
+        # 1. `/bin/sleep` in leader group with stdout/stderr inherited (Sol S3).
+        # 2. Detached `setsid()` `/bin/sleep` (macOS SIP binary whose env `ps -E` hides, with exited parent: Sol S8).
+        detached_sip = shlex.join([sys.executable, '-c',
+                                   'import os, pathlib, subprocess\n'
+                                   'p = subprocess.Popen(["/bin/sleep", "60"], start_new_session=True)\n'
+                                   f'pathlib.Path({str(sip_sid)!r}).write_text(str(p.pid))\n'])
+        cmd = ['sh', '-c',
+               f'/bin/sleep 60 & printf "%s" "$!" > {shlex.quote(str(sip_grp))}; {detached_sip}; '
+               f'while [ ! -s {shlex.quote(str(sip_grp))} ] || [ ! -s {shlex.quote(str(sip_sid))} ]; do sleep 0.02; done; '
+               'echo done']
+        script = ('import json, pathlib, sys; sys.path.insert(0, sys.argv[1]); from tools import run_group\n'
+                  'proc = run_group(json.loads(sys.argv[2]), pathlib.Path(sys.argv[3]), {})\n'
+                  'print(json.dumps([proc.returncode, proc.stdout.strip(), proc.stderr]))\n')
+        result = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts'), json.dumps(cmd), str(self.root)],
+                                env=self.env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        returncode, stdout, stderr = json.loads(result.stdout)
+        self.assertEqual(returncode, 1)
+        self.assertEqual(stdout, 'done')
+        self.assertIn('[no-concurrency-escapes]', stderr)
+        for pid_file in (sip_grp, sip_sid):
+            self.assert_reaped(int(pid_file.read_text()))
+
+    def test_compiler_pool_cancellation_aborts_active_and_starting_workers(self) -> None:
+        # Sol S9 + S16 + S17: lock-free signal handler + sticky abort stops both running and paused-before-register workers.
+        worker_pid = self.root / 'compiler-worker.pid'
+        late_ran = self.root / 'late-worker.ran'
+        runner = (
+            'import os, pathlib, sys, threading, time\n'
+            'from concurrent.futures import ThreadPoolExecutor\n'
+            'sys.path.insert(0, sys.argv[1])\n'
+            'from tools import abort_active, handle_termination, reset_abort, run_group\n'
+            'handle_termination()\n'
+            'reset_abort()\n'
+            'cmd = ["sh", "-c", f"/bin/sleep 60 & echo $! > {sys.argv[2]}; wait"]\n'
+            'late_cmd = ["sh", "-c", f"echo ran > {sys.argv[4]}"]\n'
+            'entered = threading.Event()\n'
+            'def late():\n'
+            '    entered.set()\n'
+            '    time.sleep(0.3)\n'
+            '    return run_group(late_cmd, pathlib.Path(sys.argv[3]), dict(os.environ))\n'
+            'pool = ThreadPoolExecutor(max_workers=2)\n'
+            'futures = []\n'
+            'try:\n'
+            '    futures.append(pool.submit(run_group, cmd, pathlib.Path(sys.argv[3]), dict(os.environ)))\n'
+            '    futures.append(pool.submit(late))\n'
+            '    entered.wait(timeout=5)\n'
+            '    [f.result() for f in futures]\n'
+            'except BaseException:\n'
+            '    from tools import defer_signals\n'
+            '    with defer_signals(reraise=False, clear_pending=True):\n'
+            '        abort_active()\n'
+            '        for f in futures: f.cancel()\n'
+            '        pool.shutdown(wait=True, cancel_futures=True)\n'
+            '    sys.exit(130)\n'
+        )
+        proc = subprocess.Popen([sys.executable, '-c', runner, str(self.root / 'scripts'),
+                                 str(worker_pid), str(self.root), str(late_ran)],
+                                env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not worker_pid.is_file() or not worker_pid.read_text().strip():
+                self.assertLess(time.monotonic(), deadline, 'compiler worker never started')
+                time.sleep(0.02)
+            pid = int(worker_pid.read_text())
+            proc.send_signal(signal.SIGTERM)
+            proc.communicate(timeout=10)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate()
+        self.assert_reaped(pid)
+        self.assertFalse(late_ran.exists(), 'starting worker ran after abort_active()')
+
+    def test_run_group_kills_nested_and_setsid_trees_on_sigint_and_sigterm(self) -> None:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            with self.subTest(signal=sig.name):
+                inner_file = self.root / f'inner-{sig.name}.pid'
+                sid_file = self.root / f'sid-{sig.name}.pid'
+                sid_child = shlex.join([sys.executable, '-c',
+                                        'import os, pathlib, signal, time\n'
+                                        'if os.fork() > 0: os._exit(0)\n'
+                                        'os.setsid()\n'
+                                        'signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+                                        f'pathlib.Path({str(sid_file)!r}).write_text(str(os.getpid()))\n'
+                                        'time.sleep(60)\n'])
+                inner_cmd = ['sh', '-c',
+                             f'{sid_child}; '
+                             'python3 -c \'import os, pathlib, signal, sys, time; '
+                             'signal.signal(signal.SIGTERM, signal.SIG_IGN); '
+                             'pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(60)\' '
+                             f'{shlex.quote(str(inner_file))}']
+                inner_runner = shlex.join([sys.executable, '-c',
+                                           'import json, os, pathlib, sys; sys.path.insert(0, sys.argv[1]); '
+                                           'from reap import handle_termination, run_group; handle_termination(); '
+                                           'run_group(json.loads(sys.argv[2]), pathlib.Path(sys.argv[3]), dict(os.environ))',
+                                           str(self.root / 'scripts'), json.dumps(inner_cmd), str(self.root)])
+                outer_runner = ('import os, pathlib, sys; sys.path.insert(0, sys.argv[1]); '
+                                'from reap import handle_termination, run_group; handle_termination()\n'
+                                'try:\n'
+                                '    run_group(["sh", "-c", sys.argv[2]], pathlib.Path(sys.argv[3]), dict(os.environ))\n'
+                                'except KeyboardInterrupt:\n'
+                                '    sys.exit(130)\n')
+                proc = subprocess.Popen([sys.executable, '-c', outer_runner, str(self.root / 'scripts'),
+                                         inner_runner, str(self.root)],
+                                        env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                try:
+                    deadline = time.monotonic() + 10
+                    while not (inner_file.is_file() and inner_file.read_text().strip()
+                               and sid_file.is_file() and sid_file.read_text().strip()):
+                        self.assertLess(time.monotonic(), deadline, 'nested children never wrote their pids')
+                        time.sleep(0.02)
+                    pids = [int(inner_file.read_text()), int(sid_file.read_text())]
+                    proc.send_signal(sig)
+                    proc.communicate(timeout=10)
+                finally:
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.communicate()
+                for pid in pids:
+                    self.assert_reaped(pid)
+
+    def test_verify_workers_reads_env_and_machine_config_without_hardcoding(self) -> None:
+        home = self.root / 'home'
+        cfg = home / '.config/b-stack'
+        cfg.mkdir(parents=True)
+        (cfg / 'config.toml').write_text(f'cache_dir = "{self.cache}"\nverify_workers = 3\n')
+        probe = ('import os, sys; sys.path.insert(0, sys.argv[1]); import verify; '
+                 'print(verify.verify_workers(dict(os.environ)))')
+        base_env = {k: v for k, v in self.env.items() if k != 'BSTACK_VERIFY_WORKERS'} | {'HOME': str(home)}
+        from_cfg = subprocess.run([sys.executable, '-c', probe, str(self.root / 'scripts')],
+                                  env=base_env, capture_output=True, text=True)
+        self.assertEqual((from_cfg.returncode, from_cfg.stdout.strip()), (0, '3'), from_cfg.stderr)
+        from_env = subprocess.run([sys.executable, '-c', probe, str(self.root / 'scripts')],
+                                  env={**base_env, 'BSTACK_VERIFY_WORKERS': '2'}, capture_output=True, text=True)
+        self.assertEqual((from_env.returncode, from_env.stdout.strip()), (0, '2'), from_env.stderr)
+
+    def test_volume_loss_watchdog_kills_tree_immediately(self) -> None:
+        mount = self.root / 'simulated-mount'
+        mount.mkdir()
+        grp_pid = self.root / 'vol-grp.pid'
+        sid_pid = self.root / 'vol-sid.pid'
+        detached = shlex.join([sys.executable, '-c',
+                               'import pathlib, signal, subprocess\n'
+                               'p = subprocess.Popen(["/bin/sleep", "60"], start_new_session=True)\n'
+                               f'pathlib.Path({str(sid_pid)!r}).write_text(str(p.pid))\n'])
+        cmd = ['sh', '-c', f'/bin/sleep 60 & echo $! > {shlex.quote(str(grp_pid))}; {detached}; wait']
+        runner = ('import json, os, pathlib, sys; sys.path.insert(0, sys.argv[1]); from tools import run_group\n'
+                  'proc = run_group(json.loads(sys.argv[2]), pathlib.Path(sys.argv[3]), dict(os.environ))\n'
+                  'print(json.dumps([proc.returncode, proc.stderr]))\n')
+        proc = subprocess.Popen([sys.executable, '-c', runner, str(self.root / 'scripts'), json.dumps(cmd), str(self.root)],
+                                env={**self.env, 'BSTACK_WATCH_PATH': str(mount)},
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not (grp_pid.is_file() and grp_pid.read_text().strip()
+                       and sid_pid.is_file() and sid_pid.read_text().strip()):
+                self.assertLess(time.monotonic(), deadline, 'children never started')
+                time.sleep(0.02)
+            pids = [int(grp_pid.read_text()), int(sid_pid.read_text())]
+            shutil.rmtree(mount)
+            stdout, stderr = proc.communicate(timeout=5)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate()
+        self.assertEqual(proc.returncode, 0, stderr)
+        returncode, err = json.loads(stdout)
+        self.assertEqual(returncode, 1)
+        self.assertIn('[volume-lost]', err)
+        for pid in pids:
+            self.assert_reaped(pid)
+
+    def test_volume_watchdog_uses_effective_cache_and_rejects_missing_watch_path_before_spawn(self) -> None:
+        # Sol S22 + S25: BSTACK_CACHE_DIR overrides an unmounted config.toml cache_dir, and a missing required path
+        # fails before the command ever runs.
+        home = self.root / 'home-vol'
+        cfg = home / '.config/b-stack'
+        cfg.mkdir(parents=True)
+        (cfg / 'config.toml').write_text(f'cache_dir = "{self.root / "unmounted-toml"}"\n')
+        marker = self.root / 'never-ran.txt'
+        script = (
+            'import json, os, pathlib, sys; sys.path.insert(0, sys.argv[1]); from tools import reset_abort, run_group\n'
+            'ok = run_group(["sh", "-c", "echo ok"], pathlib.Path(sys.argv[2]), dict(os.environ))\n'
+            'bad = run_group(["sh", "-c", f"echo oops > {sys.argv[3]}"], pathlib.Path(sys.argv[2]), '
+            '{**os.environ, "BSTACK_WATCH_PATH": sys.argv[4]})\n'
+            'bad_tools = run_group(["sh", "-c", f"echo oops > {sys.argv[3]}"], pathlib.Path(sys.argv[2]), '
+            '{**os.environ, "BSTACK_TOOLS_DIR": sys.argv[5]})\n'
+            'print(json.dumps([ok.returncode, ok.stdout.strip(), bad.returncode, bad.stderr, bad_tools.returncode, bad_tools.stderr]))\n'
+        )
+        res = subprocess.run([sys.executable, '-c', script, str(self.root / 'scripts'), str(self.root),
+                              str(marker), str(self.root / 'missing-mount'), str(self.root / 'absent-vol/tools')],
+                             env={**self.env, 'HOME': str(home)}, capture_output=True, text=True, timeout=10)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        ok_rc, ok_out, bad_rc, bad_err, tools_rc, tools_err = json.loads(res.stdout)
+        self.assertEqual((ok_rc, ok_out), (0, 'ok'))
+        self.assertEqual(bad_rc, 1)
+        self.assertIn('[volume-lost]', bad_err)
+        self.assertEqual(tools_rc, 1)
+        self.assertIn('[volume-lost]', tools_err)
+        self.assertFalse(marker.exists())
 
 
 class AndroidToolsTests(unittest.TestCase):
