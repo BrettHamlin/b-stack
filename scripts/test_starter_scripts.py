@@ -2299,7 +2299,7 @@ class TestIntegrityScanTests(unittest.TestCase):
             'src/Login.kt': 'fun login(name: String) {\n}\n',
         }, {
             'tests/test_math.py': ['test code removed or changed', 'assertion removed or changed'],
-            'src/lib.rs': ['assertion removed or changed', 'test removed or renamed'],
+            'src/lib.rs': ['assertion removed or changed', 'test removed or renamed', 'test code removed or changed'],
             'src/Login.kt': ['assertion removed or changed'],
         })
 
@@ -2407,7 +2407,7 @@ class TestIntegrityScanTests(unittest.TestCase):
                                         'stub or not-implemented added', 'mock or stub added')
     LOOSER_R, TIMEOUT_R, SUPPRESS_R = ('retry, ignored failure or threshold added', 'timeout added or changed',
                                        'suppression added')
-    BYPASS_R, GATE_R, ASSERT_R = ('test code added that can end, catch or retime a test', 'gate config changed',
+    BYPASS_R, GATE_R, ASSERT_R = ('code added that can end, catch or retime a test or gate early', 'gate config changed',
                                   'assertion removed or changed')
     TEST_A = 'it("a", () => {\n  expect(f()).toBe(1)\n})\n'
     # (path, text at the base or None, text now, the reasons expected; an empty set means no flag)
@@ -2433,6 +2433,11 @@ class TestIntegrityScanTests(unittest.TestCase):
         ('tests/run.sh', 'x\n', 'x\nvitest --passWithNoTests\n', {LOOSER_R}),
         ('web/a.test.ts', TEST_A, TEST_A.replace('  expect', '  return\n  expect'), {BYPASS_R}),
         ('web/b.test.ts', TEST_A, 'beforeEach(() => vi.useFakeTimers())\n' + TEST_A, {BYPASS_R}),
+        ('scripts/check.py', 'def run():\n    lint()\n', 'def run():\n    return\n    lint()\n', {BYPASS_R}),
+        ('src/lib.rs', 'fn a() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        assert!(a());\n    }\n}\n',
+         'fn a() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        return;\n        assert!(a());\n    }\n}\n',
+         {BYPASS_R}),
+        ('src/run.rs', 'fn a() {\n    b();\n}\n', 'fn a() {\n    return;\n    b();\n}\n', set()),  # production Rust
         ('config/detekt/baseline.xml', '<a/>\n', '<a/>\n<b/>\n', {GATE_R}),
         ('codecov.yml', 'target: 90\n', 'target: 80\n', {GATE_R}),
         ('arch/shape.toml', '[a]\n', '[a]\n[roles.x]\n', {GATE_R}),
@@ -2457,21 +2462,34 @@ class TestIntegrityScanTests(unittest.TestCase):
                 self.git('reset', '-q', '--hard')
                 self.git('clean', '-qfd')
 
+    def flag_ids(self) -> list[str]:
+        return [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
+
     def test_ids_name_one_hunk_each(self) -> None:
-        body = 'def test_a():\n    assert a() == 1\n\n\ndef test_b():\n    assert a() == 1\n'
+        test = '\n\ndef test_{}():\n    x = 1\n    y = 2\n    z = 3\n    assert a() == 1\n'
+        body = test.format('a') + test.format('b')
         self.write('tests/test_ids.py', body)
         self.git('add', '-A')
         self.git('commit', '-qm', 'ids')
         self.write('tests/test_ids.py', body.replace(' == 1', ''))
-        ids = [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
-        self.assertEqual(len(ids), 2)
+        ids = self.flag_ids()
         self.assertEqual(ids[1], ids[0] + '-2')  # identical hunks, each judged
-        self.write('tests/test_ids.py', '# moved down\n\n' + body.replace(' == 1', ''))
-        moved = [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
-        self.assertEqual(moved[-2:], ids)  # a hunk's id doesn't depend on its line number
+        self.write('tests/test_ids.py', '# moved down\n' + body.replace(' == 1', ''))
+        self.assertEqual(self.flag_ids(), ids)  # a hunk's id doesn't depend on its line number
         self.write('tests/test_ids.py', body.replace(' == 1', ' > 0'))
-        changed = [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
-        self.assertNotEqual(changed[0], ids[0])  # different added lines, different id
+        self.assertNotEqual(self.flag_ids()[0], ids[0])  # different added lines, different id
+
+    def test_same_edit_under_another_test_gets_a_new_id(self) -> None:
+        body = 'def test_a():\n    assert a() == 1\n\n\ndef test_b():\n    assert b() == 1\n'
+        self.write('tests/test_move.py', body)
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'move')
+        self.write('tests/test_move.py', body.replace('    assert a()', '    return\n    assert a()'))
+        in_a = self.flag_ids()
+        self.write('tests/test_move.py', body.replace('    assert b()', '    return\n    assert b()'))
+        in_b = self.flag_ids()
+        self.assertEqual((len(in_a), len(in_b)), (1, 1))
+        self.assertNotEqual(in_a, in_b)  # same added text, different test: a KEEP for one doesn't cover the other
 
     def test_errors_exit_2(self) -> None:
         proc = self.run_scan('--base', 'no-such-ref')

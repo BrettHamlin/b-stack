@@ -118,6 +118,7 @@ def is_gate_file(path: str) -> bool:
 @dataclass
 class Hunk:
     line: int  # first line in the new file (the old file for a deletion)
+    context: list[str] = field(default_factory=list)  # the lines just above it in the new file, for its id
     removed: list[str] = field(default_factory=list)
     added: list[str] = field(default_factory=list)
 
@@ -127,6 +128,7 @@ class FileDiff:
     path: str
     status: str  # M, A, D, T (type change); an untracked file is A
     hunks: list[Hunk] = field(default_factory=list)
+    tests_from: int = 0  # a Rust file's first `#[cfg(test)]` line: hunks from there on are test code
 
 
 def git(repo: str, *args: str) -> str:
@@ -173,7 +175,8 @@ def changed_files(repo: str, base: str) -> list[FileDiff]:
             continue
         diff = git(repo, 'diff', '--no-color', '--no-ext-diff', '--no-renames', '--no-textconv', '-U0',
                    '--src-prefix=a/', '--dst-prefix=b/', base, '--', path)
-        files.append(FileDiff(path=path, status=status[0], hunks=parse_hunks(diff, status[0] == 'D')))
+        files.append(with_context(repo, FileDiff(path=path, status=status[0],
+                                                  hunks=parse_hunks(diff, status[0] == 'D'))))
     for path in git(repo, 'ls-files', '--others', '--exclude-standard', '-z').split('\0'):
         if not path:
             continue
@@ -184,6 +187,21 @@ def changed_files(repo: str, base: str) -> list[FileDiff]:
             lines = []
         files.append(FileDiff(path=path, status='A', hunks=[Hunk(line=1, added=lines)]))
     return files
+
+
+def with_context(repo: str, diff: FileDiff) -> FileDiff:
+    if diff.status == 'D':
+        return diff
+    try:
+        with open(os.path.join(repo, diff.path), encoding='utf-8', errors='replace') as handle:
+            lines = handle.read().split('\n')
+    except OSError:
+        return diff
+    for hunk in diff.hunks:
+        hunk.context = lines[max(0, hunk.line - 4):max(0, hunk.line - 1)]
+    if diff.path.endswith('.rs'):
+        diff.tests_from = next((n for n, l in enumerate(lines, 1) if l.strip().startswith('#[cfg(test)]')), 0)
+    return diff
 
 
 def new_matches(pattern: re.Pattern[str], hunk: Hunk) -> list[str]:
@@ -203,7 +221,7 @@ def new_matches(pattern: re.Pattern[str], hunk: Hunk) -> list[str]:
 def reasons(diff: FileDiff, hunk: Hunk) -> tuple[list[str], list[str]]:
     """The reasons a hunk is flagged, and the added lines that matched (for printing pure additions)."""
     path, found, hits = diff.path, [], []
-    test = is_test_file(path)
+    test = is_test_file(path) or (diff.tests_from > 0 and hunk.line >= diff.tests_from)
     gate = is_gate_file(path) or (path.endswith('package.json') and any(
         PACKAGE_SCRIPT.search(l) for l in hunk.removed + hunk.added))
     code = not path.endswith(PROSE)
@@ -224,8 +242,8 @@ def reasons(diff: FileDiff, hunk: Hunk) -> tuple[list[str], list[str]]:
                 ('mock or stub added', MOCK, test),
                 ('retry, ignored failure or threshold added', LOOSER_RUN, test or gate),
                 ('timeout added or changed', TIMEOUT, gate and not test),
-                ('test code added that can end, catch or retime a test', TEST_BYPASS,
-                 test and diff.status != 'A' and not hunk.removed),
+                ('code added that can end, catch or retime a test or gate early', TEST_BYPASS,
+                 (test or (gate and not is_config_file(path))) and diff.status != 'A' and not hunk.removed),
                 ('suppression added', SUPPRESSION, True)):
             if applies and (lines := new_matches(pattern, hunk)):
                 found.append(reason)
@@ -243,8 +261,9 @@ def reasons(diff: FileDiff, hunk: Hunk) -> tuple[list[str], list[str]]:
 
 
 def flag_id(path: str, hunk: Hunk) -> str:
-    """Stable across reruns while the hunk is unchanged, so earlier verdicts can be matched."""
-    digest = hashlib.sha1('\0'.join([path, *hunk.removed, '\1', *hunk.added]).encode()).hexdigest()
+    """Stable across reruns while the hunk and the lines above it are unchanged, so earlier verdicts can be matched.
+    The same text moved under a different test gets a new id."""
+    digest = hashlib.sha1('\0'.join([path, *hunk.context, '\2', *hunk.removed, '\1', *hunk.added]).encode()).hexdigest()
     return f'T-{digest[:8]}'
 
 

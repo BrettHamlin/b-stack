@@ -23,7 +23,8 @@ python3 <this skill's folder>/scan.py --base <sha> --json
 it the scan uses the default branch, which is wrong for a stacked PR.
 
 Exit 0: nothing flagged, done. Exit 1: flags, each with a stable id
-(`T-1a2b3c4d`, the same while the hunk is unchanged), file, line, reasons and
+(`T-1a2b3c4d`, the same while the hunk and the lines just above it are
+unchanged), file, line, reasons and
 the hunk. Exit 2: not a repo or a bad base; fix that, it is not a pass.
 
 The scan is broad on purpose. A flag is a question, not a verdict. Never
