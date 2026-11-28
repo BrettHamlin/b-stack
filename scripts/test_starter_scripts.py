@@ -42,6 +42,7 @@ sys.path.insert(0, str(ART_EVAL / 'flaws'))
 import build as pick_build  # noqa: E402
 import export as pick_export  # noqa: E402
 import rank as flaw_rank  # noqa: E402
+TEST_INTEGRITY = ROOT / 'skills/test-integrity/scan.py'
 
 ENV = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@example.invalid',
        'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@example.invalid'}
@@ -2218,6 +2219,295 @@ class FlawRankTests(unittest.TestCase):
                               capture_output=True, text=True)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn('missing medium, large', proc.stderr)
+
+
+
+class TestIntegrityScanTests(unittest.TestCase):
+    """skills/test-integrity/scan.py flags each way a diff can weaken checking, and leaves ordinary changes alone."""
+
+    BASE = {
+        'tests/test_math.py': 'def test_add():\n    assert add(1, 2) == 3\n    assert sub(3, 1) == 2\n',
+        'src/app.ts': 'export const first = (xs: number[]) => xs.slice(0, 1)\n',
+        'src/lib.rs': 'pub fn get(i: usize) -> u8 {\n    assert!(i < 4);\n    0\n}\n\n#[cfg(test)]\nmod tests {\n'
+                      '    #[test]\n    fn gets() { prop_assert_eq!(get(1), 0); }\n}\n',
+        'src/Login.kt': 'fun login(name: String) {\n    require(name.isNotEmpty())\n}\n',
+        'src/view.ts': 'export const show = (user: User) => user.shouldShowBanner\n',
+        'tsconfig.json': '{ "compilerOptions": { "strict": true } }\n',
+        'package.json': '{\n  "scripts": { "test": "vitest run" },\n  "dependencies": { "a": "1.0.0" }\n}\n',
+        'db/check.sql': '-- assert_empty(users)\nselect 1;\n',
+        'tests/old_test.py': 'def test_old():\n    assert True\n',
+        'tests/__snapshots__/home.png': b'\x89PNG\r\n\x1a\n\x00\x00',
+        '.githooks/pre-commit': '#!/bin/sh\npython3 scripts/check.py\n',
+        'scripts/check.py': 'GATES = ["compiler", "lint"]\n',
+        'README.md': 'Results should be exact; assert nothing here.\n',
+        'app/tests/test math.py': 'def test_mul():\n    assert mul(2, 3) == 6\n',
+    }
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        for name, body in self.BASE.items():
+            self.write(name, body)
+        os.chmod(self.root / '.githooks/pre-commit', 0o755)
+        for args in (('init', '-q', '-b', 'main'), ('add', '-A'), ('commit', '-qm', 'base')):
+            self.git(*args)
+
+    def git(self, *args: str) -> None:
+        subprocess.run(['git', '-C', str(self.root), *args], check=True, env=ENV, capture_output=True)
+
+    def write(self, name: str, body: str | bytes) -> None:
+        path = self.root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body) if isinstance(body, bytes) else path.write_text(body)
+
+    def run_scan(self, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+        return subprocess.run([sys.executable, str(TEST_INTEGRITY), *args], capture_output=True, text=True,
+                              cwd=cwd or self.root)
+
+    def scan(self) -> dict[str, set[str]]:
+        """Each flagged file's reasons, across all its hunks."""
+        proc = self.run_scan('--base', 'HEAD', '--json')
+        self.assertIn(proc.returncode, (0, 1), proc.stderr)
+        flags: dict[str, set[str]] = {}
+        for flag in json.loads(proc.stdout)['flags']:
+            flags.setdefault(flag['file'], set()).update(flag['reasons'])
+        self.assertEqual(proc.returncode, 1 if flags else 0)
+        return flags
+
+    def assert_flags(self, edits: dict[str, str | bytes], expected: dict[str, list[str]]) -> None:
+        for name, body in edits.items():
+            self.write(name, body)
+        self.assertEqual(self.scan(), {name: set(reasons) for name, reasons in expected.items()})
+
+    def test_nothing_changed_or_ordinary_changes(self) -> None:
+        self.assertEqual(self.scan(), {})
+        self.assert_flags({
+            'src/app.ts': 'export const rest = (xs: number[]) => xs.slice(1)\nexport const n = [1].values().drop(1)\n',
+            'src/view.ts': 'export const show = (user: User) => user.shouldShowBanner && user.shouldRetry()\n'
+                           'export const fetchWithRetry = (retries = 3, timeout = 5) => retries\n',
+            'README.md': 'Results should match, assert or not.\n',
+            'package.json': '{\n  "scripts": { "test": "vitest run" },\n  "dependencies": { "a": "1.1.0" }\n}\n',
+            'scripts/check.py': 'GATES = ["compiler", "lint", "tests"]\n',
+            'tests/test_new.py': 'def test_div():\n    assert div(6, 3) == 2\n',
+        }, {'scripts/check.py': ['gate code removed or changed']})  # the only flag: a gate script's line changed
+
+    def test_loosened_assertions_in_each_language(self) -> None:
+        self.assert_flags({
+            'tests/test_math.py': 'def test_add():\n    assert add(1, 2)\n    assert sub(3, 1) == 2\n',
+            'src/lib.rs': 'pub fn get(i: usize) -> u8 {\n    0\n}\n\n#[cfg(test)]\nmod tests {\n'
+                          '    fn gets() { prop_assert!(get(1) >= 0); }\n}\n',
+            'src/Login.kt': 'fun login(name: String) {\n}\n',
+        }, {
+            'tests/test_math.py': ['test code removed or changed', 'assertion removed or changed'],
+            'src/lib.rs': ['assertion removed or changed', 'test removed or renamed', 'test code removed or changed'],
+            'src/Login.kt': ['assertion removed or changed'],
+        })
+
+    def test_test_only_assertion_forms(self) -> None:
+        cases = {
+            'web/a.test.ts': ('it("a", () => {\n  expect(f()).toStrictEqual({ a: 1 })\n})\n',
+                              'it("a", () => {\n  expect(f()).toBeDefined()\n})\n'),
+            'app/src/commonTest/kotlin/ATest.kt': ('fun a() {\n    f() shouldBe 5\n    verify { repo.save() }\n}\n',
+                                                   'fun a() {\n}\n'),
+            'SwiftTests/AppTests/ATests.swift': ('func testA() {\n    #expect(f() == 5)\n}\n', 'func testA() {\n}\n'),
+        }
+        for name, (before, _) in cases.items():
+            self.write(name, before)
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'more tests')
+        for name, (_, after) in cases.items():
+            self.write(name, after)
+        flags = self.scan()
+        for name in cases:
+            self.assertIn('assertion removed or changed', flags[name], name)
+
+    def test_skips_stubs_mocks_and_suppressions(self) -> None:
+        self.assert_flags({
+            'tests/test_math.py': self.BASE['tests/test_math.py'] + '\n@pytest.mark.skip\ndef test_x():\n    pytest.xfail()\n',
+            'src/app.ts': '// @ts-ignore\nexport const first = (xs: number[]) => xs.slice(0, 1)\n',
+            'src/lib.rs': self.BASE['src/lib.rs'] + '\n#[allow(dead_code)]\npub fn later() { todo!() }\n',
+            'src/Login.kt': '@file:Suppress("unused")\n' + self.BASE['src/Login.kt'],
+            'web/b.test.ts': 'vi.mock("./db")\nit.skipIf(ci)("b", () => {})\n',
+            'web/c.test.ts': 'test.only("c", () => {})\n',
+            'SwiftTests/AppTests/BTests.swift': '@Test(.disabled("slow")) func b() {}\n',
+            'lint/conf.py': 'import x  # ruff: noqa\n',
+        }, {
+            'tests/test_math.py': ['skip, only or known-failure marker added'],
+            'src/app.ts': ['suppression added'],
+            'src/lib.rs': ['stub or not-implemented added', 'suppression added'],
+            'src/Login.kt': ['suppression added'],
+            'web/b.test.ts': ['skip, only or known-failure marker added', 'mock or stub added'],
+            'web/c.test.ts': ['skip, only or known-failure marker added'],
+            'SwiftTests/AppTests/BTests.swift': ['skip or assumption added'],
+            'lint/conf.py': ['suppression added'],
+        })
+
+    def test_moved_suppression_is_not_new(self) -> None:
+        self.write('src/boot.py', 'import a  # noqa: E402\n')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'boot')
+        self.assert_flags({'src/boot.py': 'import a, b  # noqa: E402\n'}, {})
+
+    def test_gates_package_scripts_and_ci(self) -> None:
+        self.assert_flags({
+            'tsconfig.json': '{ "compilerOptions": { "strict": false } }\n',
+            'apps/web/vitest.config.ts': 'export default { test: { passWithNoTests: true } }\n',
+            'package.json': '{\n  "scripts": { "test": "vitest run --passWithNoTests || true" },\n  "dependencies": { "a": "1.0.0" }\n}\n',
+            '.github/workflows/ci.yml': 'jobs:\n  test:\n    continue-on-error: true\n',
+        }, {
+            'tsconfig.json': ['gate config changed'],
+            'apps/web/vitest.config.ts': ['gate config added'],
+            'package.json': ['retry, ignored failure or threshold added', 'gate file changed'],
+            '.github/workflows/ci.yml': ['retry, ignored failure or threshold added', 'gate config added'],
+        })
+
+    def test_deletes_renames_binary_and_mode_changes(self) -> None:
+        self.git('mv', 'tests/old_test.py', 'tests/old_disabled.py')
+        os.chmod(self.root / '.githooks/pre-commit', 0o644)
+        self.write('tests/__snapshots__/home.png', b'\x89PNG\r\n\x1a\n\x00\x01')
+        self.assert_flags({}, {
+            'tests/old_test.py': ['test, snapshot or gate file deleted (a rename shows as a delete and an add)'],
+            '.githooks/pre-commit': ['gate config changed', 'binary or mode change (no text diff)'],
+            'tests/__snapshots__/home.png': ['snapshot or golden file changed', 'binary or mode change (no text diff)'],
+        })
+        (self.root / 'tests/__snapshots__/home.png').unlink()
+        self.assertIn('tests/__snapshots__/home.png', self.scan())
+
+    def test_removed_line_that_looks_like_a_diff_header(self) -> None:
+        # Removing "-- assert_empty(users)" shows as "--- assert_empty(users)" in the diff.
+        self.assert_flags({'db/check.sql': 'select 1;\n'}, {'db/check.sql': ['assertion removed or changed']})
+
+    def test_odd_paths_prefix_config_and_subfolder(self) -> None:
+        self.git('config', 'diff.mnemonicPrefix', 'true')
+        self.write('app/tests/test math.py', 'def test_mul():\n    assert mul(2, 3)\n')
+        self.write('src/new.ts', '// @ts-ignore\nexport {}\n')  # untracked, outside the folder the scan runs from
+        (self.root / 'tests/test_é.py').write_text('import pytest\npytest.skip("later")\n')
+        proc = self.run_scan('--base', 'HEAD', '--json', cwd=self.root / 'app')
+        flags = {f['file']: f['reasons'] for f in json.loads(proc.stdout)['flags']}
+        self.assertEqual(set(flags), {'app/tests/test math.py', 'src/new.ts', 'tests/test_é.py'})
+
+    def test_new_file_prints_only_matching_lines(self) -> None:
+        self.write('src/big.py', 'x = 1\n' * 50 + 'import y  # type: ignore\n')
+        proc = self.run_scan('--base', 'HEAD')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn('src/big.py:1  [suppression added]', proc.stdout)
+        self.assertIn('+ import y  # type: ignore', proc.stdout)
+        self.assertNotIn('+ x = 1', proc.stdout)
+        self.assertIn('51 other added line(s) not shown', proc.stdout)
+
+    def test_ids_are_stable_and_base_defaults_to_main(self) -> None:
+        self.git('checkout', '-qb', 'feature')
+        self.write('src/app.ts', '// @ts-ignore\nexport const first = (xs: number[]) => xs.slice(0, 1)\n')
+        first = json.loads(self.run_scan('--json').stdout)
+        second = json.loads(self.run_scan('--json').stdout)
+        self.assertEqual([f['id'] for f in first['flags']], [f['id'] for f in second['flags']])
+        self.assertRegex(first['flags'][0]['id'], r'^T-[0-9a-f]{8}$')
+
+    SKIP_R, ASSUME_R, STUB_R, MOCK_R = ('skip, only or known-failure marker added', 'skip or assumption added',
+                                        'stub or not-implemented added', 'mock or stub added')
+    LOOSER_R, TIMEOUT_R, SUPPRESS_R = ('retry, ignored failure or threshold added', 'timeout added or changed',
+                                       'suppression added')
+    BYPASS_R, GATE_R, ASSERT_R = ('code added that can end, catch or retime a test or gate early', 'gate config changed',
+                                  'assertion removed or changed')
+    TEST_A = 'it("a", () => {\n  expect(f()).toBe(1)\n})\n'
+    # (path, text at the base or None, text now, the reasons expected; an empty set means no flag)
+    PATTERN_CASES = [
+        ('tests/test_a.py', 'x\n', 'x\n@pytest.mark.skip\n', {SKIP_R}),
+        ('src/lib.rs', 'fn a() {}\n', 'fn a() {}\n#[ignore]\n', {SKIP_R}),
+        ('src/test/java/ATest.java', 'x\n', 'x\n@Disabled\n', {SKIP_R}),
+        ('SwiftTests/A/ATests.swift', 'x\n', 'x\nwithKnownIssue {}\n', {SKIP_R}),
+        ('app/src/commonTest/kotlin/Checks.kt', 'x\n', 'x\nassumeTrue(ci)\n', {ASSUME_R}),  # a test by folder only
+        ('src/a.py', 'x\n', 'x\nraise NotImplementedError\n', {STUB_R}),
+        ('tests/test_m.py', 'x\n', 'x\n@patch("db")\n', {MOCK_R}),
+        ('web/spec/a.ts', 'expect(a)\n', 'a\n', {ASSERT_R, 'test code removed or changed'}),
+        ('web/spec/b.ts', 'x.toBe(1)\n', 'x\n', {ASSERT_R, 'test code removed or changed'}),
+        ('app/src/commonTest/kotlin/C.kt', 'x shouldBe 1\n', 'x\n', {ASSERT_R, 'test code removed or changed'}),
+        ('app/src/commonTest/kotlin/D.kt', 'verify { a() }\n', 'a()\n', {ASSERT_R, 'test code removed or changed'}),
+        ('src/a.py', 'import a  # noqa: E402\n', 'import a  # noqa: E402, F401\n', {SUPPRESS_R}),
+        ('src/a.ts', '// eslint-disable-next-line no-console\nx\n', '// eslint-disable-next-line no-console, no-eval\nx\n',
+         {SUPPRESS_R}),
+        ('.github/workflows/ci.yml', 'jobs: {}\n', 'jobs: {}\ntimeout-minutes: 90\n', {TIMEOUT_R, GATE_R}),
+        ('tests/test_r.py', 'x\n', 'x\n@flaky(reruns=3)\n', {LOOSER_R}),
+        ('scripts/check.py', 'x = 1\n', 'x = 1\nthreshold = 0.5\n', {LOOSER_R}),
+        ('.githooks/pre-push', 'x\n', 'x\nrun || true\n', {LOOSER_R, GATE_R}),
+        ('tests/run.sh', 'x\n', 'x\nvitest --passWithNoTests\n', {LOOSER_R}),
+        ('web/a.test.ts', TEST_A, TEST_A.replace('  expect', '  return\n  expect'), {BYPASS_R}),
+        ('web/b.test.ts', TEST_A, 'beforeEach(() => vi.useFakeTimers())\n' + TEST_A, {BYPASS_R}),
+        ('scripts/check.py', 'def run():\n    lint()\n', 'def run():\n    return\n    lint()\n', {BYPASS_R}),
+        ('src/lib.rs', 'fn a() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        assert!(a());\n    }\n}\n',
+         'fn a() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        return;\n        assert!(a());\n    }\n}\n',
+         {BYPASS_R}),
+        ('src/run.rs', 'fn a() {\n    b();\n}\n', 'fn a() {\n    return;\n    b();\n}\n', set()),  # production Rust
+        ('config/detekt/baseline.xml', '<a/>\n', '<a/>\n<b/>\n', {GATE_R}),
+        ('codecov.yml', 'target: 90\n', 'target: 80\n', {GATE_R}),
+        ('arch/shape.toml', '[a]\n', '[a]\n[roles.x]\n', {GATE_R}),
+        # Not flagged:
+        ('src/View.swift', 'x\n', 'x\nButton().disabled(true)\n', set()),  # SwiftUI, not a test trait
+        ('src/svc.py', 'x\n', 'x\nassume_role(x)\nmock_mode = load()\n', set()),
+        ('config/app.toml', 'note = "asserts x"\n', 'note = "y"\n', set()),
+        ('tests/__snapshots__/b.snap', None, 'x\n', set()),  # a new snapshot
+        ('src/main.rs', 'let a = read().context("x")?;\n', 'let a = read().context("y")?;\n', set()),
+    ]
+
+    def test_each_pattern_on_its_own(self) -> None:
+        for path, before, after, expected in self.PATTERN_CASES:
+            with self.subTest(path=path, after=after):
+                if before is not None:
+                    self.write(path, before)
+                    self.git('add', '-A')
+                    self.git('commit', '-qm', path)
+                self.write(path, after)
+                flags = self.scan()
+                self.assertEqual(flags, {path: expected} if expected else {})
+                self.git('reset', '-q', '--hard')
+                self.git('clean', '-qfd')
+
+    def flag_ids(self) -> list[str]:
+        return [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
+
+    def test_ids_name_one_hunk_each(self) -> None:
+        block = '    x = 1\n    y = 2\n    z = 3\n    assert a() == 1\n'
+        body = 'def test_a():\n' + block + block
+        self.write('tests/test_ids.py', body)
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'ids')
+        self.write('tests/test_ids.py', body.replace(' == 1', ''))
+        ids = self.flag_ids()
+        self.assertEqual(ids[1], ids[0] + '-2')  # identical hunks, each judged
+        self.write('tests/test_ids.py', '# moved down\n' + body.replace(' == 1', ''))
+        self.assertEqual(self.flag_ids(), ids)  # a hunk's id doesn't depend on its line number
+        self.write('tests/test_ids.py', body.replace(' == 1', ' > 0'))
+        self.assertNotEqual(self.flag_ids()[0], ids[0])  # different added lines, different id
+
+    def test_same_edit_under_another_test_gets_a_new_id(self) -> None:
+        # Identical lines above the edit in both tests, one of them a call that looks like a declaration.
+        setup = '    ok = pattern.test(value)\n    x = 1\n    y = 2\n    z = 3\n'
+        body = f'def test_a():\n{setup}    assert a() == 1\n\n\ndef test_b():\n{setup}    assert b() == 1\n'
+        self.write('tests/test_move.py', body)
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'move')
+        self.write('tests/test_move.py', body.replace('    assert a()', '    return\n    assert a()'))
+        in_a = self.flag_ids()
+        self.write('tests/test_move.py', body.replace('    assert b()', '    return\n    assert b()'))
+        in_b = self.flag_ids()
+        self.assertEqual((len(in_a), len(in_b)), (1, 1))
+        self.assertNotEqual(in_a, in_b)  # same added text, different test: a KEEP for one doesn't cover the other
+
+    def test_errors_exit_2(self) -> None:
+        proc = self.run_scan('--base', 'no-such-ref')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn('scan.py:', proc.stderr)
+        outside = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, outside)
+        self.assertEqual(self.run_scan(cwd=outside).returncode, 2)
+        self.write('src/latin1.py', b'x = "\xe9"\nassert x == "\xe9"\n')
+        self.write('src/feed.py', 'x = 1\x0cassert x == 1\n')  # a form feed must not split the diff line
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'latin1')
+        self.write('src/latin1.py', b'x = "\xe9"\n')
+        self.write('src/feed.py', 'x = 1\n')
+        self.assert_flags({}, {'src/latin1.py': ['assertion removed or changed'],
+                               'src/feed.py': ['assertion removed or changed']})
 
 
 if __name__ == '__main__':
