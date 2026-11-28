@@ -51,3 +51,13 @@ New violations fail immediately. Record existing ones in a baseline that may onl
 ## 8. Report clusters
 
 If several rules accumulate around one area, tell the user: the architecture there probably doesn't fit, and fixing the abstraction beats adding more rules.
+
+## Called from another skill
+
+`full-send` calls this after its PR merges, for each rule candidate: a kind of mistake that review found twice in one run, a `test-integrity` REVERT with a named cause, or a correction from the user. Nobody is watching, so route each candidate first, then act:
+
+- **Stop and list it** in the report, with the reason, when it is a one-off preference (step 1), when no supported correct path exists (step 4 would need the user), or when step 6 can't run on this machine (a platform's toolchain, simulator, emulator or the cache drive is missing). Open no PR for it.
+- **b-stack already has the rule** (step 2) and the project doesn't enforce it: open one PR in the project that applies it. No b-stack PR.
+- **Otherwise:** write the rule in b-stack, the repo this skill file lives in, from a fresh worktree on `origin/main` and its own branch. Steps 3 to 7 apply as written, and step 6 must pass before you open the PR with `file-pr`. If the project could enforce the new rule now, open that as a separate project PR too.
+
+**Merge none of these PRs.** A rule changes every future project, so the owner approves it. Never add any of this to the PR that just merged.
