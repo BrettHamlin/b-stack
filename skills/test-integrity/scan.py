@@ -64,6 +64,8 @@ LOOSER_RUN = re.compile(
 TEST_BYPASS = re.compile(  # added to an existing test: can end it early, swallow a failure, or change its clock
     r'^\s*return\b|\bexit\s*\(|process\.exit|\bcatch\s*[({]|^\s*except\b|\btry\s*[:{]|useFakeTimers|'
     r'\bsetConfig\s*\(|testTimeout|\bsetTimeout\s*\(|\btimeout[\w-]*\s*[:=(]', re.IGNORECASE)
+DECLARATION = re.compile(r'^\s*(?:(?:pub\s+|async\s+|export\s+)*(?:def|fn|func|fun|function|class)\s)|'
+                         r'\b(?:it|test|describe|context|specify)(?:\.\w+)*\s*\(|@Test\b')
 RUST_DECL = re.compile(r'#\[(?:\w+::)?test\b|\bfn test\w*|\bproptest!')
 TIMEOUT = re.compile(r'\btimeout[\w-]*\s*[:=(]', re.IGNORECASE)
 SUPPRESSION = re.compile(  # to the end of the line, so widening an existing suppression counts as new
@@ -198,7 +200,9 @@ def with_context(repo: str, diff: FileDiff) -> FileDiff:
     except OSError:
         return diff
     for hunk in diff.hunks:
-        hunk.context = lines[max(0, hunk.line - 4):max(0, hunk.line - 1)]
+        above = lines[:max(0, hunk.line - 1)]
+        owner = next((l for l in reversed(above) if DECLARATION.search(l)), '')  # the enclosing test or function
+        hunk.context = [owner, *above[-3:]]
     if diff.path.endswith('.rs'):
         diff.tests_from = next((n for n, l in enumerate(lines, 1) if l.strip().startswith('#[cfg(test)]')), 0)
     return diff
@@ -261,8 +265,8 @@ def reasons(diff: FileDiff, hunk: Hunk) -> tuple[list[str], list[str]]:
 
 
 def flag_id(path: str, hunk: Hunk) -> str:
-    """Stable across reruns while the hunk and the lines above it are unchanged, so earlier verdicts can be matched.
-    The same text moved under a different test gets a new id."""
+    """Stable across reruns while the hunk, the declaration it sits in and the lines above it are unchanged, so
+    earlier verdicts can be matched. The same text under a different test gets a new id."""
     digest = hashlib.sha1('\0'.join([path, *hunk.context, '\2', *hunk.removed, '\1', *hunk.added]).encode()).hexdigest()
     return f'T-{digest[:8]}'
 
