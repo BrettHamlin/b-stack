@@ -34,7 +34,7 @@ reshape code to dodge a flag; that is the weakening this skill exists to catch.
 The judge must be a **different model family from the author** (the model
 that wrote the change), so it doesn't share the author's blind spots. Prefer
 one that is not also the PR's code reviewer: with Claude as the author and Sol
-reviewing in `sol-loop`, use Grok. In T3, find it with `orchestrator_capabilities`
+reviewing in `sol-loop`, use Grok or Gemini, whichever is enabled. In T3, find it with `orchestrator_capabilities`
 and run it with `delegate_task` (`role: "review"`). Outside T3, run another
 family's CLI read-only (for Sol, the `codex exec` route in `sol-loop`). One
 judge, read-only, no subagents. Give it only the brief below: not your
@@ -83,7 +83,9 @@ and the judge's reply. Its second answer stands, unless you take the dispute
 to the user: both sides in two or three lines each. Under `full-send`, use the
 question tool and do not merge.
 
-After any change, scan again. Flags whose id already has a ruling keep it.
+After any change, scan again. A ruling covers one flag: a flag whose id
+already has a ruling keeps it. Identical hunks in one file get ids ending
+`-2`, `-3`, so each is judged.
 Send only new ids to a fresh judge, with the earlier rulings in the brief. At
 most three judge rounds; if flags are still open after that, the user decides.
 Done when every flag is KEEP or was applied as ruled.

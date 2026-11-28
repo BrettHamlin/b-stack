@@ -4,7 +4,8 @@
 Deterministic, no model. It compares the working tree (committed or not, plus
 untracked files) with a base commit and prints one flag per diff hunk that:
 
-- removes or changes code in a test file, or deletes or renames a test file;
+- removes or changes code in a test file, adds an early return, catch, fake
+  timer or timeout to an existing test, or deletes or renames a test file;
 - removes an assertion or test declaration anywhere (production asserts are
   guards too);
 - adds a skip, `.only`, known-failure or assumption marker, a stub
@@ -60,12 +61,16 @@ MOCK = re.compile(
 LOOSER_RUN = re.compile(
     r'\bflaky\b|\bretr(?:y|ies)\b|continue-on-error|--passWithNoTests|\|\|\s*(?:true|:)\b|--no-verify|\bset \+e\b|'
     r'--max-warnings|--exit-zero|--no-fail|\bfail_under\b|\bthreshold', re.IGNORECASE)
-TIMEOUT = re.compile(r'\btimeout\w*\s*[:=(]', re.IGNORECASE)
-SUPPRESSION = re.compile(
-    r'@ts-(?:ignore|expect-error|nocheck)|(?:eslint|oxlint|biome)-(?:disable|ignore)\S*|biome-ignore|'
+TEST_BYPASS = re.compile(  # added to an existing test: can end it early, swallow a failure, or change its clock
+    r'^\s*return\b|\bexit\s*\(|process\.exit|\bcatch\s*[({]|^\s*except\b|\btry\s*[:{]|useFakeTimers|'
+    r'\bsetConfig\s*\(|testTimeout|\bsetTimeout\s*\(|\btimeout[\w-]*\s*[:=(]', re.IGNORECASE)
+RUST_DECL = re.compile(r'#\[(?:\w+::)?test\b|\bfn test\w*|\bproptest!')
+TIMEOUT = re.compile(r'\btimeout[\w-]*\s*[:=(]', re.IGNORECASE)
+SUPPRESSION = re.compile(  # to the end of the line, so widening an existing suppression counts as new
+    r'(?:@ts-(?:ignore|expect-error|nocheck)|(?:eslint|oxlint|biome)-(?:disable|ignore)\S*|biome-ignore|'
     r'#\s*(?:(?:ruff|flake8):\s*)?noqa\S*|#\s*(?:type|pyright):\s*ignore\S*|#\s*mypy:\s*ignore\S*|pragma:\s*no\s*cover|'
     r'#!?\[(?:allow|expect)\([^)]*\)|#!?\[cfg_attr\([^]]*\ballow\b[^]]*|@(?:file:)?Suppress(?:Warnings|Lint)?\b[^\n]*|'
-    r'swiftlint:disable\S*|detekt:disable|//\s*nolint\S*|#\s*pylint:\s*disable\S*|\bistanbul ignore|\bc8 ignore',
+    r'swiftlint:disable\S*|detekt:disable|//\s*nolint\S*|#\s*pylint:\s*disable\S*|\bistanbul ignore|\bc8 ignore)[^\n]*',
     re.IGNORECASE)
 PROSE = ('.md', '.txt', '.rst', '.adoc')
 DATA = ('.toml', '.json', '.yml', '.yaml', '.lock', '.csv', '.xml', '.plist', '.properties')
@@ -78,7 +83,7 @@ GATE_NAMES = (
     'conftest.py', '.coveragerc', 'mypy.ini', '.mypy.ini', 'ruff.toml', '.ruff.toml', 'pyproject.toml', 'Cargo.toml',
     '.golangci.y*ml', 'CODEOWNERS', 'Package.swift', 'Project.swift', 'Workspace.swift', '.harmonize.yaml',
     '*.gradle.kts', '*.gradle', 'gradle.properties', 'Makefile', 'justfile', 'tools.toml', 'AGENTS.md',
-    'AGENTS.template.md', 'CLAUDE.md', 'lefthook.yml')
+    'AGENTS.template.md', 'CLAUDE.md', 'lefthook.yml', '*baseline*', 'codecov.yml', '.codecov.yml')
 CONFIG_DIRS = ('.github/workflows', '.circleci', '.githooks', '.husky', '.cargo')  # any change is a gate change
 GATE_CODE_DIRS = ('arch', 'build-logic', 'Rules', 'feature-map', 'scripts', 'rules')  # flagged when lines go
 PACKAGE_SCRIPT = re.compile(r'"(?:test|lint|check|typecheck|verify|build|ci|pre\w*)[^"]*"\s*:')
@@ -102,15 +107,12 @@ def in_dirs(path: str, dirs: tuple[str, ...]) -> bool:
 
 def is_config_file(path: str) -> bool:
     """Gate configuration: any change, even an addition, can relax what is checked."""
-    return any(fnmatch.fnmatch(PurePosixPath(path).name, g) for g in GATE_NAMES) or in_dirs(path, CONFIG_DIRS)
+    return (any(fnmatch.fnmatch(PurePosixPath(path).name, g) for g in GATE_NAMES) or in_dirs(path, CONFIG_DIRS)
+            or (path.endswith(DATA) and in_dirs(path, GATE_CODE_DIRS)))
 
 
 def is_gate_file(path: str) -> bool:
     return is_config_file(path) or in_dirs(path, GATE_CODE_DIRS)
-
-
-def is_ci_file(path: str) -> bool:
-    return path.startswith(('.github/workflows/', '.circleci/', '.githooks/', '.husky/')) or path == '.gitlab-ci.yml'
 
 
 @dataclass
@@ -212,7 +214,7 @@ def reasons(diff: FileDiff, hunk: Hunk) -> tuple[list[str], list[str]]:
         if any(ASSERTION.search(l) or (test and TEST_ONLY_ASSERTION.search(l)) or (kotlin and KOTLIN_REQUIRE.search(l))
                for l in hunk.removed):
             found.append('assertion removed or changed')
-        if (test or path.endswith('.rs')) and any(TEST_DECL.search(l) for l in hunk.removed):
+        if any((test and TEST_DECL.search(l)) or (path.endswith('.rs') and RUST_DECL.search(l)) for l in hunk.removed):
             found.append('test removed or renamed')
     if code:
         for reason, pattern, applies in (
@@ -222,6 +224,8 @@ def reasons(diff: FileDiff, hunk: Hunk) -> tuple[list[str], list[str]]:
                 ('mock or stub added', MOCK, test),
                 ('retry, ignored failure or threshold added', LOOSER_RUN, test or gate),
                 ('timeout added or changed', TIMEOUT, gate and not test),
+                ('test code added that can end, catch or retime a test', TEST_BYPASS,
+                 test and diff.status != 'A' and not hunk.removed),
                 ('suppression added', SUPPRESSION, True)):
             if applies and (lines := new_matches(pattern, hunk)):
                 found.append(reason)
@@ -244,6 +248,9 @@ def flag_id(path: str, hunk: Hunk) -> str:
     return f'T-{digest[:8]}'
 
 
+SHOWN = 40  # lines of a deleted file printed for the judge; it can read the rest at the base
+
+
 def scan(files: list[FileDiff]) -> list[dict]:
     flags = []
     for diff in files:
@@ -251,7 +258,7 @@ def scan(files: list[FileDiff]) -> list[dict]:
             hunk = Hunk(line=1, removed=sum((h.removed for h in diff.hunks), []))
             flags.append({'id': flag_id(diff.path, hunk), 'file': diff.path, 'line': 1,
                           'reasons': ['test, snapshot or gate file deleted (a rename shows as a delete and an add)'],
-                          'removed': hunk.removed, 'added': []})
+                          'removed': hunk.removed[:SHOWN], 'removed_total': len(hunk.removed), 'added': []})
             continue
         hunks = diff.hunks or [Hunk(line=1)]  # binary, mode-only or type change: path checks still apply
         for hunk in hunks:
@@ -264,6 +271,11 @@ def scan(files: list[FileDiff]) -> list[dict]:
             flags.append({'id': flag_id(diff.path, hunk), 'file': diff.path, 'line': hunk.line,
                           'reasons': found, 'removed': hunk.removed, 'added': added,
                           'added_total': len(hunk.added)})
+    seen: dict[str, int] = {}
+    for flag in flags:  # identical hunks in one file get their own ids, so each needs its own ruling
+        seen[flag['id']] = seen.get(flag['id'], 0) + 1
+        if seen[flag['id']] > 1:
+            flag['id'] += f'-{seen[flag["id"]]}'
     return flags
 
 
@@ -276,6 +288,8 @@ def render(flags: list[dict], base: str) -> str:
         out += [f'  - {l}' for l in flag['removed']] + [f'  + {l}' for l in flag['added']]
         if (rest := flag.get('added_total', 0) - len(flag['added'])) > 0:
             out.append(f'  (new file: {rest} other added line(s) not shown)')
+        if (rest := flag.get('removed_total', 0) - len(flag['removed'])) > 0:
+            out.append(f'  (deleted file: {rest} more line(s); read it at the base)')
     return '\n'.join(out)
 
 

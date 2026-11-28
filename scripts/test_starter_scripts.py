@@ -2403,6 +2403,76 @@ class TestIntegrityScanTests(unittest.TestCase):
         self.assertEqual([f['id'] for f in first['flags']], [f['id'] for f in second['flags']])
         self.assertRegex(first['flags'][0]['id'], r'^T-[0-9a-f]{8}$')
 
+    SKIP_R, ASSUME_R, STUB_R, MOCK_R = ('skip, only or known-failure marker added', 'skip or assumption added',
+                                        'stub or not-implemented added', 'mock or stub added')
+    LOOSER_R, TIMEOUT_R, SUPPRESS_R = ('retry, ignored failure or threshold added', 'timeout added or changed',
+                                       'suppression added')
+    BYPASS_R, GATE_R, ASSERT_R = ('test code added that can end, catch or retime a test', 'gate config changed',
+                                  'assertion removed or changed')
+    TEST_A = 'it("a", () => {\n  expect(f()).toBe(1)\n})\n'
+    # (path, text at the base or None, text now, the reasons expected; an empty set means no flag)
+    PATTERN_CASES = [
+        ('tests/test_a.py', 'x\n', 'x\n@pytest.mark.skip\n', {SKIP_R}),
+        ('src/lib.rs', 'fn a() {}\n', 'fn a() {}\n#[ignore]\n', {SKIP_R}),
+        ('src/test/java/ATest.java', 'x\n', 'x\n@Disabled\n', {SKIP_R}),
+        ('SwiftTests/A/ATests.swift', 'x\n', 'x\nwithKnownIssue {}\n', {SKIP_R}),
+        ('app/src/commonTest/kotlin/Checks.kt', 'x\n', 'x\nassumeTrue(ci)\n', {ASSUME_R}),  # a test by folder only
+        ('src/a.py', 'x\n', 'x\nraise NotImplementedError\n', {STUB_R}),
+        ('tests/test_m.py', 'x\n', 'x\n@patch("db")\n', {MOCK_R}),
+        ('web/spec/a.ts', 'expect(a)\n', 'a\n', {ASSERT_R, 'test code removed or changed'}),
+        ('web/spec/b.ts', 'x.toBe(1)\n', 'x\n', {ASSERT_R, 'test code removed or changed'}),
+        ('app/src/commonTest/kotlin/C.kt', 'x shouldBe 1\n', 'x\n', {ASSERT_R, 'test code removed or changed'}),
+        ('app/src/commonTest/kotlin/D.kt', 'verify { a() }\n', 'a()\n', {ASSERT_R, 'test code removed or changed'}),
+        ('src/a.py', 'import a  # noqa: E402\n', 'import a  # noqa: E402, F401\n', {SUPPRESS_R}),
+        ('src/a.ts', '// eslint-disable-next-line no-console\nx\n', '// eslint-disable-next-line no-console, no-eval\nx\n',
+         {SUPPRESS_R}),
+        ('.github/workflows/ci.yml', 'jobs: {}\n', 'jobs: {}\ntimeout-minutes: 90\n', {TIMEOUT_R, GATE_R}),
+        ('tests/test_r.py', 'x\n', 'x\n@flaky(reruns=3)\n', {LOOSER_R}),
+        ('scripts/check.py', 'x = 1\n', 'x = 1\nthreshold = 0.5\n', {LOOSER_R}),
+        ('.githooks/pre-push', 'x\n', 'x\nrun || true\n', {LOOSER_R, GATE_R}),
+        ('tests/run.sh', 'x\n', 'x\nvitest --passWithNoTests\n', {LOOSER_R}),
+        ('web/a.test.ts', TEST_A, TEST_A.replace('  expect', '  return\n  expect'), {BYPASS_R}),
+        ('web/b.test.ts', TEST_A, 'beforeEach(() => vi.useFakeTimers())\n' + TEST_A, {BYPASS_R}),
+        ('config/detekt/baseline.xml', '<a/>\n', '<a/>\n<b/>\n', {GATE_R}),
+        ('codecov.yml', 'target: 90\n', 'target: 80\n', {GATE_R}),
+        ('arch/shape.toml', '[a]\n', '[a]\n[roles.x]\n', {GATE_R}),
+        # Not flagged:
+        ('src/View.swift', 'x\n', 'x\nButton().disabled(true)\n', set()),  # SwiftUI, not a test trait
+        ('src/svc.py', 'x\n', 'x\nassume_role(x)\nmock_mode = load()\n', set()),
+        ('config/app.toml', 'note = "asserts x"\n', 'note = "y"\n', set()),
+        ('tests/__snapshots__/b.snap', None, 'x\n', set()),  # a new snapshot
+        ('src/main.rs', 'let a = read().context("x")?;\n', 'let a = read().context("y")?;\n', set()),
+    ]
+
+    def test_each_pattern_on_its_own(self) -> None:
+        for path, before, after, expected in self.PATTERN_CASES:
+            with self.subTest(path=path, after=after):
+                if before is not None:
+                    self.write(path, before)
+                    self.git('add', '-A')
+                    self.git('commit', '-qm', path)
+                self.write(path, after)
+                flags = self.scan()
+                self.assertEqual(flags, {path: expected} if expected else {})
+                self.git('reset', '-q', '--hard')
+                self.git('clean', '-qfd')
+
+    def test_ids_name_one_hunk_each(self) -> None:
+        body = 'def test_a():\n    assert a() == 1\n\n\ndef test_b():\n    assert a() == 1\n'
+        self.write('tests/test_ids.py', body)
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'ids')
+        self.write('tests/test_ids.py', body.replace(' == 1', ''))
+        ids = [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(ids[1], ids[0] + '-2')  # identical hunks, each judged
+        self.write('tests/test_ids.py', '# moved down\n\n' + body.replace(' == 1', ''))
+        moved = [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
+        self.assertEqual(moved[-2:], ids)  # a hunk's id doesn't depend on its line number
+        self.write('tests/test_ids.py', body.replace(' == 1', ' > 0'))
+        changed = [f['id'] for f in json.loads(self.run_scan('--base', 'HEAD', '--json').stdout)['flags']]
+        self.assertNotEqual(changed[0], ids[0])  # different added lines, different id
+
     def test_errors_exit_2(self) -> None:
         proc = self.run_scan('--base', 'no-such-ref')
         self.assertEqual(proc.returncode, 2)
@@ -2410,7 +2480,7 @@ class TestIntegrityScanTests(unittest.TestCase):
         outside = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, outside)
         self.assertEqual(self.run_scan(cwd=outside).returncode, 2)
-        self.write('src/latin1.py', b'x = "\xe9"\nassert x\n')
+        self.write('src/latin1.py', b'x = "\xe9"\nassert x == "\xe9"\n')
         self.write('src/feed.py', 'x = 1\x0cassert x == 1\n')  # a form feed must not split the diff line
         self.git('add', '-A')
         self.git('commit', '-qm', 'latin1')
