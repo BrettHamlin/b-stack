@@ -64,8 +64,9 @@ LOOSER_RUN = re.compile(
 TEST_BYPASS = re.compile(  # added to an existing test: can end it early, swallow a failure, or change its clock
     r'^\s*return\b|\bexit\s*\(|process\.exit|\bcatch\s*[({]|^\s*except\b|\btry\s*[:{]|useFakeTimers|'
     r'\bsetConfig\s*\(|testTimeout|\bsetTimeout\s*\(|\btimeout[\w-]*\s*[:=(]', re.IGNORECASE)
-DECLARATION = re.compile(r'^\s*(?:(?:pub\s+|async\s+|export\s+)*(?:def|fn|func|fun|function|class)\s)|'
-                         r'\b(?:it|test|describe|context|specify)(?:\.\w+)*\s*\(|@Test\b')
+DECLARATION = re.compile(  # at the start of a statement, so `pattern.test(value)` isn't one
+    r'^\s*(?:(?:pub\s+|async\s+|export\s+)*(?:def|fn|func|fun|function|class)\s|'
+    r'(?:it|test|describe|context|specify)(?:\.\w+)*\s*\(|@Test\b)')
 RUST_DECL = re.compile(r'#\[(?:\w+::)?test\b|\bfn test\w*|\bproptest!')
 TIMEOUT = re.compile(r'\btimeout[\w-]*\s*[:=(]', re.IGNORECASE)
 SUPPRESSION = re.compile(  # to the end of the line, so widening an existing suppression counts as new

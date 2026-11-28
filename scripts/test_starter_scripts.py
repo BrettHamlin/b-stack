@@ -2480,7 +2480,8 @@ class TestIntegrityScanTests(unittest.TestCase):
         self.assertNotEqual(self.flag_ids()[0], ids[0])  # different added lines, different id
 
     def test_same_edit_under_another_test_gets_a_new_id(self) -> None:
-        setup = '    x = 1\n    y = 2\n    z = 3\n'  # identical lines above the edit in both tests
+        # Identical lines above the edit in both tests, one of them a call that looks like a declaration.
+        setup = '    ok = pattern.test(value)\n    x = 1\n    y = 2\n    z = 3\n'
         body = f'def test_a():\n{setup}    assert a() == 1\n\n\ndef test_b():\n{setup}    assert b() == 1\n'
         self.write('tests/test_move.py', body)
         self.git('add', '-A')
